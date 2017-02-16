@@ -23,12 +23,17 @@ struct Chapter {
     end: f64
 }
 
+pub struct AVDictionary {
+    pub count: usize,
+    pub elems: *mut AVDictionaryEntry
+}
+
 impl Chapter {
     fn from_av_chapter(av: &AVChapter) -> Chapter {
         let start = apply_timebase(av.start, &av.time_base);
         let end = apply_timebase(av.end, &av.time_base);
         unsafe {
-            let d = dict_to_map(av.metadata);
+            let d = dict_to_map(av.metadata as *mut AVDictionary);
             let title = d.get("title").cloned();
             Chapter {
                 start: start.clone(),
@@ -114,7 +119,7 @@ impl Context {
             Media {
                 chapters: self.get_chapters(),
                 length: apply_timebase((*self.ctx).duration, &AV_TIME_BASE_Q),
-                metadata: dict_to_map((*self.ctx).metadata)
+                metadata: dict_to_map((*self.ctx).metadata as *mut AVDictionary)
             }
         }
     }

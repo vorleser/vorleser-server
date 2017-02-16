@@ -4,5 +4,5 @@ version = "0.1.0"
 authors = ["Hans Ole Hatzel <hhatzel@gmail.com>"]
 
 [dependencies]
-ffmpeg-sys = { git = "https://github.com/hatzel/rust-ffmpeg-sys.git" }
+ffmpeg-sys = "3.2.0"
 libc = "0.2"

@@ -31,7 +31,7 @@ fn get_metadata(file_name: &str) -> Audiobook {
     let mut ctx: _ = avformat_alloc_context();
     let averror = avformat_open_input(
         &mut ctx,
-        CString::new("/tmp/lol.m4a").unwrap().as_ptr(),
+        CString::new(file_name).unwrap().as_ptr(),
         ptr::null(), ptr::null_mut()
     );
     if averror > 0 {

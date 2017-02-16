@@ -4,6 +4,7 @@ use std::mem;
 use std::ffi::CString;
 use std::ptr;
 use std::collections::HashMap;
+use std::slice;
 
 #[derive(Debug)]
 struct Media {
@@ -27,7 +28,7 @@ impl Chapter {
         let start = apply_timebase(av.start, &av.time_base);
         let end = apply_timebase(av.end, &av.time_base);
         unsafe {
-            let d = dict_to_map(mem::transmute(av.metadata));
+            let d = dict_to_map(av.metadata);
             let title = d.get("title").cloned();
             Chapter {
                 start: start.clone(),
@@ -38,9 +39,9 @@ impl Chapter {
         }
     }
 
-    fn from_av_chapters(mut avs: Vec<&AVChapter>) -> Vec<Chapter> {
+    fn from_av_chapters(mut avs: &[&AVChapter]) -> Vec<Chapter> {
         let mut res = Vec::new();
-        for av in avs.iter_mut() {
+        for av in avs.iter() {
             res.push(Self::from_av_chapter(av))
         }
         res
@@ -96,15 +97,15 @@ impl Context {
     }
 
     fn get_chapters(&self) -> Vec<Chapter> {
-        Chapter::from_av_chapters(self.av_chapter_vec())
+        Chapter::from_av_chapters(self.av_chapter_slice())
     }
 
-    fn av_chapter_vec<'a>(&self) -> Vec<&'a AVChapter> {
+    fn av_chapter_slice<'a>(&self) -> &'a [&AVChapter] {
         unsafe {
-            Vec::from_raw_parts(
+            slice::from_raw_parts(
                 mem::transmute((*self.ctx).chapters),
-                (*self.ctx).nb_chapters as usize,
-                (*self.ctx).nb_chapters as usize)
+                (*self.ctx).nb_chapters as usize
+            )
         }
     }
 
@@ -113,7 +114,7 @@ impl Context {
             Media {
                 chapters: self.get_chapters(),
                 length: apply_timebase((*self.ctx).duration, &AV_TIME_BASE_Q),
-                metadata: dict_to_map(mem::transmute((*self.ctx).metadata))
+                metadata: dict_to_map((*self.ctx).metadata)
             }
         }
     }
@@ -127,35 +128,30 @@ impl Drop for Context {
     }
 }
 
-fn dict_to_map(dict: &AVDictionary) -> HashMap<String, String> {
-    let v = av_dict_vec(dict);
+fn dict_to_map(dict_pointer: *mut AVDictionary) -> HashMap<String, String> {
     let mut map = HashMap::new();
-    for i in v.iter() {
-        unsafe {
-        let key = CString::from_raw((*i).key).into_string().unwrap();
-        let value = CString::from_raw((*i).value).into_string().unwrap();
-        map.insert(
-            key,
-            value
-        );
+    unsafe {
+        let dict: &AVDictionary = &mut *dict_pointer;
+        let v = av_dict_vec(dict);
+        for i in v.iter() {
+            let key = CString::from_raw((*i).key).into_string().unwrap();
+            let value = CString::from_raw((*i).value).into_string().unwrap();
+            map.insert(
+                key,
+                value
+            );
         }
+        map
     }
-    map
 }
 
 
-fn av_dict_vec(dict: &AVDictionary) -> Vec<AVDictionaryEntry> {
+fn av_dict_vec(dict: &AVDictionary) -> &[AVDictionaryEntry] {
     unsafe {
-        Vec::from_raw_parts(dict.elems, dict.count, dict.count)
+        slice::from_raw_parts(dict.elems, dict.count)
     }
 }
 
-
-fn av_chapter_vec<'a>(ctx: *const AVFormatContext) -> Vec<&'a AVChapter> {
-    unsafe {
-        Vec::from_raw_parts(mem::transmute((*ctx).chapters), (*ctx).nb_chapters as usize, (*ctx).nb_chapters as usize)
-    }
-}
 
 fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
     time as f64 * (timebase.num as f64 / timebase.den as f64)

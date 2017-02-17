@@ -2,6 +2,7 @@ use ffmpeg::*;
 
 use std::mem;
 use std::ffi::CString;
+use std::ffi::CStr;
 use std::ptr;
 use std::collections::HashMap;
 use std::slice;
@@ -77,12 +78,13 @@ impl MediaError {
 }
 
 impl MediaFile {
-    pub fn read_file(file_name: &str) -> Result<Self, MediaError>{
+    pub fn read_file(file_name: String) -> Result<Self, MediaError>{
         unsafe {
             if !FFMPEG_INITIALIZED {
                 av_register_all();
                 FFMPEG_INITIALIZED = true;
             }
+            let c_file_name = CString::new(file_name).unwrap();
             let mut new = Self {
                 ctx: avformat_alloc_context(),
                 averror: 0,
@@ -90,7 +92,7 @@ impl MediaFile {
             };
             new.averror = avformat_open_input(
                 &mut new.ctx,
-                CString::new(file_name).unwrap().as_ptr(),
+                c_file_name.as_ptr(),
                 ptr::null(),
                 ptr::null_mut()
             );
@@ -140,7 +142,7 @@ impl Drop for MediaFile {
     fn drop(&mut self) {
         if self.averror == 0 {
             unsafe {
-                avformat_close_input(&mut self.ctx as *mut _);
+                //avformat_close_input(self.ctx);
                 if let Some(ref mut pkt) = self.av_packet {
                     av_free_packet(pkt);
                 }
@@ -156,8 +158,8 @@ fn dict_to_map(dict_pointer: *mut AVDictionary) -> HashMap<String, String> {
         let dict: &AVDictionary = &mut *dict_pointer;
         let v = av_dict_vec(dict);
         for i in v.iter() {
-            let key = CString::from_raw((*i).key).into_string().unwrap();
-            let value = CString::from_raw((*i).value).into_string().unwrap();
+            let key = CStr::from_ptr((*i).key).to_str().unwrap().to_owned();
+            let value = CStr::from_ptr((*i).value).to_str().unwrap().to_owned();
             map.insert(
                 key,
                 value

@@ -13,19 +13,21 @@ fn main() {
     args.next();
     for s in args {
         println!("{}", s);
-        match metadata::MediaFile::read_file(&s) {
-            Ok(mut c) => {
+        match metadata::MediaFile::read_file(s) {
+            Ok(ref mut c) => {
                 println!("{:?}", c.get_mediainfo());
                 save(c.get_cover_art());
             },
-            Err(e) => println!("Error")
+            Err(_) => println!("Error")
         }
     }
 }
 
 fn save(buf: &[u8]) {
     let mut f = File::create("lul.jpg").unwrap();
-    f.write_all(buf);
+    if let Ok(_) = f.write_all(buf) {
+        println!("Successfully wrote!")
+    }
 }
 
 

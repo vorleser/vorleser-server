@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::slice;
 
 #[derive(Debug)]
-struct Media {
+pub struct Media {
     length: f64,
     chapters: Vec<Chapter>,
     metadata: HashMap<String, String>
@@ -32,19 +32,17 @@ impl Chapter {
     fn from_av_chapter(av: &AVChapter) -> Chapter {
         let start = apply_timebase(av.start, &av.time_base);
         let end = apply_timebase(av.end, &av.time_base);
-        unsafe {
-            let d = dict_to_map(av.metadata as *mut AVDictionary);
-            let title = d.get("title").cloned();
-            Chapter {
-                start: start.clone(),
-                end: end.clone(),
-                title: title,
-                metadata: d
-            }
+        let d = dict_to_map(av.metadata as *mut AVDictionary);
+        let title = d.get("title").cloned();
+        Chapter {
+            start: start.clone(),
+            end: end.clone(),
+            title: title,
+            metadata: d
         }
     }
 
-    fn from_av_chapters(mut avs: &[&AVChapter]) -> Vec<Chapter> {
+    fn from_av_chapters(avs: &[&AVChapter]) -> Vec<Chapter> {
         let mut res = Vec::new();
         for av in avs.iter() {
             res.push(Self::from_av_chapter(av))
@@ -54,11 +52,13 @@ impl Chapter {
 }
 
 
-pub struct Context {
-    pub ctx: *mut AVFormatContext
+pub struct MediaFile {
+    ctx: *mut AVFormatContext,
+    averror: i32
 }
 
-struct MediaError {
+#[derive(Debug)]
+pub struct MediaError {
     code: i32
 }
 
@@ -75,33 +75,27 @@ impl MediaError {
     }
 }
 
-impl Context {
-    pub fn new() -> Self {
+impl MediaFile {
+    pub fn read_file(file_name: &str) -> Result<Self, MediaError>{
         unsafe {
             if !FFMPEG_INITIALIZED {
-                unsafe { av_register_all(); }
+                av_register_all();
                 FFMPEG_INITIALIZED = true;
             }
-            Self {ctx: avformat_alloc_context()}
-        }
-    }
-
-    pub fn read_file(&mut self, file_name: &str) -> Result<(), MediaError>{
-        unsafe {
-            let averror = avformat_open_input(
-                &mut self.ctx,
+            let mut new = Self {ctx: avformat_alloc_context(), averror: 0};
+            new.averror = avformat_open_input(
+                &mut new.ctx,
                 CString::new(file_name).unwrap().as_ptr(),
                 ptr::null(),
                 ptr::null_mut()
             );
-            if averror != 0 {
-                println!("lOL {}", averror);
-                return Err(MediaError{code: averror})
+            if new.averror != 0 {
+                return Err(MediaError{code: new.averror})
             } else {
-                avformat_find_stream_info(self.ctx, ptr::null_mut());
+                avformat_find_stream_info(new.ctx, ptr::null_mut());
             }
+            Ok(new)
         }
-        Ok(())
     }
 
     fn get_chapters(&self) -> Vec<Chapter> {
@@ -128,10 +122,12 @@ impl Context {
     }
 }
 
-impl Drop for Context {
+impl Drop for MediaFile {
     fn drop(&mut self) {
-        unsafe {
-            avformat_free_context(self.ctx);
+        if self.averror == 0 {
+            unsafe {
+                avformat_free_context(self.ctx);
+            }
         }
     }
 }
@@ -162,7 +158,5 @@ fn av_dict_vec(dict: &AVDictionary) -> &[AVDictionaryEntry] {
 
 
 fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
-    unsafe {
     time as f64 * (timebase.num as f64 / timebase.den as f64)
-    }
 }

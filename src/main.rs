@@ -11,15 +11,15 @@ fn main() {
     args.next();
     for s in args {
         println!("{}", s);
-        get_metadata(&s);
+        match metadata::MediaFile::read_file(&s) {
+            Ok(c) => println!("{:?}", c.get_mediainfo()),
+            Err(e) => println!("Error")
+        }
     }
 }
 
 
 fn get_metadata(file_name: &str) {
-    let mut c = metadata::Context::new();
-    c.read_file(file_name);
-    println!("{:?}", c.get_mediainfo());
 
     // let a = Audiobook {
     //     chapters: Vec::new(),

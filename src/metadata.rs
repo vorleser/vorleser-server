@@ -95,7 +95,10 @@ impl Context {
                 ptr::null_mut()
             );
             if averror != 0 {
+                println!("lOL {}", averror);
                 return Err(MediaError{code: averror})
+            } else {
+                avformat_find_stream_info(self.ctx, ptr::null_mut());
             }
         }
         Ok(())
@@ -159,5 +162,7 @@ fn av_dict_vec(dict: &AVDictionary) -> &[AVDictionaryEntry] {
 
 
 fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
+    unsafe {
     time as f64 * (timebase.num as f64 / timebase.den as f64)
+    }
 }

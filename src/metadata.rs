@@ -54,7 +54,8 @@ impl Chapter {
 
 pub struct MediaFile {
     ctx: *mut AVFormatContext,
-    averror: i32
+    averror: i32,
+    av_packet: Option<AVPacket>
 }
 
 #[derive(Debug)]
@@ -82,7 +83,11 @@ impl MediaFile {
                 av_register_all();
                 FFMPEG_INITIALIZED = true;
             }
-            let mut new = Self {ctx: avformat_alloc_context(), averror: 0};
+            let mut new = Self {
+                ctx: avformat_alloc_context(),
+                averror: 0,
+                av_packet: None
+            };
             new.averror = avformat_open_input(
                 &mut new.ctx,
                 CString::new(file_name).unwrap().as_ptr(),
@@ -98,11 +103,20 @@ impl MediaFile {
         }
     }
 
+    pub fn get_cover_art(&mut self) -> &[u8] {
+        unsafe {
+            self.av_packet = Some(mem::uninitialized());
+            av_init_packet(self.av_packet.as_mut().unwrap() as *mut _);
+            av_read_frame(self.ctx, self.av_packet.as_mut().unwrap() as *mut _);
+            slice::from_raw_parts(self.av_packet.as_ref().unwrap().data, self.av_packet.as_ref().unwrap().size as usize)
+        }
+    }
+
     fn get_chapters(&self) -> Vec<Chapter> {
         Chapter::from_av_chapters(self.av_chapter_slice())
     }
 
-    fn av_chapter_slice<'a>(&self) -> &'a [&AVChapter] {
+    fn av_chapter_slice(&self) -> &[&AVChapter] {
         unsafe {
             slice::from_raw_parts(
                 mem::transmute((*self.ctx).chapters),
@@ -126,6 +140,10 @@ impl Drop for MediaFile {
     fn drop(&mut self) {
         if self.averror == 0 {
             unsafe {
+                avformat_close_input(&mut self.ctx as *mut _);
+                if let Some(ref mut pkt) = self.av_packet {
+                    av_free_packet(pkt);
+                }
                 avformat_free_context(self.ctx);
             }
         }

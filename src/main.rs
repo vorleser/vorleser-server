@@ -4,6 +4,8 @@ extern crate libc;
 
 mod metadata;
 
+use std::fs::File;
+use std::io::Write;
 use std::env;
 
 fn main() {
@@ -12,26 +14,30 @@ fn main() {
     for s in args {
         println!("{}", s);
         match metadata::MediaFile::read_file(&s) {
-            Ok(c) => println!("{:?}", c.get_mediainfo()),
+            Ok(mut c) => {
+                println!("{:?}", c.get_mediainfo());
+                save(c.get_cover_art());
+            },
             Err(e) => println!("Error")
         }
     }
 }
 
-
-fn get_metadata(file_name: &str) {
-
-    // let a = Audiobook {
-    //     chapters: Vec::new(),
-    //     name: "lul".to_string(),
-    //     length: apply_timebase((*ctx).duration, &AV_TIME_BASE_Q)
-    // };
-    // let ref mut chaps = av_chapter_vec(ctx)[0];
-    // let c = Chapter::from_av_chapter(chap);
-    // unsafe {
-    //     let mut chaps = av_chapter_vec(c.ctx);
-    //     let c = Chapter::from_av_chapters(chaps);
-    //     println!("{:?}", c);
-    // }
+fn save(buf: &[u8]) {
+    let mut f = File::create("lul.jpg").unwrap();
+    f.write_all(buf);
 }
 
+
+// let a = Audiobook {
+//     chapters: Vec::new(),
+//     name: "lul".to_string(),
+//     length: apply_timebase((*ctx).duration, &AV_TIME_BASE_Q)
+// };
+// let ref mut chaps = av_chapter_vec(ctx)[0];
+// let c = Chapter::from_av_chapter(chap);
+// unsafe {
+//     let mut chaps = av_chapter_vec(c.ctx);
+//     let c = Chapter::from_av_chapters(chaps);
+//     println!("{:?}", c);
+// }

@@ -18,7 +18,7 @@ fn main() {
                 println!("{:?}", c.get_mediainfo());
                 save(c.get_cover_art());
             },
-            Err(_) => println!("Error")
+            Err(e) => println!("Error: {}", e)
         }
     }
 }
@@ -26,7 +26,7 @@ fn main() {
 fn save(buf: &[u8]) {
     let mut f = File::create("lul.jpg").unwrap();
     if let Ok(_) = f.write_all(buf) {
-        println!("Successfully wrote!")
+        println!("Successfully wrote image!")
     }
 }
 

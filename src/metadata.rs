@@ -6,6 +6,8 @@ use std::ffi::CStr;
 use std::ptr;
 use std::collections::HashMap;
 use std::slice;
+use std::error::Error;
+use std::fmt;
 
 #[derive(Debug)]
 pub struct Media {
@@ -61,19 +63,34 @@ pub struct MediaFile {
 
 #[derive(Debug)]
 pub struct MediaError {
-    code: i32
+    code: i32,
+    description: String
+}
+
+impl fmt::Display for MediaError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.description())
+    }
 }
 
 impl MediaError {
-    fn describe(&self) -> String {
-        if self.code > 0 {
-            unsafe {
-                let mut buf: [i8; 1024] = [0; 1024];
-                av_strerror(self.code, &mut buf[0] as *mut i8, 64);
-                return String::from_utf8_unchecked(mem::transmute::<[i8; 1024], [u8; 1024]>(buf).to_vec());
-            }
-        }
-        "All seems good! This error should not exist.".to_string()
+    fn new(code: i32) -> MediaError {
+        let description = unsafe {
+            let mut buf: [i8; 1024] = [0; 1024];
+            av_strerror(code, &mut buf[0] as *mut i8, 1024);
+            String::from_utf8_unchecked(mem::transmute::<[i8; 1024], [u8; 1024]>(buf).to_vec())
+        };
+        MediaError {code: code, description: description}
+    }
+}
+
+impl Error for MediaError {
+    fn description(&self) -> &str {
+        return &self.description;
+    }
+
+    fn cause(&self) -> Option<&Error> {
+        return None
     }
 }
 
@@ -95,9 +112,9 @@ impl MediaFile {
                 c_file_name.as_ptr(),
                 ptr::null(),
                 ptr::null_mut()
-            );
+                );
             if new.averror != 0 {
-                return Err(MediaError{code: new.averror})
+                return Err(MediaError::new(new.averror))
             } else {
                 avformat_find_stream_info(new.ctx, ptr::null_mut());
             }
@@ -123,7 +140,7 @@ impl MediaFile {
             slice::from_raw_parts(
                 mem::transmute((*self.ctx).chapters),
                 (*self.ctx).nb_chapters as usize
-            )
+                )
         }
     }
 
@@ -142,7 +159,7 @@ impl Drop for MediaFile {
     fn drop(&mut self) {
         if self.averror == 0 {
             unsafe {
-                //avformat_close_input(self.ctx);
+                avformat_close_input(&mut self.ctx);
                 if let Some(ref mut pkt) = self.av_packet {
                     av_free_packet(pkt);
                 }
@@ -163,7 +180,7 @@ fn dict_to_map(dict_pointer: *mut AVDictionary) -> HashMap<String, String> {
             map.insert(
                 key,
                 value
-            );
+                );
         }
         map
     }

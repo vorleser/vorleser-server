@@ -95,7 +95,7 @@ impl Error for MediaError {
 }
 
 impl MediaFile {
-    pub fn read_file(file_name: String) -> Result<Self, MediaError>{
+    pub fn read_file(file_name: &str) -> Result<Self, MediaError>{
         unsafe {
             if !FFMPEG_INITIALIZED {
                 av_register_all();

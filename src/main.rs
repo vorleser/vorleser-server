@@ -8,12 +8,15 @@ use std::fs::File;
 use std::io::Write;
 use std::env;
 
+use std::fs;
+use std::path::Path;
+
 fn main() {
     let mut args = env::args();
     args.next();
     for s in args {
         println!("{}", s);
-        match metadata::MediaFile::read_file(s) {
+        match metadata::MediaFile::read_file(&s) {
             Ok(ref mut c) => {
                 println!("{:?}", c.get_mediainfo());
                 save(c.get_cover_art());
@@ -21,6 +24,34 @@ fn main() {
             Err(e) => println!("Error: {}", e)
         }
     }
+    check_files(Path::new("test-data"));
+}
+
+fn check_files(root: &Path) {
+    let dir = fs::read_dir(root).unwrap();
+    for entry in dir {
+        match entry {
+            Ok(ref e) => {
+                let metadata = e.metadata().unwrap();
+                if metadata.is_dir() {
+                    create_multifile_audiobook(&e.path());
+                }
+                else if metadata.is_file() {
+                    create_audiobook(&e.path());
+                }
+            },
+            Err(ref e) => println!("Error encountered reading file: {}", e)
+        };
+    }
+}
+
+fn create_multifile_audiobook(path: &Path) {
+    println!("Creating audiobook from dir")
+}
+
+fn create_audiobook(path: &Path) {
+    let md = metadata::MediaFile::read_file(path.to_str().unwrap()).unwrap().get_mediainfo();
+    println!("{:?}", md);
 }
 
 fn save(buf: &[u8]) {

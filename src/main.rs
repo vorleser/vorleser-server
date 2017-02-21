@@ -38,7 +38,7 @@ use std::io::Write;
 use std::env;
 
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use std::thread;
 use std::time;
@@ -46,13 +46,25 @@ use std::time;
 use walkdir::{WalkDir, WalkDirIterator};
 use regex::Regex;
 
+use diesel::pg::PgConnection;
+
 fn main() {
-    thread::spawn(move || {
-        loop {
-            scan_library(Path::new("test-data"));
-            thread::sleep(time::Duration::from_secs(5));
-        }
-    });
+    let pool = helpers::db::init_db_pool();
+    {
+        let pool = pool.clone();
+        thread::spawn(move || {
+            let conn = pool.get().unwrap();
+            let scanner = Scanner { 
+                regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
+                path: Path::new("test-data").to_path_buf(),
+                conn: &*conn,
+            };
+            loop {
+                scanner.scan_library();
+                thread::sleep(time::Duration::from_secs(5));
+            }
+        });
+    }
     let mut args = env::args();
     args.next();
     // for s in args {
@@ -67,7 +79,7 @@ fn main() {
     // }
     // let worker = thread::
     rocket::ignite()
-        .manage(helpers::db::init_db_pool())
+        .manage(pool)
         .mount("/api/hello/", routes![api::hello::whoami])
         .mount("/api/auth/", routes![
                api::auth::login,
@@ -81,51 +93,42 @@ fn main() {
 
 }
 
-struct Library {
-    
+struct Scanner<'a> {
+    regex: Regex,
+    path: PathBuf,
+    conn: &'a PgConnection
 }
 
-fn is_audiobook(path: &Path) -> bool {
-    // println!("path: {:?}", path);
-    let re = Regex::new("^([^/]+/)?[^/]+\\.mp3$").unwrap();
-    re.is_match(path.to_str().unwrap())
-}
+impl<'a> Scanner<'a> {
+    // pub fn new(conn: PgConnection, root: PathBuf, regex: Regex) {
+    // }
 
-fn scan_library(library_path: &Path) {
-    //todo: it might be nice to check for file changed data and only check new files
-    println!("Scanning library.");
-    let mut walker = WalkDir::new(library_path).follow_links(true).into_iter();
-    loop {
-        let entry = match walker.next() {
-            None => break,
-            Some(Err(e)) => panic!("Error: {}", e),
-            Some(Ok(i)) => i,
-        };
-        let path = entry.path().strip_prefix(library_path).unwrap();
-        if path.components().count() == 0 { continue };
-        if is_audiobook(path) { 
-            println!("{:?}", path);
-            if path.is_dir() {
-                walker.skip_current_dir();
+    pub fn scan_library(&self) {
+        //todo: it might be nice to check for file changed data and only check new files
+        println!("Scanning library.");
+        let mut walker = WalkDir::new(&self.path).follow_links(true).into_iter();
+        loop {
+            let entry = match walker.next() {
+                None => break,
+                Some(Err(e)) => panic!("Error: {}", e),
+                Some(Ok(i)) => i,
+            };
+            let path = entry.path().strip_prefix(&self.path).unwrap();
+            if path.components().count() == 0 { continue };
+            if is_audiobook(path, &self.regex) { 
+                println!("{:?}", path);
+                if path.is_dir() {
+                    walker.skip_current_dir();
+                }
             }
         }
     }
-    for e in walker {
-        // let metadata = e.metadata().unwrap();
-        // if metadata.is_dir() {
-        //     create_multifile_audiobook(&e.path());
-        // }
-        // else if metadata.is_file() {
-        //     create_audiobook(&e.path());
-        // }
-    }
-    let dir = fs::read_dir(library_path).unwrap();
-    dir.map(|entry| match entry {
-            Ok(ref e) => {
-            },
-            Err(ref e) => println!("Error encountered reading file: {}", e)
-    });
 }
+
+fn is_audiobook(path: &Path, regex: &Regex) -> bool {
+    regex.is_match(path.to_str().unwrap())
+}
+
 
 
 fn create_multifile_audiobook(path: &Path) -> Result<(), metadata::MediaError> {

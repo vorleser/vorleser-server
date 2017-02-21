@@ -7,3 +7,6 @@ Simply follow these simple rules when copying audiobooks to the directory:
 * For books with multiple files: create one top-level directory containing all chapters
 
 When renaming files the new directory will not be associated with the old book.
+
+## Regex
+Provide a regex that matches only the audiobooks. Meaning either files or directories which form audiobooks and NOTHING else!

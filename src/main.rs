@@ -7,8 +7,7 @@
 extern crate uuid;
 extern crate rocket;
 #[macro_use] extern crate rocket_contrib;
-extern crate serde_json;
-#[macro_use] extern crate serde_derive;
+extern crate serde_json; #[macro_use] extern crate serde_derive;
 extern crate validator;
 #[macro_use] extern crate validator_derive;
 #[macro_use] extern crate diesel;
@@ -21,6 +20,8 @@ extern crate r2d2;
 extern crate r2d2_diesel;
 extern crate ffmpeg_sys as ffmpeg;
 extern crate libc;
+extern crate regex;
+extern crate walkdir;
 
 mod api;
 mod validation;
@@ -41,6 +42,9 @@ use std::path::Path;
 
 use std::thread;
 use std::time;
+
+use walkdir::{WalkDir, WalkDirIterator};
+use regex::Regex;
 
 fn main() {
     thread::spawn(move || {
@@ -81,19 +85,43 @@ struct Library {
     
 }
 
+fn is_audiobook(path: &Path) -> bool {
+    // println!("path: {:?}", path);
+    let re = Regex::new("^([^/]+/)?[^/]+\\.mp3$").unwrap();
+    re.is_match(path.to_str().unwrap())
+}
+
 fn scan_library(library_path: &Path) {
     //todo: it might be nice to check for file changed data and only check new files
-    let dir = fs::read_dir(library_path).unwrap();
     println!("Scanning library.");
+    let mut walker = WalkDir::new(library_path).follow_links(true).into_iter();
+    loop {
+        let entry = match walker.next() {
+            None => break,
+            Some(Err(e)) => panic!("Error: {}", e),
+            Some(Ok(i)) => i,
+        };
+        let path = entry.path().strip_prefix(library_path).unwrap();
+        if path.components().count() == 0 { continue };
+        if is_audiobook(path) { 
+            println!("{:?}", path);
+            if path.is_dir() {
+                walker.skip_current_dir();
+            }
+        }
+    }
+    for e in walker {
+        // let metadata = e.metadata().unwrap();
+        // if metadata.is_dir() {
+        //     create_multifile_audiobook(&e.path());
+        // }
+        // else if metadata.is_file() {
+        //     create_audiobook(&e.path());
+        // }
+    }
+    let dir = fs::read_dir(library_path).unwrap();
     dir.map(|entry| match entry {
             Ok(ref e) => {
-                let metadata = e.metadata().unwrap();
-                if metadata.is_dir() {
-                    create_multifile_audiobook(&e.path());
-                }
-                else if metadata.is_file() {
-                    create_audiobook(&e.path());
-                }
             },
             Err(ref e) => println!("Error encountered reading file: {}", e)
     });

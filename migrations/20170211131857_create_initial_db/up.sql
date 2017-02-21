@@ -29,11 +29,3 @@ CREATE TABLE playstates (
     position DOUBLE PRECISION NOT NULL,
     PRIMARY KEY(audiobook_id, user_id)
 );
-
-CREATE TABLE playstates (
-    audiobook_id UUID REFERENCES audiobooks (id),
-    user_id UUID REFERENCES users (id),
-    completed BOOL NOT NULL,
-    position DOUBLE PRECISION NOT NULL,
-    PRIMARY KEY(audiobook_id, user_id)
-);

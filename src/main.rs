@@ -39,19 +39,16 @@ use std::env;
 use std::fs;
 use std::path::Path;
 
+use std::thread;
+use std::time;
+
 fn main() {
-    rocket::ignite()
-        .manage(helpers::db::init_db_pool())
-        .mount("/api/hello/", routes![api::hello::whoami])
-        .mount("/api/auth/", routes![
-               api::auth::login,
-               api::auth::register,
-        ])
-        .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
-                       handlers::forbidden_handler, handlers::not_found_handler,
-                       handlers::internal_server_error_handler,
-                       handlers::service_unavailable_handler])
-        .launch();
+    thread::spawn(move || {
+        loop {
+            scan_library(Path::new("test-data"));
+            thread::sleep(time::Duration::from_secs(5));
+        }
+    });
     let mut args = env::args();
     args.next();
     // for s in args {
@@ -64,12 +61,30 @@ fn main() {
     //         Err(e) => println!("Error: {}", e)
     //     }
     // }
-    scan_library(Path::new("test-data"));
+    // let worker = thread::
+    rocket::ignite()
+        .manage(helpers::db::init_db_pool())
+        .mount("/api/hello/", routes![api::hello::whoami])
+        .mount("/api/auth/", routes![
+               api::auth::login,
+               api::auth::register,
+        ])
+        .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
+                       handlers::forbidden_handler, handlers::not_found_handler,
+                       handlers::internal_server_error_handler,
+                       handlers::service_unavailable_handler])
+        .launch();
+
+}
+
+struct Library {
+    
 }
 
 fn scan_library(library_path: &Path) {
     //todo: it might be nice to check for file changed data and only check new files
     let dir = fs::read_dir(library_path).unwrap();
+    println!("Scanning library.");
     dir.map(|entry| match entry {
             Ok(ref e) => {
                 let metadata = e.metadata().unwrap();
@@ -85,16 +100,13 @@ fn scan_library(library_path: &Path) {
 }
 
 
-fn check_files(root: &Path) {
-
-}
-
 fn create_multifile_audiobook(path: &Path) -> Result<(), metadata::MediaError> {
     println!("Creating audiobook from dir");
     Ok(())
 }
 
 fn create_audiobook(path: &Path) -> Result<(), metadata::MediaError> {
+    println!("Creating audiobook!");
     let md = try!(metadata::MediaFile::read_file(path)).get_mediainfo();
     println!("{:?}", md);
     Ok(())

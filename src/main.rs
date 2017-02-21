@@ -1,6 +1,34 @@
+#![feature(plugin)]
+#![plugin(rocket_codegen)]
 #![feature(libc)]
+#![feature(custom_attribute)]
+
+#[macro_use] extern crate lazy_static;
+extern crate uuid;
+extern crate rocket;
+#[macro_use] extern crate rocket_contrib;
+extern crate serde_json;
+#[macro_use] extern crate serde_derive;
+extern crate validator;
+#[macro_use] extern crate validator_derive;
+#[macro_use] extern crate diesel;
+#[macro_use] extern crate diesel_codegen;
+extern crate jsonwebtoken;
+extern crate chrono;
+extern crate argon2rs;
+extern crate rustc_serialize;
+extern crate r2d2;
+extern crate r2d2_diesel;
 extern crate ffmpeg_sys as ffmpeg;
 extern crate libc;
+
+mod api;
+mod validation;
+mod models;
+mod schema;
+mod handlers;
+mod responses;
+mod helpers;
 
 mod metadata;
 
@@ -12,25 +40,37 @@ use std::fs;
 use std::path::Path;
 
 fn main() {
+    rocket::ignite()
+        .manage(helpers::db::init_db_pool())
+        .mount("/api/hello/", routes![api::hello::whoami])
+        .mount("/api/auth/", routes![
+               api::auth::login,
+               api::auth::register,
+        ])
+        .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
+                       handlers::forbidden_handler, handlers::not_found_handler,
+                       handlers::internal_server_error_handler,
+                       handlers::service_unavailable_handler])
+        .launch();
     let mut args = env::args();
     args.next();
-    for s in args {
-        println!("{}", s);
-        match metadata::MediaFile::read_file(&s) {
-            Ok(ref mut c) => {
-                println!("{:?}", c.get_mediainfo());
-                save(c.get_cover_art());
-            },
-            Err(e) => println!("Error: {}", e)
-        }
-    }
-    check_files(Path::new("test-data"));
+    // for s in args {
+    //     println!("{}", s);
+    //     match metadata::MediaFile::read_file(&s) {
+    //         Ok(ref mut c) => {
+    //             println!("{:?}", c.get_mediainfo());
+    //             save(c.get_cover_art());
+    //         },
+    //         Err(e) => println!("Error: {}", e)
+    //     }
+    // }
+    scan_library(Path::new("test-data"));
 }
 
-fn check_files(root: &Path) {
-    let dir = fs::read_dir(root).unwrap();
-    for entry in dir {
-        match entry {
+fn scan_library(library_path: &Path) {
+    //todo: it might be nice to check for file changed data and only check new files
+    let dir = fs::read_dir(library_path).unwrap();
+    dir.map(|entry| match entry {
             Ok(ref e) => {
                 let metadata = e.metadata().unwrap();
                 if metadata.is_dir() {
@@ -41,17 +81,23 @@ fn check_files(root: &Path) {
                 }
             },
             Err(ref e) => println!("Error encountered reading file: {}", e)
-        };
-    }
+    });
 }
 
-fn create_multifile_audiobook(path: &Path) {
-    println!("Creating audiobook from dir")
+
+fn check_files(root: &Path) {
+
 }
 
-fn create_audiobook(path: &Path) {
-    let md = metadata::MediaFile::read_file(path.to_str().unwrap()).unwrap().get_mediainfo();
+fn create_multifile_audiobook(path: &Path) -> Result<(), metadata::MediaError> {
+    println!("Creating audiobook from dir");
+    Ok(())
+}
+
+fn create_audiobook(path: &Path) -> Result<(), metadata::MediaError> {
+    let md = try!(metadata::MediaFile::read_file(path)).get_mediainfo();
     println!("{:?}", md);
+    Ok(())
 }
 
 fn save(buf: &[u8]) {
@@ -61,16 +107,3 @@ fn save(buf: &[u8]) {
     }
 }
 
-
-// let a = Audiobook {
-//     chapters: Vec::new(),
-//     name: "lul".to_string(),
-//     length: apply_timebase((*ctx).duration, &AV_TIME_BASE_Q)
-// };
-// let ref mut chaps = av_chapter_vec(ctx)[0];
-// let c = Chapter::from_av_chapter(chap);
-// unsafe {
-//     let mut chaps = av_chapter_vec(c.ctx);
-//     let c = Chapter::from_av_chapters(chaps);
-//     println!("{:?}", c);
-// }

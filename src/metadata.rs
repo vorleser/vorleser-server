@@ -8,6 +8,7 @@ use std::collections::HashMap;
 use std::slice;
 use std::error::Error;
 use std::fmt;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct Media {
@@ -95,13 +96,20 @@ impl Error for MediaError {
 }
 
 impl MediaFile {
-    pub fn read_file(file_name: &str) -> Result<Self, MediaError>{
+    pub fn read_file(file_name: &Path) -> Result<Self, MediaError>{
+        let file_name_str = match file_name.to_str() {
+            Some(s) => s,
+            None => return Err(MediaError{
+                code: 0,
+                description: "Non UTF8 Path provided".to_string()
+            })
+        };
         unsafe {
             if !FFMPEG_INITIALIZED {
                 av_register_all();
                 FFMPEG_INITIALIZED = true;
             }
-            let c_file_name = CString::new(file_name).unwrap();
+            let c_file_name = CString::new(file_name_str).unwrap();
             let mut new = Self {
                 ctx: avformat_alloc_context(),
                 averror: 0,

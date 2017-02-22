@@ -223,7 +223,7 @@ impl MediaFile {
     pub fn get_first_audio_stream(&self) -> Option<&AVStream> {
         unsafe {
             for s in self.get_streams() {
-                if (*(*s).codec).codec_type == AVMEDIA_TYPE_AUDIO {
+                if (*(*s).codecpar).codec_type == AVMEDIA_TYPE_AUDIO {
                     println!("{:?}", (*s).index);
                     return Some(s)
                 }
@@ -295,19 +295,30 @@ impl NewMediaFile {
         }
         Ok(())
     }
-
 }
+
+// struct Stream {
+//     data: *mut AVStream
+// }
+
+// impl Stream {
+//     fn new(&AVStream) -> Self {
+//         Stream {data: AVStream}
+//     }
+// }
 
 pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile, MediaError> {
     // todo: check in_files length
-    let stream = match in_files.first().clone().unwrap().get_first_audio_stream() {
-        Some(s) => s,
+    let mut out = {
+    let stream = match in_files.first().unwrap().get_first_audio_stream().clone() {
+        Some(s) => s.clone(),
         None => return Err(MediaError{
             code: 1338,
             description: "No audio stream found".to_string()
         })
     };
-    let mut out = try!(NewMediaFile::from_stream(path, stream));
+    try!(NewMediaFile::from_stream(path, stream))
+    };
     println!("writing header");
     try!(out.write_header());
     println!("wrote header");

@@ -58,7 +58,10 @@ fn main() {
         |name| metadata::MediaFile::read_file(Path::new(&name)).unwrap()
         ).collect();
     // let stream = lol.first().unwrap().get_first_audio_stream().unwrap();
-    metadata::merge_files(Path::new("muxed.mp3"), lol).unwrap();
+    match metadata::merge_files(Path::new("muxed.mp3"), lol) {
+        Err(e) => println!("{}", e),
+        _ => println!("Sucess")
+    }
 
     return;
 

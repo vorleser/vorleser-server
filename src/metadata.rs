@@ -219,13 +219,36 @@ impl MediaFile {
             slice::from_raw_parts(mem::transmute((*self.ctx).streams), (*self.ctx).nb_streams as usize)
         }
     }
+
+    pub fn get_first_audio_stream(&self) -> Option<&AVStream> {
+        unsafe {
+            for s in self.get_streams() {
+                if (*(*s).codec).codec_type == AVMEDIA_TYPE_AUDIO {
+                    println!("{:?}", (*s).index);
+                    return Some(s)
+                }
+            }
+        }
+        None
+    }
 }
 
-pub struct Muxer {
+pub struct NewMediaFile {
     ctx: *mut AVFormatContext
 }
 
-impl Muxer {
+impl NewMediaFile {
+    pub fn from_stream(file_name: &Path, stream: &AVStream) -> Result<Self, MediaError> {
+        unsafe {
+            let time_base = (*stream).time_base;
+            Self::new(
+                file_name,
+                &mut *(*stream).codecpar,
+                time_base
+            )
+        }
+    }
+
     pub fn new(file_name: &Path, codec: &mut AVCodecParameters, time_base: AVRational) -> Result<Self, MediaError> {
         ensure_av_register_all();
         let c_file_name = CString::new(file_name.to_str().unwrap()).unwrap();
@@ -246,7 +269,7 @@ impl Muxer {
             let stream = ptr_to_opt_mut(avformat_new_stream(ctx, ptr::null())).unwrap();
             (*stream).time_base = time_base;
             avcodec_parameters_copy((*stream).codecpar, codec);
-            Ok(Muxer{ ctx: ctx })
+            Ok(Self{ ctx: ctx })
         }
         // avformat_new_stream(ctx, );
     }
@@ -273,33 +296,44 @@ impl Muxer {
         Ok(())
     }
 
-    pub fn merge_files(mut self, files: Vec<MediaFile>) -> Result<(), MediaError> {
-        println!("writing header");
-        try!(self.write_header());
-        println!("wrote header");
-        for ref f in files {
-            println!("next file");
-            loop {
-                let last_pts = 0;
-                let last_dts = 0;
-                match try!(f.read_packet()) {
-                    Some(mut pkt) => {
-                        // Todo: I am not sure if this is the proper way to do this
-                        // maybe we need to keep a running value instead of letting ffmpeg guess
-                        pkt.dts = AV_NOPTS_VALUE;
-                        pkt.pts = AV_NOPTS_VALUE;
-                        try!(self.write_frame(&mut pkt))
-                    },
-                    None => break
-                }
+}
+
+pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile, MediaError> {
+    // todo: check in_files length
+    let stream = match in_files.first().clone().unwrap().get_first_audio_stream() {
+        Some(s) => s,
+        None => return Err(MediaError{
+            code: 1338,
+            description: "No audio stream found".to_string()
+        })
+    };
+    let mut out = try!(NewMediaFile::from_stream(path, stream));
+    println!("writing header");
+    try!(out.write_header());
+    println!("wrote header");
+    for f in in_files {
+        println!("next file");
+        loop {
+            let last_pts = 0;
+            let last_dts = 0;
+            match try!(f.read_packet()) {
+                Some(mut pkt) => {
+                    // Todo: I am not sure if this is the proper way to do this
+                    // maybe we need to keep a running value instead of letting ffmpeg guess
+                    pkt.dts = AV_NOPTS_VALUE;
+                    pkt.pts = AV_NOPTS_VALUE;
+                    try!(out.write_frame(&mut pkt))
+                },
+                None => break
             }
         }
-        println!("writing trailer");
-        try!(self.write_trailer());
-        Ok(())
-        // Self::new()
     }
+    println!("writing trailer");
+    try!(out.write_trailer());
+    Ok(out)
+    // Self::new()
 }
+
 
 impl Drop for MediaFile {
     fn drop(&mut self) {

@@ -31,8 +31,7 @@ mod schema;
 mod handlers;
 mod responses;
 mod helpers;
-
-mod metadata;
+mod worker;
 
 use std::fs::File;
 use std::io::Write;
@@ -49,18 +48,18 @@ use regex::Regex;
 
 use diesel::pg::PgConnection;
 use std::env::args;
-use metadata::{MediaFile, NewMediaFile};
+use worker::mediafile::{MediaFile, NewMediaFile, MediaError};
 
 fn main() {
     let mut args = env::args();
     args.next();
-    let mut lol: Vec<metadata::MediaFile> = args.map(
-        |name| metadata::MediaFile::read_file(Path::new(&name)).unwrap()
+    let mut lol: Vec<MediaFile> = args.map(
+        |name| MediaFile::read_file(Path::new(&name)).unwrap()
         ).collect();
     // let stream = lol.first().unwrap().get_first_audio_stream().unwrap();
-    match metadata::merge_files(Path::new("muxed.mp3"), lol) {
+    match worker::mediafile::merge_files(Path::new("muxed.mp3"), lol) {
         Err(e) => println!("{}", e),
-        _ => println!("Sucess")
+        _ => println!("Success")
     }
 
     return;
@@ -147,14 +146,14 @@ fn is_audiobook(path: &Path, regex: &Regex) -> bool {
 
 
 
-fn create_multifile_audiobook(path: &Path) -> Result<(), metadata::MediaError> {
+fn create_multifile_audiobook(path: &Path) -> Result<(), MediaError> {
     println!("Creating audiobook from dir");
     Ok(())
 }
 
-fn create_audiobook(path: &Path) -> Result<(), metadata::MediaError> {
+fn create_audiobook(path: &Path) -> Result<(), MediaError> {
     println!("Creating audiobook!");
-    let md = try!(metadata::MediaFile::read_file(path)).get_mediainfo();
+    let md = try!(MediaFile::read_file(path)).get_mediainfo();
     println!("{:?}", md);
     Ok(())
 }

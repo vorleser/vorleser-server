@@ -3,6 +3,7 @@ use ffmpeg::*;
 use std::mem;
 use std::ffi::CString;
 use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::ptr;
 use std::collections::HashMap;
 use std::slice;
@@ -80,9 +81,9 @@ impl fmt::Display for MediaError {
 impl MediaError {
     fn new(code: i32) -> MediaError {
         let description = unsafe {
-            let mut buf: [i8; 1024] = [0; 1024];
-            av_strerror(code, &mut buf[0] as *mut i8, 1024);
-            String::from_utf8_unchecked(mem::transmute::<[i8; 1024], [u8; 1024]>(buf).to_vec())
+            let mut buf: [c_char; 1024] = [0; 1024];
+            av_strerror(code, &mut buf[0], 1024);
+            CStr::from_ptr(&buf[0]).to_string_lossy().into_owned()
         };
         MediaError {code: code, description: description}
     }

@@ -55,14 +55,31 @@ fn main() {
     let mut args = env::args();
     args.next();
     let lol: Vec<MediaFile> = args.map(|name| metadata::MediaFile::read_file(Path::new(&name)).unwrap()).collect();
-    let codec = lol[0].codec;
-    let output = Muxer::new("muxed.mp3".to_string());
+    let mut stream = std::ptr::null();
+    unsafe {
+        {
+            let first = &lol[0];
+            for s in first.get_streams() {
+                if (*(*s).codec).codec_type == ffmpeg::AVMEDIA_TYPE_AUDIO {
+                    println!("{:?}", (*s).index);
+                    stream = s;
+                    break;
+                }
+            }
+        }
+        let codec_ref: &mut ffmpeg::AVCodecParameters = std::mem::transmute((*stream).codecpar);
+        let output = Muxer::new(Path::new("muxed.mp3"), codec_ref, (*stream).time_base).unwrap();
+        output.merge_files(lol).unwrap();
+    }
+
+    return;
+
     let pool = helpers::db::init_db_pool();
     {
         let pool = pool.clone();
         thread::spawn(move || {
             let conn = pool.get().unwrap();
-            let scanner = Scanner { 
+            let scanner = Scanner {
                 regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
                 path: Path::new("test-data").to_path_buf(),
                 conn: &*conn,
@@ -123,7 +140,7 @@ impl<'a> Scanner<'a> {
             };
             let path = entry.path().strip_prefix(&self.path).unwrap();
             if path.components().count() == 0 { continue };
-            if is_audiobook(path, &self.regex) { 
+            if is_audiobook(path, &self.regex) {
                 println!("{:?}", path);
                 if path.is_dir() {
                     walker.skip_current_dir();
@@ -157,4 +174,3 @@ fn save(buf: &[u8]) {
         println!("Successfully wrote image!")
     }
 }
-

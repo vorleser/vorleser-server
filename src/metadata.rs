@@ -3,6 +3,7 @@ use ffmpeg::*;
 use std::mem;
 use std::ffi::CString;
 use std::ffi::CStr;
+use std::os::raw::c_char;
 use std::ptr;
 use std::collections::HashMap;
 use std::slice;
@@ -10,6 +11,7 @@ use std::error::Error;
 use std::fmt;
 use std::path::Path;
 use std::sync::Mutex;
+use std::iter::FromIterator;
 
 lazy_static! {
     static ref FFMPEG_INITIALIZED: Mutex<bool> = Mutex::new(false);
@@ -80,9 +82,9 @@ impl fmt::Display for MediaError {
 impl MediaError {
     fn new(code: i32) -> MediaError {
         let description = unsafe {
-            let mut buf: [i8; 1024] = [0; 1024];
-            av_strerror(code, &mut buf[0] as *mut i8, 1024);
-            String::from_utf8_unchecked(mem::transmute::<[i8; 1024], [u8; 1024]>(buf).to_vec())
+            let mut buf: [c_char; 1024] = [0; 1024];
+            av_strerror(code, &mut buf[0], 1024);
+            CStr::from_ptr(&buf[0]).to_string_lossy().into_owned()
         };
         MediaError {code: code, description: description}
     }
@@ -121,7 +123,7 @@ fn ptr_to_opt_mut<T>(ptr: *mut T) -> Option<*mut T> {
     if ptr == ptr::null_mut() {
         None
     } else {
-        Some(ptr) 
+        Some(ptr)
     }
 }
 
@@ -129,7 +131,7 @@ fn ptr_to_opt<T>(ptr: *const T) -> Option<*const T> {
     if ptr == ptr::null() {
         None
     } else {
-        Some(ptr) 
+        Some(ptr)
     }
 }
 
@@ -196,7 +198,7 @@ impl MediaFile {
 
     pub fn get_codec(&self) -> &AVCodec {
         unsafe {
-            ctx.
+            unimplemented!()
         }
     }
 
@@ -211,16 +213,23 @@ impl MediaFile {
     }
 }
 
-struct Muxer {
+impl MediaFile {
+    pub fn get_streams(&self) -> Vec<&AVStream> {
+        unsafe {
+            Vec::from_iter(slice::from_raw_parts(mem::transmute((*self.ctx).streams), (*self.ctx).nb_streams as usize).to_vec())
+        }
+    }
+}
+
+pub struct Muxer {
     ctx: *mut AVFormatContext
 }
 
 impl Muxer {
-    pub fn new(file_name: &Path, codec: &AVCodec, time_base: AVRational) -> Result<Self, MediaError> {
+    pub fn new(file_name: &Path, codec: &mut AVCodecParameters, time_base: AVRational) -> Result<Self, MediaError> {
         ensure_av_register_all();
         let c_file_name = CString::new(file_name.to_str().unwrap()).unwrap();
         unsafe {
-            let ctx = avformat_alloc_context();
             let format = match ptr_to_opt_mut(av_guess_format(ptr::null(), c_file_name.as_ptr(), ptr::null())) {
                 Some(f) => f,
                 None => return Err(MediaError{
@@ -228,12 +237,15 @@ impl Muxer {
                     code: 1337
                 })
             };
-            (*ctx).oformat = format;
+            let mut ctx = ptr::null_mut();
+            try!(check_av_result(avformat_alloc_output_context2(&mut ctx, ptr::null(), ptr::null(), c_file_name.as_ptr())));
+            // (*ctx).oformat = format;
             let mut io_ctx = ptr::null_mut();
-            try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), 0, ptr::null(), ptr::null_mut())));
+            try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), AVIO_FLAG_WRITE, ptr::null(), ptr::null_mut())));
             (*ctx).pb = io_ctx;
-            let stream = ptr_to_opt_mut(avformat_new_stream(ctx, codec)).unwrap();
+            let stream = ptr_to_opt_mut(avformat_new_stream(ctx, ptr::null())).unwrap();
             (*stream).time_base = time_base;
+            avcodec_parameters_copy((*stream).codecpar, codec);
             Ok(Muxer{ ctx: ctx })
         }
         // avformat_new_stream(ctx, );
@@ -246,9 +258,10 @@ impl Muxer {
         Ok(())
     }
 
-    fn write_frame(&mut self, pkt: &AVPacket) -> Result<(), MediaError> {
+    fn write_frame(&mut self, pkt: &mut AVPacket) -> Result<(), MediaError> {
         unsafe {
-            try!(check_av_result(av_write_frame(self.ctx, pkt)));
+            pkt.stream_index = 0;
+            try!(check_av_result(av_interleaved_write_frame(self.ctx, pkt)));
         }
         Ok(())
     }
@@ -261,15 +274,19 @@ impl Muxer {
     }
 
     pub fn merge_files(mut self, files: Vec<MediaFile>) -> Result<(), MediaError> {
+        println!("writing header");
         try!(self.write_header());
+        println!("wrote header");
         for ref f in files {
+            println!("next file");
             loop {
                 match try!(f.read_packet()) {
-                    Some(pkt) => try!(self.write_frame(&pkt)),
+                    Some(mut pkt) => try!(self.write_frame(&mut pkt)),
                     None => break
                 }
             }
         }
+        println!("writing trailer");
         try!(self.write_trailer());
         Ok(())
         // Self::new()

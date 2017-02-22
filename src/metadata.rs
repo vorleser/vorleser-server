@@ -220,16 +220,17 @@ impl MediaFile {
         }
     }
 
-    pub fn get_first_audio_stream(&self) -> Option<&AVStream> {
+    pub fn get_best_stream(&self, media_type: AVMediaType) -> Result<&AVStream, MediaError> {
         unsafe {
-            for s in self.get_streams() {
-                if (*(*s).codecpar).codec_type == AVMEDIA_TYPE_AUDIO {
-                    println!("{:?}", (*s).index);
-                    return Some(s)
-                }
-            }
+            // for s in self.get_streams() {
+            //     if (*(*s).codecpar).codec_type == AVMEDIA_TYPE_AUDIO {
+            //         println!("{:?}", (*s).index);
+            //         return Some(s)
+            //     }
+            // }
+            let stream_index = try!(check_av_result(av_find_best_stream(self.ctx, media_type, -1, -1, ptr::null_mut(), 0)));
+            Ok(self.get_streams()[stream_index as usize])
         }
-        None
     }
 }
 
@@ -310,14 +311,8 @@ impl NewMediaFile {
 pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile, MediaError> {
     // todo: check in_files length
     let mut out = {
-    let stream = match in_files.first().unwrap().get_first_audio_stream().clone() {
-        Some(s) => s.clone(),
-        None => return Err(MediaError{
-            code: 1338,
-            description: "No audio stream found".to_string()
-        })
-    };
-    try!(NewMediaFile::from_stream(path, stream))
+        let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
+        try!(NewMediaFile::from_stream(path, stream))
     };
     println!("writing header");
     try!(out.write_header());

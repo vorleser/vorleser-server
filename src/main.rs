@@ -54,11 +54,11 @@ use metadata::{MediaFile, Muxer};
 fn main() {
     let mut args = env::args();
     args.next();
-    let lol: Vec<MediaFile> = args.map(|name| metadata::MediaFile::read_file(Path::new(&name)).unwrap()).collect();
+    let mut lol = args.map(|name| metadata::MediaFile::read_file(Path::new(&name)).unwrap());
+    let first = lol.next().unwrap();
     let mut stream = std::ptr::null();
     unsafe {
         {
-            let first = &lol[0];
             for s in first.get_streams() {
                 if (*(*s).codec).codec_type == ffmpeg::AVMEDIA_TYPE_AUDIO {
                     println!("{:?}", (*s).index);
@@ -69,7 +69,7 @@ fn main() {
         }
         let codec_ref: &mut ffmpeg::AVCodecParameters = std::mem::transmute((*stream).codecpar);
         let output = Muxer::new(Path::new("muxed.mp3"), codec_ref, (*stream).time_base).unwrap();
-        output.merge_files(lol).unwrap();
+        output.merge_files(lol.collect()).unwrap();
     }
 
     return;

@@ -214,9 +214,9 @@ impl MediaFile {
 }
 
 impl MediaFile {
-    pub fn get_streams(&self) -> Vec<&AVStream> {
+    pub fn get_streams(&self) -> &[&AVStream] {
         unsafe {
-            Vec::from_iter(slice::from_raw_parts(mem::transmute((*self.ctx).streams), (*self.ctx).nb_streams as usize).to_vec())
+            slice::from_raw_parts(mem::transmute((*self.ctx).streams), (*self.ctx).nb_streams as usize)
         }
     }
 }
@@ -280,8 +280,16 @@ impl Muxer {
         for ref f in files {
             println!("next file");
             loop {
+                let last_pts = 0;
+                let last_dts = 0;
                 match try!(f.read_packet()) {
-                    Some(mut pkt) => try!(self.write_frame(&mut pkt)),
+                    Some(mut pkt) => {
+                        // Todo: I am not sure if this is the proper way to do this
+                        // maybe we need to keep a running value instead of letting ffmpeg guess
+                        pkt.dts = AV_NOPTS_VALUE;
+                        pkt.pts = AV_NOPTS_VALUE;
+                        try!(self.write_frame(&mut pkt))
+                    },
                     None => break
                 }
             }

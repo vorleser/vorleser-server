@@ -9,6 +9,11 @@ use std::slice;
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
+use std::sync::Mutex;
+
+lazy_static! {
+    static ref FFMPEG_INITIALIZED: Mutex<bool> = Mutex::new(false);
+}
 
 #[derive(Debug)]
 pub struct Media {
@@ -16,8 +21,6 @@ pub struct Media {
     chapters: Vec<Chapter>,
     metadata: HashMap<String, String>
 }
-
-static mut FFMPEG_INITIALIZED: bool = false;
 
 #[derive(Debug)]
 struct Chapter {
@@ -95,8 +98,43 @@ impl Error for MediaError {
     }
 }
 
+fn check_av_result(num: i32) -> Result<i32, MediaError> {
+    if num < 0 {
+        Err(MediaError::new(num))
+    }
+    else {
+        Ok(num)
+    }
+}
+
+fn ensure_av_register_all() {
+    unsafe {
+        let mut initialized_guard = FFMPEG_INITIALIZED.lock().unwrap();
+        if !*initialized_guard {
+            av_register_all();
+            *initialized_guard = true;
+        }
+    }
+}
+
+fn ptr_to_opt_mut<T>(ptr: *mut T) -> Option<*mut T> {
+    if ptr == ptr::null_mut() {
+        None
+    } else {
+        Some(ptr) 
+    }
+}
+
+fn ptr_to_opt<T>(ptr: *const T) -> Option<*const T> {
+    if ptr == ptr::null() {
+        None
+    } else {
+        Some(ptr) 
+    }
+}
+
 impl MediaFile {
-    pub fn read_file(file_name: &Path) -> Result<Self, MediaError>{
+    pub fn read_file(file_name: &Path) -> Result<Self, MediaError> {
         let file_name_str = match file_name.to_str() {
             Some(s) => s,
             None => return Err(MediaError{
@@ -105,28 +143,32 @@ impl MediaFile {
             })
         };
         unsafe {
-            if !FFMPEG_INITIALIZED {
-                av_register_all();
-                FFMPEG_INITIALIZED = true;
-            }
+            ensure_av_register_all();
             let c_file_name = CString::new(file_name_str).unwrap();
             let mut new = Self {
                 ctx: avformat_alloc_context(),
                 averror: 0,
                 av_packet: None
             };
-            new.averror = avformat_open_input(
+            new.averror = try!(check_av_result(avformat_open_input(
                 &mut new.ctx,
                 c_file_name.as_ptr(),
                 ptr::null(),
                 ptr::null_mut()
-                );
-            if new.averror != 0 {
-                return Err(MediaError::new(new.averror))
-            } else {
-                avformat_find_stream_info(new.ctx, ptr::null_mut());
-            }
+            )));
+            try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));
             Ok(new)
+        }
+    }
+
+    pub fn read_packet(&self) -> Result<Option<AVPacket>, MediaError> {
+        unsafe {
+            let mut pkt = mem::uninitialized::<AVPacket>();
+            match check_av_result(av_read_frame(self.ctx, &mut pkt)) {
+                Err(MediaError{code: AVERROR_EOF, .. } ) => Ok(None),
+                Err(e) => Err(e),
+                _ => Ok(Some(pkt))
+            }
         }
     }
 
@@ -152,6 +194,12 @@ impl MediaFile {
         }
     }
 
+    pub fn get_codec(&self) -> &AVCodec {
+        unsafe {
+            ctx.
+        }
+    }
+
     pub fn get_mediainfo(&self) -> Media {
         unsafe {
             Media {
@@ -160,6 +208,71 @@ impl MediaFile {
                 metadata: dict_to_map((*self.ctx).metadata as *mut AVDictionary)
             }
         }
+    }
+}
+
+struct Muxer {
+    ctx: *mut AVFormatContext
+}
+
+impl Muxer {
+    pub fn new(file_name: &Path, codec: &AVCodec, time_base: AVRational) -> Result<Self, MediaError> {
+        ensure_av_register_all();
+        let c_file_name = CString::new(file_name.to_str().unwrap()).unwrap();
+        unsafe {
+            let ctx = avformat_alloc_context();
+            let format = match ptr_to_opt_mut(av_guess_format(ptr::null(), c_file_name.as_ptr(), ptr::null())) {
+                Some(f) => f,
+                None => return Err(MediaError{
+                    description: "Not format could be guessed!".to_string(),
+                    code: 1337
+                })
+            };
+            (*ctx).oformat = format;
+            let mut io_ctx = ptr::null_mut();
+            try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), 0, ptr::null(), ptr::null_mut())));
+            (*ctx).pb = io_ctx;
+            let stream = ptr_to_opt_mut(avformat_new_stream(ctx, codec)).unwrap();
+            (*stream).time_base = time_base;
+            Ok(Muxer{ ctx: ctx })
+        }
+        // avformat_new_stream(ctx, );
+    }
+
+    pub fn write_header(&mut self) -> Result<(), MediaError> {
+        unsafe {
+            try!(check_av_result(avformat_write_header(self.ctx, ptr::null_mut())));
+        }
+        Ok(())
+    }
+
+    fn write_frame(&mut self, pkt: &AVPacket) -> Result<(), MediaError> {
+        unsafe {
+            try!(check_av_result(av_write_frame(self.ctx, pkt)));
+        }
+        Ok(())
+    }
+
+    fn write_trailer(&mut self) -> Result<(), MediaError> {
+        unsafe {
+            try!(check_av_result(av_write_trailer(self.ctx)));
+        }
+        Ok(())
+    }
+
+    pub fn merge_files(mut self, files: Vec<MediaFile>) -> Result<(), MediaError> {
+        try!(self.write_header());
+        for ref f in files {
+            loop {
+                match try!(f.read_packet()) {
+                    Some(pkt) => try!(self.write_frame(&pkt)),
+                    None => break
+                }
+            }
+        }
+        try!(self.write_trailer());
+        Ok(())
+        // Self::new()
     }
 }
 

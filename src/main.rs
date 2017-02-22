@@ -2,6 +2,7 @@
 #![plugin(rocket_codegen)]
 #![feature(libc)]
 #![feature(custom_attribute)]
+#![allow(dead_code)]
 
 #[macro_use] extern crate lazy_static;
 extern crate uuid;
@@ -47,8 +48,15 @@ use walkdir::{WalkDir, WalkDirIterator};
 use regex::Regex;
 
 use diesel::pg::PgConnection;
+use std::env::args;
+use metadata::{MediaFile, Muxer};
 
 fn main() {
+    let mut args = env::args();
+    args.next();
+    let lol: Vec<MediaFile> = args.map(|name| metadata::MediaFile::read_file(Path::new(&name)).unwrap()).collect();
+    let codec = lol[0].codec;
+    let output = Muxer::new("muxed.mp3".to_string());
     let pool = helpers::db::init_db_pool();
     {
         let pool = pool.clone();

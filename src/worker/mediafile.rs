@@ -3,15 +3,12 @@ use ffmpeg::*;
 use std::mem;
 use std::ffi::CString;
 use std::ffi::CStr;
-use std::os::raw::c_char;
 use std::ptr;
 use std::collections::HashMap;
 use std::slice;
-use std::error::Error;
-use std::fmt;
 use std::path::Path;
 use std::sync::Mutex;
-use std::iter::FromIterator;
+use super::error::MediaError;
 
 lazy_static! {
     static ref FFMPEG_INITIALIZED: Mutex<bool> = Mutex::new(false);
@@ -60,46 +57,6 @@ impl Chapter {
     }
 }
 
-
-pub struct MediaFile {
-    ctx: *mut AVFormatContext,
-    averror: i32,
-    av_packet: Option<AVPacket>
-}
-
-#[derive(Debug)]
-pub struct MediaError {
-    code: i32,
-    description: String
-}
-
-impl fmt::Display for MediaError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.description())
-    }
-}
-
-impl MediaError {
-    fn new(code: i32) -> MediaError {
-        let description = unsafe {
-            let mut buf: [c_char; 1024] = [0; 1024];
-            av_strerror(code, &mut buf[0], 1024);
-            CStr::from_ptr(&buf[0]).to_string_lossy().into_owned()
-        };
-        MediaError {code: code, description: description}
-    }
-}
-
-impl Error for MediaError {
-    fn description(&self) -> &str {
-        return &self.description;
-    }
-
-    fn cause(&self) -> Option<&Error> {
-        return None
-    }
-}
-
 fn check_av_result(num: i32) -> Result<i32, MediaError> {
     if num < 0 {
         Err(MediaError::new(num))
@@ -120,7 +77,7 @@ fn ensure_av_register_all() {
 }
 
 fn ptr_to_opt_mut<T>(ptr: *mut T) -> Option<*mut T> {
-    if ptr == ptr::null_mut() {
+    if ptr.is_null() {
         None
     } else {
         Some(ptr)
@@ -128,21 +85,27 @@ fn ptr_to_opt_mut<T>(ptr: *mut T) -> Option<*mut T> {
 }
 
 fn ptr_to_opt<T>(ptr: *const T) -> Option<*const T> {
-    if ptr == ptr::null() {
+    if ptr.is_null() {
         None
     } else {
         Some(ptr)
     }
 }
 
+pub struct MediaFile {
+    ctx: *mut AVFormatContext,
+    averror: i32,
+    av_packet: Option<AVPacket>
+}
+
 impl MediaFile {
     pub fn read_file(file_name: &Path) -> Result<Self, MediaError> {
         let file_name_str = match file_name.to_str() {
             Some(s) => s,
-            None => return Err(MediaError{
-                code: 0,
-                description: "Non UTF8 Path provided".to_string()
-            })
+            None => return Err(MediaError::from_description(
+                0,
+                "Non UTF8 Path provided".to_string()
+            ))
         };
         unsafe {
             ensure_av_register_all();

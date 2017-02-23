@@ -3,6 +3,7 @@
 #![feature(libc)]
 #![feature(custom_attribute)]
 #![allow(dead_code)]
+#![feature(pub_restricted)]
 
 #[macro_use] extern crate lazy_static;
 extern crate uuid;
@@ -48,7 +49,8 @@ use regex::Regex;
 
 use diesel::pg::PgConnection;
 use std::env::args;
-use worker::mediafile::{MediaFile, NewMediaFile, MediaError};
+use worker::mediafile::{MediaFile, NewMediaFile};
+use worker::error::*;
 
 fn main() {
     let mut args = env::args();

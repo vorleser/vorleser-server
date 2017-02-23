@@ -4,11 +4,12 @@ use std::mem;
 use std::ffi::CString;
 use std::ffi::CStr;
 use std::ptr;
-use std::collections::HashMap;
-use std::slice;
 use std::path::Path;
+use std::slice;
 use std::sync::Mutex;
 use super::error::MediaError;
+use super::util::*;
+use std::collections::HashMap;
 
 lazy_static! {
     static ref FFMPEG_INITIALIZED: Mutex<bool> = Mutex::new(false);
@@ -29,16 +30,11 @@ struct Chapter {
     end: f64
 }
 
-pub struct AVDictionary {
-    pub count: usize,
-    pub elems: *mut AVDictionaryEntry
-}
-
 impl Chapter {
     fn from_av_chapter(av: &AVChapter) -> Chapter {
         let start = apply_timebase(av.start, &av.time_base);
         let end = apply_timebase(av.end, &av.time_base);
-        let d = dict_to_map(av.metadata as *mut AVDictionary);
+        let d = dict_to_map(av.metadata as *mut Dictionary);
         let title = d.get("title").cloned();
         Chapter {
             start: start.clone(),
@@ -170,7 +166,7 @@ impl MediaFile {
             Media {
                 chapters: self.get_chapters(),
                 length: apply_timebase((*self.ctx).duration, &AV_TIME_BASE_Q),
-                metadata: dict_to_map((*self.ctx).metadata as *mut AVDictionary)
+                metadata: dict_to_map((*self.ctx).metadata as *mut Dictionary)
             }
         }
     }
@@ -261,16 +257,6 @@ impl NewMediaFile {
     }
 }
 
-// struct Stream {
-//     data: *mut AVStream
-// }
-
-// impl Stream {
-//     fn new(&AVStream) -> Self {
-//         Stream {data: AVStream}
-//     }
-// }
-
 pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile, MediaError> {
     // todo: check in_files length
     let mut out = {
@@ -334,33 +320,4 @@ impl Drop for MediaFile {
             }
         }
     }
-}
-
-fn dict_to_map(dict_pointer: *mut AVDictionary) -> HashMap<String, String> {
-    let mut map = HashMap::new();
-    unsafe {
-        let dict: &AVDictionary = &mut *dict_pointer;
-        let v = av_dict_vec(dict);
-        for i in v.iter() {
-            let key = CStr::from_ptr((*i).key).to_str().unwrap().to_owned();
-            let value = CStr::from_ptr((*i).value).to_str().unwrap().to_owned();
-            map.insert(
-                key,
-                value
-                );
-        }
-        map
-    }
-}
-
-
-fn av_dict_vec(dict: &AVDictionary) -> &[AVDictionaryEntry] {
-    unsafe {
-        slice::from_raw_parts(dict.elems, dict.count)
-    }
-}
-
-
-fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
-    time as f64 * (timebase.num as f64 / timebase.den as f64)
 }

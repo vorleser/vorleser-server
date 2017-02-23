@@ -285,7 +285,7 @@ impl NewMediaFile {
     fn write_frame(&mut self, pkt: &mut AVPacket) -> Result<(), MediaError> {
         unsafe {
             pkt.stream_index = 0;
-            try!(check_av_result(av_interleaved_write_frame(self.ctx, pkt)));
+            try!(check_av_result(av_write_frame(self.ctx, pkt)));
         }
         Ok(())
     }
@@ -317,22 +317,40 @@ pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile
     println!("writing header");
     try!(out.write_header());
     println!("wrote header");
+
+    let mut previous_files_duration: i64 = 0;
     for f in in_files {
         println!("next file");
+
+        let best = try!(f.get_best_stream(AVMEDIA_TYPE_AUDIO));
+
+        let mut this_file_duration: i64 = 0;
+        println!("previous_files_duration: {}", previous_files_duration);
         loop {
-            let last_pts = 0;
-            let last_dts = 0;
+            let mut last_pts = 0;
+            let mut last_dts = 0;
             match try!(f.read_packet()) {
                 Some(mut pkt) => {
+                    if pkt.stream_index != best.index {
+                        continue;
+                    }
                     // Todo: I am not sure if this is the proper way to do this
                     // maybe we need to keep a running value instead of letting ffmpeg guess
-                    pkt.dts = AV_NOPTS_VALUE;
-                    pkt.pts = AV_NOPTS_VALUE;
+                    //println!("kek: pkt: {}, file: {} :kek", pkt.duration, this_file_duration);
+                    this_file_duration = this_file_duration + pkt.duration;
+                    pkt.dts += previous_files_duration;
+                    pkt.pts += previous_files_duration;
+
+                    if pkt.pts < 0 || pkt.dts < 0 {
+                        println!("foo");
+                    }
                     try!(out.write_frame(&mut pkt))
                 },
                 None => break
             }
         }
+        previous_files_duration = previous_files_duration + this_file_duration;
+        this_file_duration = 0;
     }
     println!("writing trailer");
     try!(out.write_trailer());

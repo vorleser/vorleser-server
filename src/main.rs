@@ -57,7 +57,7 @@ fn main() {
         |name| MediaFile::read_file(Path::new(&name)).unwrap()
         ).collect();
     // let stream = lol.first().unwrap().get_first_audio_stream().unwrap();
-    match worker::mediafile::merge_files(Path::new("muxed.mp3"), lol) {
+    match worker::mediafile::merge_files(Path::new("muxed.m4a"), lol) {
         Err(e) => println!("{}", e),
         _ => println!("Success")
     }

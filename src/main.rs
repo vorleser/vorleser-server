@@ -49,17 +49,17 @@ use regex::Regex;
 
 use diesel::pg::PgConnection;
 use std::env::args;
-use worker::mediafile::{MediaFile, NewMediaFile};
+use worker::mediafile::MediaFile;
 use worker::error::*;
 
 fn main() {
     let mut args = env::args();
     args.next();
-    let mut lol: Vec<MediaFile> = args.map(
+    let lol: Vec<MediaFile> = args.map(
         |name| MediaFile::read_file(Path::new(&name)).unwrap()
         ).collect();
     // let stream = lol.first().unwrap().get_first_audio_stream().unwrap();
-    match worker::mediafile::merge_files(Path::new("muxed.m4a"), lol) {
+    match worker::muxer::merge_files(Path::new("muxed.mp3"), lol) {
         Err(e) => println!("{}", e),
         _ => println!("Success")
     }

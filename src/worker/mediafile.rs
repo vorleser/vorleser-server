@@ -14,15 +14,14 @@ use std::collections::HashMap;
 pub struct Media {
     length: f64,
     chapters: Vec<Chapter>,
-    metadata: HashMap<String, String>
+    metadata: HashMap<String, String>,
 }
 
 #[derive(Debug)]
-struct Chapter {
+pub struct Chapter {
     title: Option<String>,
     metadata: HashMap<String, String>,
     start: f64,
-    end: f64
 }
 
 impl Chapter {
@@ -33,9 +32,8 @@ impl Chapter {
         let title = d.get("title").cloned();
         Chapter {
             start: start.clone(),
-            end: end.clone(),
             title: title,
-            metadata: d
+            metadata: d,
         }
     }
 
@@ -102,7 +100,7 @@ impl MediaFile {
         }
     }
 
-    fn get_chapters(&self) -> Vec<Chapter> {
+    pub fn get_chapters(&self) -> Vec<Chapter> {
         Chapter::from_av_chapters(self.av_chapter_slice())
     }
 

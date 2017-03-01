@@ -3,6 +3,14 @@ name = "vorleser-rust"
 version = "0.1.0"
 authors = ["Hans Ole Hatzel <hhatzel@gmail.com>"]
 
+[lib]
+name = "vorleser_lib"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vorleser"
+path = "src/main.rs"
+
 [dependencies]
 regex = "0.2.1"
 walkdir = "1"

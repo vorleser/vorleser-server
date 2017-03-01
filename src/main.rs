@@ -24,6 +24,7 @@ extern crate ffmpeg_sys as ffmpeg;
 extern crate libc;
 extern crate regex;
 extern crate walkdir;
+extern crate dotenv;
 
 mod api;
 mod validation;

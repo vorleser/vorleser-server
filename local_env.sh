@@ -1,1 +1,1 @@
-export DATABASE_URL=postgres://localhost/vorleser
+DATABASE_URL=postgres://localhost/vorleser

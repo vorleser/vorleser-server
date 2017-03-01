@@ -1,6 +1,10 @@
-language: rust
-rust:
-  - nightly
+services:
+  - docker
 before_install:
-  - sudo apt-get -qq update
-  - sudo apt-get install -y ffmpeg
+  - echo DATABASE_URL=postgres://vorleser@postgres/vorleser > .env
+  - docker build -t vorleser-server .
+  - docker pull postgres:latest
+script:
+  - docker-compose up -d
+  - sleep 20
+  - docker-compose run app bash -c "diesel setup && cargo test"

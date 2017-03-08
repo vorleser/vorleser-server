@@ -36,3 +36,11 @@ fn concat_files() {
     tmp_dir.push(Path::new("muxed.mp3"));
     muxer::merge_files(&tmp_dir, files).unwrap();
 }
+
+#[test]
+fn list_chapters() {
+    let file =  MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    let mut chapters = file.get_chapters();
+    assert_eq!(chapters.len(), 4);
+    println!("{:?}", chapters);
+}

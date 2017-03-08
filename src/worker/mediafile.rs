@@ -12,16 +12,16 @@ use std::collections::HashMap;
 
 #[derive(Debug)]
 pub struct Media {
-    length: f64,
-    chapters: Vec<Chapter>,
-    metadata: HashMap<String, String>,
+    pub length: f64,
+    pub chapters: Vec<Chapter>,
+    pub metadata: HashMap<String, String>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Chapter {
-    title: Option<String>,
-    metadata: HashMap<String, String>,
-    start: f64,
+    pub title: Option<String>,
+    pub metadata: HashMap<String, String>,
+    pub start: f64,
 }
 
 impl Chapter {

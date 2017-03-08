@@ -11,7 +11,6 @@ fn get_tempdir() -> PathBuf {
     create_dir_all(&dir).unwrap();
     dir
 }
-
 fn read_files() -> Vec<MediaFile> {
     let files = vec!["1.mp3", "2.mp3", "3.mp3", "4.mp3"];
     files.iter().map(|s| "test-data/".to_owned() + s.to_owned()).map(
@@ -39,8 +38,25 @@ fn concat_files() {
 
 #[test]
 fn list_chapters() {
-    let file =  MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
     let mut chapters = file.get_chapters();
     assert_eq!(chapters.len(), 4);
+    assert_eq!(chapters[2].clone().title.unwrap(), "3 - Otpluva lekii cheln...");
+    assert_eq!(chapters[2].clone().start.floor() as usize, 91);
     println!("{:?}", chapters);
+}
+
+#[test]
+#[should_panic(expected="No such file or directory")]
+fn file_not_existing() {
+    let f = MediaFile::read_file(
+        Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
+    );
+    match f {
+        Err(me) => assert!(me.description.starts_with("No such file")),
+        Ok(_) => panic!("We expect a Media Error here.")
+    }
+    let file = MediaFile::read_file(
+        Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
+        ).unwrap();
 }

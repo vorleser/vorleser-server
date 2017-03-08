@@ -3,14 +3,6 @@ name = "vorleser-rust"
 version = "0.1.0"
 authors = ["Hans Ole Hatzel <hhatzel@gmail.com>"]
 
-[lib]
-name = "vorleser_lib"
-path = "src/lib.rs"
-
-[[bin]]
-name = "vorleser"
-path = "src/main.rs"
-
 [dependencies]
 regex = "0.2.1"
 walkdir = "1"
@@ -24,7 +16,6 @@ diesel = { version = "0.11", features = ["postgres", "uuid", "chrono", "serde_js
 diesel_codegen = { version = "0.11", features = ["postgres"] }
 r2d2 = "0.7.1"
 r2d2-diesel = "0.11"
-# dotenv = "0.8.0" TODO Make use of this later.
 serde = "0.9"
 serde_json = "0.9"
 serde_derive = "0.9"

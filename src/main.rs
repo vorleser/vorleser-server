@@ -25,6 +25,7 @@ extern crate libc;
 extern crate regex;
 extern crate walkdir;
 extern crate dotenv;
+extern crate image;
 
 mod api;
 mod validation;

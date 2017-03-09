@@ -10,6 +10,17 @@ use super::error::MediaError;
 use super::util::*;
 use std::collections::HashMap;
 
+#[derive(PartialEq, Eq, Debug)]
+pub enum ImageType {
+    PNG,
+    JPG
+}
+
+pub struct Image {
+    pub data: Vec<u8>,
+    pub image_type: ImageType
+}
+
 #[derive(Debug)]
 pub struct Media {
     pub length: f64,
@@ -91,16 +102,26 @@ impl MediaFile {
         }
     }
 
-    pub fn get_cover_art(self) -> Result<Option<Vec<u8>>, MediaError> {
+    pub fn get_cover_art(self) -> Result<Option<Image>, MediaError> {
         unsafe {
             let best_image = try!(self.get_best_stream(AVMEDIA_TYPE_VIDEO));
+            let codec = (*best_image.codecpar).codec_id;
             loop {
                 match try!(self.read_packet()) {
                     Some(ref pkt) => {
+                        let image_type = match codec {
+                            AV_CODEC_ID_PNG => ImageType::PNG,
+                            AV_CODEC_ID_MJPEG => ImageType::JPG,
+                            _ => return Ok(None)
+                        };
                         if pkt.stream_index == best_image.index {
-                            return Ok(Some(slice::from_raw_parts(
-                                pkt.data, pkt.size as usize
-                                ).to_owned()));
+                            return Ok(Some(
+                                Image {
+                                    image_type: image_type,
+                                    data: slice::from_raw_parts(
+                                        pkt.data, pkt.size as usize
+                                        ).to_owned()
+                                }))
                         } else {
                             continue;
                         }

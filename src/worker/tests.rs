@@ -1,9 +1,14 @@
 use std::path::{Path, PathBuf};
 use super::muxer;
 use super::mediafile::MediaFile;
+use super::mediafile::ImageType;
 use super::error::*;
 use std::env;
+use std::io::Cursor;
 use std::fs::create_dir_all;
+use image::jpeg::JPEGDecoder;
+use image::png::PNGDecoder;
+use image::ImageDecoder;
 
 fn get_tempdir() -> PathBuf {
     let mut dir = env::temp_dir();
@@ -47,7 +52,6 @@ fn list_chapters() {
 }
 
 #[test]
-#[should_panic(expected="No such file or directory")]
 fn file_not_existing() {
     let f = MediaFile::read_file(
         Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
@@ -56,16 +60,21 @@ fn file_not_existing() {
         Err(me) => assert!(me.description.starts_with("No such file")),
         Ok(_) => panic!("We expect a Media Error here.")
     }
-    let file = MediaFile::read_file(
-        Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
-    ).unwrap();
 }
 
 #[test]
 fn get_thumbnail() {
-    let f = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
-    let data = f.get_cover_art().unwrap().unwrap();
-    // Check for jpeg header
-    assert_eq!(255, data[0]);
-    assert_eq!(216, data[1]);
+    let j = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
+    let jpeg_image = j.get_cover_art().unwrap().unwrap();
+    assert_eq!(jpeg_image.image_type, ImageType::JPG);
+    let mut jpeg_decoder = JPEGDecoder::new(Cursor::new(jpeg_image.data));
+    let jpeg_dims = jpeg_decoder.dimensions().unwrap();
+    assert_eq!((300, 300), jpeg_dims);
+
+    let f = MediaFile::read_file(Path::new("test-data/2.mp3")).unwrap();
+    let png_image = f.get_cover_art().unwrap().unwrap();
+    assert_eq!(png_image.image_type, ImageType::PNG);
+    let mut png_decoder = PNGDecoder::new(Cursor::new(png_image.data));
+    let png_dims = png_decoder.dimensions().unwrap();
+    assert_eq!((300, 300), png_dims);
 }

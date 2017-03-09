@@ -63,14 +63,17 @@ fn file_not_existing() {
 }
 
 #[test]
-fn get_thumbnail() {
+fn get_thumbnail_jpg() {
     let j = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
     let jpeg_image = j.get_cover_art().unwrap().unwrap();
     assert_eq!(jpeg_image.image_type, ImageType::JPG);
     let mut jpeg_decoder = JPEGDecoder::new(Cursor::new(jpeg_image.data));
     let jpeg_dims = jpeg_decoder.dimensions().unwrap();
     assert_eq!((300, 300), jpeg_dims);
+}
 
+#[test]
+fn get_thumbnail_png() {
     let f = MediaFile::read_file(Path::new("test-data/2.mp3")).unwrap();
     let png_image = f.get_cover_art().unwrap().unwrap();
     assert_eq!(png_image.image_type, ImageType::PNG);

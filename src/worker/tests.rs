@@ -68,14 +68,12 @@ fn media_title() {
 fn media_metadata() {
     let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
     assert_eq!(file.get_mediainfo().metadata.get("artist").unwrap(), "Mara Belcheva");
-
-    // println!("{:?}", file.get_mediainfo().metadata);
 }
 
 #[test]
 fn media_no_metadata() {
     let file = MediaFile::read_file(Path::new("test-data/no_metadata.mp3")).unwrap();
-    assert_eq!(file.get_mediainfo().metadata.get("artist").unwrap(), "no_metadata.mp3");
+    assert_eq!(file.get_mediainfo().title, "no_metadata.mp3");
 }
 
 #[test]

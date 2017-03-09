@@ -52,6 +52,25 @@ fn list_chapters() {
 }
 
 #[test]
+fn media_length() {
+    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    assert_eq!(file.get_mediainfo().length.floor() as usize,  165);
+}
+
+#[test]
+fn media_title() {
+    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    let mi = file.get_mediainfo();
+    assert_eq!("[Bulgarian]Stihotvorenia", mi.title)
+}
+
+#[test]
+fn media_metadat() {
+    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    println!("{:?}", file.get_mediainfo().metadata);
+}
+
+#[test]
 fn file_not_existing() {
     let f = MediaFile::read_file(
         Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")

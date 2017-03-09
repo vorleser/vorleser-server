@@ -4,7 +4,8 @@ use std::mem;
 use std::ffi::CString;
 use std::ffi::CStr;
 use std::ptr;
-use std::path::Path;
+use std::str;
+use std::path::{Path, PathBuf};
 use std::slice;
 use super::error::MediaError;
 use super::util::*;
@@ -22,9 +23,10 @@ pub struct Image {
 }
 
 #[derive(Debug)]
-pub struct Media {
+pub struct MediaInfo {
     pub length: f64,
     pub chapters: Vec<Chapter>,
+    pub title: String,
     pub metadata: HashMap<String, String>,
 }
 
@@ -59,6 +61,7 @@ impl Chapter {
 
 pub struct MediaFile {
     ctx: *mut AVFormatContext,
+    path: PathBuf,
     averror: i32,
     av_packet: Option<AVPacket>
 }
@@ -76,6 +79,7 @@ impl MediaFile {
             ensure_av_register_all();
             let c_file_name = CString::new(file_name_str).unwrap();
             let mut new = Self {
+                path: file_name.to_owned(),
                 ctx: avformat_alloc_context(),
                 averror: 0,
                 av_packet: None
@@ -152,12 +156,16 @@ impl MediaFile {
         }
     }
 
-    pub fn get_mediainfo(&self) -> Media {
+    pub fn get_mediainfo(&self) -> MediaInfo {
         unsafe {
-            Media {
+            let md = dict_to_map((*self.ctx).metadata as *mut Dictionary);
+            MediaInfo {
+                title: md.get("title").unwrap_or(
+                    &(*self.path.file_name().unwrap().to_string_lossy()).to_owned()
+                ).to_owned(),
                 chapters: self.get_chapters(),
                 length: apply_timebase((*self.ctx).duration, &AV_TIME_BASE_Q),
-                metadata: dict_to_map((*self.ctx).metadata as *mut Dictionary)
+                metadata: md
             }
         }
     }

@@ -63,7 +63,7 @@ fn file_not_existing() {
 
 #[test]
 fn get_thumbnail() {
-    let f = MediaFile::read_file(Path::new("test-data/auphonic_chapters_demo.m4a")).unwrap();
+    let f = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
     let data = f.get_cover_art().unwrap().unwrap();
     // Check for jpeg header
     assert_eq!(255, data[0]);

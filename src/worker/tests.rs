@@ -51,12 +51,21 @@ fn list_chapters() {
 fn file_not_existing() {
     let f = MediaFile::read_file(
         Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
-    );
+        );
     match f {
         Err(me) => assert!(me.description.starts_with("No such file")),
         Ok(_) => panic!("We expect a Media Error here.")
     }
     let file = MediaFile::read_file(
         Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
-        ).unwrap();
+    ).unwrap();
+}
+
+#[test]
+fn get_thumbnail() {
+    let f = MediaFile::read_file(Path::new("test-data/auphonic_chapters_demo.m4a")).unwrap();
+    let data = f.get_cover_art().unwrap().unwrap();
+    // Check for jpeg header
+    assert_eq!(255, data[0]);
+    assert_eq!(216, data[1]);
 }

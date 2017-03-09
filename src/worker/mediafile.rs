@@ -91,12 +91,24 @@ impl MediaFile {
         }
     }
 
-    pub fn get_cover_art(&mut self) -> &[u8] {
+    pub fn get_cover_art(self) -> Result<Option<Vec<u8>>, MediaError> {
         unsafe {
-            self.av_packet = Some(mem::uninitialized());
-            av_init_packet(self.av_packet.as_mut().unwrap() as *mut _);
-            av_read_frame(self.ctx, self.av_packet.as_mut().unwrap() as *mut _);
-            slice::from_raw_parts(self.av_packet.as_ref().unwrap().data, self.av_packet.as_ref().unwrap().size as usize)
+            let best_image = try!(self.get_best_stream(AVMEDIA_TYPE_VIDEO));
+            loop {
+                match try!(self.read_packet()) {
+                    Some(ref pkt) => {
+                        if pkt.stream_index == best_image.index {
+                            return Ok(Some(slice::from_raw_parts(
+                                pkt.data, pkt.size as usize
+                                ).to_owned()));
+                        } else {
+                            continue;
+                        }
+                    },
+                    None => break
+                }
+            };
+            Ok(None)
         }
     }
 

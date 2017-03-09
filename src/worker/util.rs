@@ -17,6 +17,9 @@ pub struct Dictionary {
 
 pub(super) fn dict_to_map(dict_pointer: *mut Dictionary) -> HashMap<String, String> {
     let mut map = HashMap::new();
+    if dict_pointer.is_null() {
+        return map
+    }
     unsafe {
         let dict: &Dictionary = &mut *dict_pointer;
         let v = av_dict_vec(dict);

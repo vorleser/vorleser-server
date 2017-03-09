@@ -1,19 +1,21 @@
+use uuid::Uuid;
+use diesel::prelude::*;
 use diesel::prelude::*;
 use schema::chapters;
 
-#[derive(Insertable)]
 #[table_name="chapters"]
-struct NewChapter {
-    pub length: f64,
-    pub tilte: String,
-    pub book: Uuid
+#[derive(Insertable)]
+pub struct NewChapter {
+    pub title: String,
+    pub start_time: f64,
+    pub audiobook_id: Uuid
 }
 
 #[derive(Debug, Queryable)]
 #[belongs_to(Audiobook)]
-struct Chatper {
+pub struct Chapter {
     id: Uuid,
     book_id: Uuid,
     title: String,
-    length: f64
+    start_time: f64
 }

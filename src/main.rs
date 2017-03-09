@@ -69,20 +69,21 @@ fn main() {
     return;
 
     let pool = helpers::db::init_db_pool();
+    pool.get().unwrap();
     {
-        let pool = pool.clone();
-        thread::spawn(move || {
-            let conn = pool.get().unwrap();
-            let scanner = Scanner {
-                regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
-                path: Path::new("test-data").to_path_buf(),
-                conn: &*conn,
-            };
-            loop {
-                scanner.scan_library();
-                thread::sleep(time::Duration::from_secs(5));
-            }
-        });
+        // let pool = pool.clone();
+        // thread::spawn(move || {
+        //     let conn = pool.get().unwrap();
+        //     let scanner = Scanner {
+        //         regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
+        //         path: Path::new("test-data").to_path_buf(),
+        //         conn: &*conn,
+        //     };
+        //     loop {
+        //         scanner.scan_library();
+        //         thread::sleep(time::Duration::from_secs(5));
+        //     }
+        // });
     }
     let mut args = env::args();
     args.next();
@@ -112,55 +113,6 @@ fn main() {
 
 }
 
-struct Scanner<'a> {
-    regex: Regex,
-    path: PathBuf,
-    conn: &'a PgConnection
-}
-
-impl<'a> Scanner<'a> {
-    // pub fn new(conn: PgConnection, root: PathBuf, regex: Regex) {
-    // }
-
-    pub fn scan_library(&self) {
-        //todo: it might be nice to check for file changed data and only check new files
-        println!("Scanning library.");
-        let mut walker = WalkDir::new(&self.path).follow_links(true).into_iter();
-        loop {
-            let entry = match walker.next() {
-                None => break,
-                Some(Err(e)) => panic!("Error: {}", e),
-                Some(Ok(i)) => i,
-            };
-            let path = entry.path().strip_prefix(&self.path).unwrap();
-            if path.components().count() == 0 { continue };
-            if is_audiobook(path, &self.regex) {
-                println!("{:?}", path);
-                if path.is_dir() {
-                    walker.skip_current_dir();
-                }
-            }
-        }
-    }
-}
-
-fn is_audiobook(path: &Path, regex: &Regex) -> bool {
-    regex.is_match(path.to_str().unwrap())
-}
-
-
-
-fn create_multifile_audiobook(path: &Path) -> Result<(), MediaError> {
-    println!("Creating audiobook from dir");
-    Ok(())
-}
-
-fn create_audiobook(path: &Path) -> Result<(), MediaError> {
-    println!("Creating audiobook!");
-    let md = try!(MediaFile::read_file(path)).get_mediainfo();
-    println!("{:?}", md);
-    Ok(())
-}
 
 fn save(buf: &[u8]) {
     let mut f = File::create("lul.jpg").unwrap();

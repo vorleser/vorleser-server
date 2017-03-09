@@ -18,8 +18,8 @@ CREATE TABLE audiobooks (
 CREATE TABLE chapters (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(1024),
-    length DOUBLE PRECISION NOT NULL,
-    audiobook_id UUID REFERENCES audiobooks (id)
+    audiobook_id UUID REFERENCES audiobooks (id),
+    start_time DOUBLE PRECISION NOT NULL
 );
 
 CREATE TABLE playstates (

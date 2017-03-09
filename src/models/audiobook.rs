@@ -5,7 +5,7 @@ use schema::playstates;
 
 #[table_name="audiobooks"]
 #[derive(Insertable)]
-struct NewAudiobook {
+pub struct NewAudiobook {
     pub title: String,
     pub length: f64,
 }
@@ -13,15 +13,15 @@ struct NewAudiobook {
 #[derive(Debug, Queryable)]
 #[hasmany(chapters)]
 #[table_name="audiobooks"]
-struct Audiobook {
-    id: Uuid,
-    title: String,
-    length: f64
+pub struct Audiobook {
+    pub id: Uuid,
+    pub title: String,
+    pub length: f64
 }
 
 #[derive(Insertable)]
 #[table_name="playstates"]
-struct NewPlaystate {
+pub struct NewPlaystate {
     pub position: f64,
     pub completed: bool,
     pub user_id: Uuid,
@@ -30,7 +30,7 @@ struct NewPlaystate {
 
 #[derive(Insertable)]
 #[table_name="playstates"]
-struct Playstate {
+pub struct Playstate {
     pub position: f64,
     pub completed: bool,
     pub user_id: Uuid,

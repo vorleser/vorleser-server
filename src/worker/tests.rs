@@ -9,6 +9,7 @@ use std::fs::create_dir_all;
 use image::jpeg::JPEGDecoder;
 use image::png::PNGDecoder;
 use image::ImageDecoder;
+use ::helpers::db::init_db_pool;
 
 fn get_tempdir() -> PathBuf {
     let mut dir = env::temp_dir();
@@ -16,6 +17,7 @@ fn get_tempdir() -> PathBuf {
     create_dir_all(&dir).unwrap();
     dir
 }
+
 fn read_files() -> Vec<MediaFile> {
     let files = vec!["1.mp3", "2.mp3", "3.mp3", "4.mp3"];
     files.iter().map(|s| "test-data/".to_owned() + s.to_owned()).map(
@@ -105,4 +107,11 @@ fn get_thumbnail_png() {
     let mut png_decoder = PNGDecoder::new(Cursor::new(png_image.data));
     let png_dims = png_decoder.dimensions().unwrap();
     assert_eq!((300, 300), png_dims);
+}
+
+#[test]
+fn create_audiobook() {
+    use super::scanner;
+    let mut pool = init_db_pool();
+    scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b"));
 }

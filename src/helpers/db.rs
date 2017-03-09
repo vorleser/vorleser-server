@@ -9,6 +9,7 @@ use std::env;
 use dotenv::dotenv;
 
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub type PooledConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
 
 pub fn init_db_pool() -> Pool {
     let config = r2d2::Config::default();
@@ -18,7 +19,7 @@ pub fn init_db_pool() -> Pool {
     r2d2::Pool::new(config, manager).expect("Failed to create pool.")
 }
 
-pub struct DB(r2d2::PooledConnection<ConnectionManager<PgConnection>>);
+pub struct DB(PooledConnection);
 
 impl Deref for DB {
     type Target = PgConnection;

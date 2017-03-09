@@ -2,9 +2,7 @@ use ffmpeg::*;
 
 use std::mem;
 use std::ffi::CString;
-use std::ffi::CStr;
 use std::ptr;
-use std::str;
 use std::path::{Path, PathBuf};
 use std::slice;
 use super::error::MediaError;
@@ -40,7 +38,6 @@ pub struct Chapter {
 impl Chapter {
     fn from_av_chapter(av: &AVChapter) -> Chapter {
         let start = apply_timebase(av.start, &av.time_base);
-        let end = apply_timebase(av.end, &av.time_base);
         let d = dict_to_map(av.metadata as *mut Dictionary);
         let title = d.get("title").cloned();
         Chapter {
@@ -147,12 +144,6 @@ impl MediaFile {
                 mem::transmute((*self.ctx).chapters),
                 (*self.ctx).nb_chapters as usize
                 )
-        }
-    }
-
-    pub fn get_codec(&self) -> &AVCodec {
-        unsafe {
-            unimplemented!()
         }
     }
 

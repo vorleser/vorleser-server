@@ -1,16 +1,11 @@
 use ffmpeg::*;
 
-use std::mem;
 use std::ffi::CString;
-use std::ffi::CStr;
 use std::ptr;
 use std::path::Path;
-use std::slice;
-use std::sync::Mutex;
 use super::error::MediaError;
 use super::mediafile::MediaFile;
 use super::util::*;
-use std::collections::HashMap;
 
 pub struct NewMediaFile {
     ctx: *mut AVFormatContext
@@ -95,8 +90,6 @@ pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile
         let mut this_file_duration: i64 = 0;
         println!("previous_files_duration: {}", previous_files_duration);
         loop {
-            let mut last_pts = 0;
-            let mut last_dts = 0;
             match try!(f.read_packet()) {
                 Some(mut pkt) => {
                     if pkt.stream_index != best.index {
@@ -118,7 +111,6 @@ pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile
             }
         }
         previous_files_duration = previous_files_duration + this_file_duration;
-        this_file_duration = 0;
     }
     println!("writing trailer");
     try!(out.write_trailer());

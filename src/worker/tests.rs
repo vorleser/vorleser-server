@@ -2,7 +2,6 @@ use std::path::{Path, PathBuf};
 use super::muxer;
 use super::mediafile::MediaFile;
 use super::mediafile::ImageType;
-use super::error::*;
 use std::env;
 use std::io::Cursor;
 use std::fs::create_dir_all;
@@ -46,7 +45,7 @@ fn concat_files() {
 #[test]
 fn list_chapters() {
     let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-    let mut chapters = file.get_chapters();
+    let chapters = file.get_chapters();
     assert_eq!(chapters.len(), 4);
     assert_eq!(chapters[2].clone().title.unwrap(), "3 - Otpluva lekii cheln...");
     assert_eq!(chapters[2].clone().start.floor() as usize, 91);
@@ -112,6 +111,6 @@ fn get_thumbnail_png() {
 #[test]
 fn create_audiobook() {
     use super::scanner;
-    let mut pool = init_db_pool();
-    scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b"));
+    let pool = init_db_pool();
+    scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b")).unwrap();
 }

@@ -6,7 +6,6 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
 use schema::users;
-use helpers::db::DB;
 use helpers::util;
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]

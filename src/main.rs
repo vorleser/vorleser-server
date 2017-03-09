@@ -1,6 +1,5 @@
 #![feature(plugin)]
 #![plugin(rocket_codegen)]
-#![feature(libc)]
 #![feature(custom_attribute)]
 #![allow(dead_code)]
 #![feature(pub_restricted)]
@@ -38,66 +37,25 @@ mod worker;
 
 use std::fs::File;
 use std::io::Write;
-use std::env;
-
-use std::fs;
-use std::path::{Path, PathBuf};
-
-use std::thread;
-use std::time;
-
-use walkdir::{WalkDir, WalkDirIterator};
-use regex::Regex;
-
-use diesel::pg::PgConnection;
-use std::env::args;
-use worker::mediafile::MediaFile;
-use worker::error::*;
 
 fn main() {
-    let mut args = env::args();
-    args.next();
-    let lol: Vec<MediaFile> = args.map(
-        |name| MediaFile::read_file(Path::new(&name)).unwrap()
-        ).collect();
-    // let stream = lol.first().unwrap().get_first_audio_stream().unwrap();
-    match worker::muxer::merge_files(Path::new("muxed.mp3"), lol) {
-        Err(e) => println!("{}", e),
-        _ => println!("Success")
-    }
-
-    return;
-
     let pool = helpers::db::init_db_pool();
-    pool.get().unwrap();
-    {
-        // let pool = pool.clone();
-        // thread::spawn(move || {
-        //     let conn = pool.get().unwrap();
-        //     let scanner = Scanner {
-        //         regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
-        //         path: Path::new("test-data").to_path_buf(),
-        //         conn: &*conn,
-        //     };
-        //     loop {
-        //         scanner.scan_library();
-        //         thread::sleep(time::Duration::from_secs(5));
-        //     }
-        // });
-    }
-    let mut args = env::args();
-    args.next();
-    // for s in args {
-    //     println!("{}", s);
-    //     match metadata::MediaFile::read_file(&s) {
-    //         Ok(ref mut c) => {
-    //             println!("{:?}", c.get_mediainfo());
-    //             save(c.get_cover_art());
-    //         },
-    //         Err(e) => println!("Error: {}", e)
-    //     }
+    // pool.get().unwrap();
+    // {
+    //     let pool = pool.clone();
+    //     thread::spawn(move || {
+    //         let conn = pool.get().unwrap();
+    //         let scanner = Scanner {
+    //             regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
+    //             path: Path::new("test-data").to_path_buf(),
+    //             conn: &*conn,
+    //         };
+    //         loop {
+    //             scanner.scan_library();
+    //             thread::sleep(time::Duration::from_secs(5));
+    //         }
+    //     });
     // }
-    // let worker = thread::
     rocket::ignite()
         .manage(pool)
         .mount("/api/hello/", routes![api::hello::whoami])

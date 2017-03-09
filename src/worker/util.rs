@@ -3,7 +3,7 @@ use std::slice;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use super::error::MediaError;
-use ffmpeg::{AVDictionaryEntry, AVDictionary, AVRational, av_register_all};
+use ffmpeg::{AVDictionaryEntry, AVRational, av_register_all};
 
 lazy_static! {
     static ref FFMPEG_INITIALIZED: Mutex<bool> = Mutex::new(false);

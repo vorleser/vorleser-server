@@ -1,6 +1,5 @@
 use uuid::Uuid;
 use diesel::prelude::*;
-use diesel::prelude::*;
 use schema::chapters;
 
 #[table_name="chapters"]

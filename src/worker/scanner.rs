@@ -4,12 +4,11 @@ use regex::Regex;
 
 use std::path::{Path, PathBuf};
 use diesel::prelude::*;
-use diesel::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ::helpers::db::{Pool, PooledConnection};
 use ::models::audiobook::{Audiobook, NewAudiobook};
-use ::models::chapter::{Chapter, NewChapter};
+use ::models::chapter::NewChapter;
 use ::schema::audiobooks;
 use ::schema::chapters;
 
@@ -56,6 +55,7 @@ impl Scanner {
 }
 
 fn process_audiobook(path: &Path, conn: PooledConnection) {
+    unimplemented!();
     if path.is_dir() {
         // handle multfile audiobook
     } else {

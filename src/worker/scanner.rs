@@ -82,14 +82,14 @@ pub(super) fn create_audiobook(conn: PooledConnection, path: &Path) -> Result<()
     let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn).unwrap();
     let book = books.first().unwrap();
     let chapters = file.get_chapters();
-    let new_chapters: Vec<NewChapter> = chapters.iter().map(move |chapter| {
+    let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(move |(i, chapter)| {
         NewChapter {
             audiobook_id: book.id,
             start_time: chapter.start,
-            title: chapter.title.clone().unwrap()
+            title: chapter.title.clone().unwrap(),
+            number: i as i64
         }
     }).collect();
     let suc = diesel::insert(&new_chapters).into(chapters::table).execute(&*conn).unwrap();
-    // println!("{:?}", md);
     Ok(())
 }

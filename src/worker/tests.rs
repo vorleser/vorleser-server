@@ -114,3 +114,17 @@ fn create_audiobook() {
     let pool = init_db_pool();
     scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b")).unwrap();
 }
+
+#[test]
+fn checksum() {
+    use super::scanner;
+    let checksum = scanner::checksum_file(Path::new("test-data/all.m4b"));
+    assert_slice_starts_with(&checksum.unwrap(), &[0x48, 0xab, 0x4a])
+}
+
+fn assert_slice_starts_with(bytes: &[u8], start: &[u8]) {
+    let mut i = bytes.iter();
+    for b in start {
+        assert_eq!(i.next().unwrap(), b);
+    }
+}

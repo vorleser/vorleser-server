@@ -2,10 +2,14 @@ extern crate diesel;
 use walkdir::{WalkDir, WalkDirIterator};
 use regex::Regex;
 
+use std::io;
+use std::io::Read;
+use std::fs::File;
 use std::path::{Path, PathBuf};
 use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
+use ring::digest;
 use ::helpers::db::{Pool, PooledConnection};
 use ::models::audiobook::{Audiobook, NewAudiobook};
 use ::models::chapter::NewChapter;
@@ -92,4 +96,15 @@ pub(super) fn create_audiobook(conn: PooledConnection, path: &Path) -> Result<()
     }).collect();
     let suc = diesel::insert(&new_chapters).into(chapters::table).execute(&*conn).unwrap();
     Ok(())
+}
+
+pub fn checksum_file(path: &Path) -> Result<Vec<u8>, io::Error> {
+    let file = File::open(path)?;
+    let mut ctx = digest::Context::new(&digest::SHA256);
+    for b in file.bytes() {
+        ctx.update(&[b?]);
+    }
+    let mut res = Vec::new();
+    res.extend_from_slice(ctx.finish().as_ref());
+    Ok(res)
 }

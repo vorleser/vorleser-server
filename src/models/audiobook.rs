@@ -7,16 +7,21 @@ use schema::playstates;
 #[derive(Insertable)]
 pub struct NewAudiobook {
     pub title: String,
+    pub location: String,
     pub length: f64,
+    pub library_id: Uuid
 }
 
 #[derive(Debug, Queryable)]
 #[hasmany(chapters)]
+#[belongs_to(Library)]
 #[table_name="audiobooks"]
 pub struct Audiobook {
     pub id: Uuid,
     pub title: String,
-    pub length: f64
+    pub location: String,
+    pub length: f64,
+    pub library_id: Uuid
 }
 
 #[derive(Insertable)]

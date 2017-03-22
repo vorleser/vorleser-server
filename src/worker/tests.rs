@@ -108,12 +108,12 @@ fn get_thumbnail_png() {
     assert_eq!((300, 300), png_dims);
 }
 
-#[test]
-fn create_audiobook() {
-    use super::scanner;
-    let pool = init_db_pool();
-    scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b")).unwrap();
-}
+// #[test]
+// fn create_audiobook() {
+//     use super::scanner;
+//     let pool = init_db_pool();
+//     scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b")).unwrap();
+// }
 
 #[test]
 fn checksum() {

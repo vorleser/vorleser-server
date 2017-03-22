@@ -44,7 +44,7 @@ pub fn register(user: JSON<UserSerializer>, db: DB) -> APIResponse {
     let user = diesel::insert(&new_user)
         .into(users::table)
         .get_result::<UserModel>(&*db)
-        .expect("Error saving new post");
+        .expect("Error saving user");
 
     created().message("User created.").data(json!(&user))
 }

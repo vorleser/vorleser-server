@@ -5,8 +5,10 @@ use argon2rs::argon2i_simple;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 
-use schema::users;
+use schema::{users, api_tokens};
 use helpers::util;
+use helpers::db::DB;
+use diesel;
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]
 pub struct UserModel {
@@ -14,6 +16,7 @@ pub struct UserModel {
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
     pub email: String,
+    #[serde(skip_serializing)]
     pub password_hash: String,
 }
 
@@ -34,38 +37,35 @@ impl UserModel {
         self.password_hash == candidate_password_string
     }
 
-    pub fn generate_auth_token(&self, salt: &str) -> String {
-        let secret = util::get_secret();
-        println!("secret: {}", secret);
+    pub fn generate_api_token(&self, db: DB) -> String {
+        let new_token = NewApiToken {
+            user_id: self.id
+        };
+        let token = diesel::insert(&new_token)
+            .into(api_tokens::table)
+            .get_result::<ApiToken>(&*db)
+            .expect("Error saving new api token");
 
-        // TODO: This is probably not a good way to do that.
-        let combined_secret = secret + salt;
-
-        encode(Header::default(),
-               &UserLoginToken { user_id: self.id },
-               combined_secret.as_bytes())
-            .unwrap()
+        return token.id.to_string()
     }
 
-    pub fn get_user_from_auth_token(token: &str, salt: &str, db: &PgConnection) -> Option<UserModel> {
+    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Option<UserModel> {
+        use schema;
+        use schema::api_tokens::dsl::*;
+
         use schema::users::dsl::*;
 
-        let secret = util::get_secret();
-        println!("secret: {}", secret);
-
-        // TODO: This is probably not a good way to do that.
-        let combined_secret = secret + salt;
-
-        let decrypted_token =
-            decode::<UserLoginToken>(&token, combined_secret.as_bytes(), Algorithm::HS256);
-        if decrypted_token.is_err() {
+        let token_id = Uuid::parse_str(token_id_string);
+        if token_id.is_err() {
             return None;
         }
 
-        let token = decrypted_token.unwrap();
+        let token = api_tokens.filter(schema::api_tokens::dsl::id.eq(token_id.unwrap())).first::<ApiToken>(&*db);
+        if token.is_err() {
+            return None;
+        }
 
-        let user = users.filter(id.eq(token.claims.user_id))
-            .first::<UserModel>(&*db);
+        let user = users.filter(schema::users::dsl::id.eq(token.unwrap().user_id)).first::<UserModel>(&*db);
         if user.is_err() {
             return None;
         }
@@ -79,4 +79,18 @@ impl UserModel {
 pub struct NewUser {
     pub email: String,
     pub password_hash: String,
+}
+
+#[derive(Insertable)]
+#[table_name="api_tokens"]
+pub struct NewApiToken {
+    pub user_id: Uuid,
+}
+
+#[derive(Debug, Queryable)]
+#[table_name="api_tokens"]
+pub struct ApiToken {
+    pub id: Uuid,
+    pub user_id: Uuid,
+    pub created_at: NaiveDateTime,
 }

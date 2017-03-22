@@ -11,11 +11,12 @@ pub struct NewChapter {
     pub number: i64
 }
 
+#[table_name="chapters"]
 #[derive(Debug, Queryable)]
 #[belongs_to(Audiobook)]
 pub struct Chapter {
     id: Uuid,
-    book_id: Uuid,
+    audiobook_id: Uuid,
     title: String,
     number: i64,
     start_time: f64

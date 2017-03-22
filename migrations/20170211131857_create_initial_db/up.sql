@@ -9,6 +9,12 @@ CREATE TABLE users (
 );
 SELECT diesel_manage_updated_at('users');
 
+CREATE TABLE api_tokens (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users (id) NOT NULL,
+    created_at TIMESTAMP DEFAULT current_timestamp NOT NULL
+);
+
 CREATE TABLE libraries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     content_change_date TIMESTAMP DEFAULT current_timestamp NOT NULL,
@@ -33,7 +39,7 @@ CREATE TABLE audiobooks (
 CREATE TABLE chapters (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     title VARCHAR(1024),
-    audiobook_id UUID REFERENCES audiobooks (id),
+    audiobook_id UUID REFERENCES audiobooks (id) NOT NULL,
     start_time DOUBLE PRECISION NOT NULL,
     number BIGINT NOT NULL
 );

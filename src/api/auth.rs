@@ -24,7 +24,7 @@ pub fn login(user_in: JSON<UserSerializer>, db: DB) -> APIResponse {
         return unauthorized().message("Username or password incorrect.");
     }
 
-    ok().data(json!(user.generate_auth_token("loginsalt")))
+    ok().data(json!(user.generate_api_token(db)))
 }
 
 #[post("/register", data = "<user>", format = "application/json")]

@@ -50,7 +50,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for UserModel {
 
         let token = tokens[0];
 
-        match UserModel::get_user_from_auth_token(&token, "loginsalt", &*db) {
+        match UserModel::get_user_from_api_token(&token, &*db) {
             Some(user) => Outcome::Success(user),
             None => Outcome::Failure((Status::Unauthorized, ())),
         }

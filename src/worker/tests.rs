@@ -122,6 +122,13 @@ fn checksum() {
     assert_slice_starts_with(&checksum.unwrap(), &[0x48, 0xab, 0x4a])
 }
 
+#[test]
+fn checksum_dir() {
+    use super::scanner;
+    let checksum = scanner::checksum_dir(Path::new("test-data/all"));
+    checksum.unwrap();
+}
+
 fn assert_slice_starts_with(bytes: &[u8], start: &[u8]) {
     let mut i = bytes.iter();
     for b in start {

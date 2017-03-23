@@ -1,5 +1,6 @@
 extern crate diesel;
 use walkdir::{WalkDir, WalkDirIterator};
+use humanesort::humane_order;
 use regex::Regex;
 
 use std::io;
@@ -100,10 +101,39 @@ fn create_multifile_audiobook(path: &Path) -> Result<(), MediaError> {
 
 
 pub fn checksum_file(path: &Path) -> Result<Vec<u8>, io::Error> {
-    let file = File::open(path)?;
     let mut ctx = digest::Context::new(&digest::SHA256);
+    update_hash_from_file(&mut ctx, path)?;
+    let mut res = Vec::new();
+    res.extend_from_slice(ctx.finish().as_ref());
+    Ok(res)
+}
+
+fn update_hash_from_file(ctx: &mut digest::Context, path: &Path) -> Result<(), io::Error> {
+    let file = File::open(path)?;
     for b in file.bytes() {
         ctx.update(&[b?]);
+    }
+    Ok(())
+}
+
+pub fn checksum_dir(path: &Path) -> Result<Vec<u8>, io::Error> {
+    let walker = WalkDir::new(path)
+        .follow_links(true)
+        .sort_by(
+            |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
+            );
+    let mut ctx = digest::Context::new(&digest::SHA256);
+    for entry in walker {
+        match entry {
+            Ok(e) => {
+                let p = e.path();
+                if e.file_type().is_file() {
+                    update_hash_from_file(&mut ctx, p)?;
+                }
+                ctx.update(p.to_string_lossy().as_bytes());
+            }
+            _ => ()
+        }
     }
     let mut res = Vec::new();
     res.extend_from_slice(ctx.finish().as_ref());

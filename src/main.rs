@@ -26,6 +26,7 @@ extern crate regex;
 extern crate walkdir;
 extern crate dotenv;
 extern crate image;
+extern crate humanesort;
 
 mod api;
 mod validation;

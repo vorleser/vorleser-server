@@ -8,6 +8,7 @@ dependencies = [
  "diesel_codegen 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dotenv 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffmpeg-sys 3.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "humanesort 0.1.0 (git+https://github.com/hatzel/humanesort)",
  "image 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "jsonwebtoken 1.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -222,6 +223,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 name = "httparse"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "humanesort"
+version = "0.1.0"
+source = "git+https://github.com/hatzel/humanesort#3ecd9f9ad25e9d7aec508c83815c5e23958e67a2"
+dependencies = [
+ "unicode-segmentation 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
 
 [[package]]
 name = "hyper"
@@ -751,6 +760,11 @@ version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
+name = "unicode-segmentation"
+version = "1.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
 name = "unicode-xid"
 version = "0.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -875,6 +889,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum gif 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)" = "8a80d6fe9e52f637df9afd4779449a7be17c39cc9c35b01589bb833f956ba596"
 "checksum glob 0.2.11 (registry+https://github.com/rust-lang/crates.io-index)" = "8be18de09a56b60ed0edf84bc9df007e30040691af7acd1c41874faac5895bfb"
 "checksum httparse 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "a6e7a63e511f9edffbab707141fbb8707d1a3098615fb2adbd5769cdfcc9b17d"
+"checksum humanesort 0.1.0 (git+https://github.com/hatzel/humanesort)" = "<none>"
 "checksum hyper 0.10.5 (registry+https://github.com/rust-lang/crates.io-index)" = "43a15e3273b2133aaac0150478ab443fb89f15c3de41d8d93d8f3bb14bf560f6"
 "checksum idna 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "1053236e00ce4f668aeca4a769a09b3bf5a682d802abd6f3cb39374f6b162c11"
 "checksum image 0.12.3 (registry+https://github.com/rust-lang/crates.io-index)" = "979bad0502082fd60053a490282e87d6c89650942e3a270e0d4c83569c7f5899"
@@ -940,6 +955,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum unicase 1.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "13a5906ca2b98c799f4b1ab4557b76367ebd6ae5ef14930ec841c74aed5f3764"
 "checksum unicode-bidi 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)" = "d3a078ebdd62c0e71a709c3d53d2af693fe09fe93fbff8344aebe289b78f9032"
 "checksum unicode-normalization 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)" = "e28fa37426fceeb5cf8f41ee273faa7c82c47dc8fba5853402841e665fcd86ff"
+"checksum unicode-segmentation 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)" = "18127285758f0e2c6cf325bb3f3d138a12fee27de4f23e146cd6a179f26c2cf3"
 "checksum unicode-xid 0.0.4 (registry+https://github.com/rust-lang/crates.io-index)" = "8c1f860d7d29cf02cb2f3f359fd35991af3d30bac52c57d265a3c461074cb4dc"
 "checksum unreachable 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1f2ae5ddb18e1c92664717616dd9549dde73f539f01bd7b77c2edb2446bdff91"
 "checksum untrusted 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "193df64312e3515fd983ded55ad5bcaa7647a035804828ed757e832ce6029ef3"

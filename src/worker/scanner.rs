@@ -33,14 +33,14 @@ impl Scanner {
         }
     }
 
-    pub fn scan_library(&self) {
+    pub fn scan_library(&self) -> Result<(), ()> {
         //todo: it might be nice to check for file changed data and only check new files
         println!("Scanning library.");
         let mut walker = WalkDir::new(&self.library.location.as_str()).follow_links(true).into_iter();
         loop {
             let entry = match walker.next() {
                 None => break,
-                Some(Err(e)) => panic!("Error: {}", e),
+                Some(Err(e)) => return Err(()),
                 Some(Ok(i)) => i,
             };
             let path = entry.path().strip_prefix(&self.library.location).unwrap();
@@ -52,50 +52,54 @@ impl Scanner {
                     walker.skip_current_dir();
                 }
             }
-        }
+        };
+        Ok(())
     }
 
     fn process_audiobook(&self, path: &Path) {
         unimplemented!();
         if path.is_dir() {
-            // handle multfile audiobook
+            self.create_multifile_audiobook(self.pool.get().unwrap(), path);
         } else {
-            // handle single file audiobook
+            self.create_audiobook(self.pool.get().unwrap(), path);
         }
     }
 
     pub(super) fn create_audiobook(&self, conn: PooledConnection, path: &Path) -> Result<(), MediaError> {
         let file = try!(MediaFile::read_file(path));
-        let md = file.get_mediainfo();
-        let new_book = NewAudiobook {
-            title: md.title,
-            length: md.length,
-            location: path.to_str().unwrap().to_owned(),
-            library_id: self.library.id
-        };
-        let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn).unwrap();
-        let book = books.first().unwrap();
-        let chapters = file.get_chapters();
-        let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(move |(i, chapter)| {
-            NewChapter {
-                audiobook_id: book.id,
-                start_time: chapter.start,
-                title: chapter.title.clone().unwrap(),
-                number: i as i64
-            }
-        }).collect();
-        let suc = diesel::insert(&new_chapters).into(chapters::table).execute(&*conn).unwrap();
+        conn.transaction(|| -> Result<(), diesel::result::Error> {
+            let md = file.get_mediainfo();
+            let new_book = NewAudiobook {
+                title: md.title,
+                length: md.length,
+                location: path.to_str().unwrap().to_owned(),
+                library_id: self.library.id
+            };
+            let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn).unwrap();
+            let book = books.first().unwrap();
+            let chapters = file.get_chapters();
+            let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(move |(i, chapter)| {
+                NewChapter {
+                    audiobook_id: book.id,
+                    start_time: chapter.start,
+                    title: chapter.title.clone().unwrap(),
+                    number: i as i64
+                }
+            }).collect();
+            let suc = diesel::insert(&new_chapters).into(chapters::table).execute(&*conn).unwrap();
+            return Ok(())
+        });
+        Ok(())
+    }
+
+    pub(super) fn create_multifile_audiobook(&self, conn: PooledConnection, path: &Path) -> Result<(), MediaError> {
+        println!("Stub for creating audiobook from dir");
         Ok(())
     }
 }
 
 fn is_audiobook(path: &Path, regex: &Regex) -> bool {
     regex.is_match(path.to_str().unwrap())
-}
-
-fn create_multifile_audiobook(path: &Path) -> Result<(), MediaError> {
-    println!("Creating audiobook from dir");
-    Ok(())
 }
 
 

@@ -18,10 +18,10 @@ use ::models::chapter::NewChapter;
 use ::schema::audiobooks;
 use ::schema::chapters;
 
-struct Scanner {
-    regex: Regex,
-    library: Library,
-    pool: Pool
+pub struct Scanner {
+    pub regex: Regex,
+    pub library: Library,
+    pub pool: Pool
 }
 
 impl Scanner {

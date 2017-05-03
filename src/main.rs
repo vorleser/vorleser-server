@@ -40,24 +40,34 @@ mod worker;
 use std::fs::File;
 use std::io::Write;
 
+use worker::scanner::Scanner;
+use std::env;
+use regex::Regex;
+use std::path::Path;
+use schema::libraries;
+use schema::libraries::dsl::*;
+use models::library::Library;
+use diesel::LoadDsl;
+use diesel::prelude::*;
+
 fn main() {
     let pool = helpers::db::init_db_pool();
-    // pool.get().unwrap();
-    // {
-    //     let pool = pool.clone();
-    //     thread::spawn(move || {
-    //         let conn = pool.get().unwrap();
-    //         let scanner = Scanner {
-    //             regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
-    //             path: Path::new("test-data").to_path_buf(),
-    //             conn: &*conn,
-    //         };
-    //         loop {
-    //             scanner.scan_library();
-    //             thread::sleep(time::Duration::from_secs(5));
-    //         }
-    //     });
-    // }
+
+    if env::args().nth(1) == Some("scan".to_string()) {
+        let ref db = *pool.get().unwrap();
+        let allLibraries = libraries.load::<Library>(db).unwrap();
+        for l in allLibraries {
+            println!("scanning library {}", l.location);
+            let scanner = Scanner {
+                regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
+                library: l,
+                pool: pool.clone(),
+            };
+            scanner.scan_library();
+        }
+        std::process::exit(0);
+    }
+
     rocket::ignite()
         .manage(pool)
         .mount("/api/hello/", routes![api::hello::whoami])
@@ -71,12 +81,4 @@ fn main() {
                        handlers::service_unavailable_handler])
         .launch();
 
-}
-
-
-fn save(buf: &[u8]) {
-    let mut f = File::create("lul.jpg").unwrap();
-    if let Ok(_) = f.write_all(buf) {
-        println!("Successfully wrote image!")
-    }
 }

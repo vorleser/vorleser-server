@@ -1,6 +1,5 @@
 use uuid::Uuid;
 use chrono::NaiveDateTime;
-use jsonwebtoken::{encode, decode, Header, Algorithm};
 use argon2rs::argon2i_simple;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;

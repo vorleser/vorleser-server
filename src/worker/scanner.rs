@@ -33,6 +33,9 @@ impl Scanner {
         }
     }
 
+    // for all existing audiobooks
+    // check hashes, if changed, remove book and create new with new data
+    // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
     pub fn scan_library(&self) -> Result<(), ()> {
         //todo: it might be nice to check for file changed data and only check new files
         println!("Scanning library.");

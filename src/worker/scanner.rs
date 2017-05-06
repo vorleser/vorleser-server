@@ -129,7 +129,8 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &Path) -> Result<(), i
 /// Returns the largest changed time stamp on any file in a given directory
 ///
 fn most_recent_change(path: &Path) -> io::Result<Option<SystemTime>> {
-    // this is a suboptimal solution it doesn't really matter here but creating a vector is nice
+    // this is a suboptimal solution it doesn't really matter here but creating a vector is not
+    // great
     let times: Result<Vec<SystemTime>, _> = WalkDir::new(path)
         .follow_links(true)
         .into_iter()

@@ -1,5 +1,6 @@
 extern crate diesel;
 use walkdir::{WalkDir, WalkDirIterator};
+use walkdir;
 use humanesort::humane_order;
 use regex::Regex;
 
@@ -17,6 +18,7 @@ use ::models::audiobook::{Audiobook, NewAudiobook};
 use ::models::chapter::NewChapter;
 use ::schema::audiobooks;
 use ::schema::chapters;
+use std::time::SystemTime;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -38,8 +40,8 @@ impl Scanner {
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
     pub fn scan_library(&self) -> Result<(), ()> {
         //todo: it might be nice to check for file changed data and only check new files
-        println!("Scanning library.");
-        let mut walker = WalkDir::new(&self.library.location.as_str()).follow_links(true).into_iter();
+        println!("Scanning library: {}", self.library.location);
+        let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
         loop {
             let entry = match walker.next() {
                 None => break,
@@ -121,6 +123,24 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &Path) -> Result<(), i
         ctx.update(&[b?]);
     }
     Ok(())
+}
+
+///
+/// Returns the largest changed time stamp on any file in a given directory
+///
+fn most_recent_change(path: &Path) -> io::Result<Option<SystemTime>> {
+    // this is a suboptimal solution it doesn't really matter here but creating a vector is nice
+    let times: Result<Vec<SystemTime>, _> = WalkDir::new(path)
+        .follow_links(true)
+        .into_iter()
+        .map(|el| -> Result<SystemTime, walkdir::Error> {
+            match el {
+                Ok(f) => Ok(f.metadata().unwrap().modified().unwrap()),
+                Err(e) => return Err(e)
+            }
+        })
+        .collect();
+    Ok(times?.iter().max().map(|e| e.clone()))
 }
 
 pub fn checksum_dir(path: &Path) -> Result<Vec<u8>, io::Error> {

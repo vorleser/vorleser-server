@@ -99,7 +99,7 @@ fn main() {
         for l in all_libraries {
             println!("scanning library {}", l.location);
             let scanner = Scanner {
-                regex: Regex::new("").expect("Invalid Regex!"),
+                regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
                 library: l,
                 pool: pool.clone(),
             };

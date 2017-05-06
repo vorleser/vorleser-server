@@ -26,6 +26,14 @@ pub struct Scanner {
     pub pool: Pool
 }
 
+quick_error! {
+    #[derive(Debug)]
+    pub enum ScannError {
+        Io(err: io::Error) {}
+        WalkDir(err: walkdir::Error) {}
+    }
+}
+
 impl Scanner {
     pub fn new(conn_pool: Pool, library: Library) -> Self {
         Self {
@@ -128,16 +136,22 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &Path) -> Result<(), i
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
-fn most_recent_change(path: &Path) -> io::Result<Option<SystemTime>> {
+fn most_recent_change(path: &Path) -> Result<Option<SystemTime>, ScannError> {
     // this is a suboptimal solution it doesn't really matter here but creating a vector is not
-    // great
+    // great.
     let times: Result<Vec<SystemTime>, _> = WalkDir::new(path)
         .follow_links(true)
         .into_iter()
-        .map(|el| -> Result<SystemTime, walkdir::Error> {
+        .map(|el| -> Result<SystemTime, ScannError> {
             match el {
-                Ok(f) => Ok(f.metadata().unwrap().modified().unwrap()),
-                Err(e) => return Err(e)
+                Ok(f) => {
+                    match f.metadata().map(|el| el.modified()) {
+                        Ok(Ok(modified)) => return Ok(modified),
+                        Ok(Err(e)) => return Err(ScannError::Io(e)),
+                        Err(e) => return Err(ScannError::WalkDir(e))
+                    };
+                },
+                Err(e) => return Err(ScannError::WalkDir(e))
             }
         })
         .collect();

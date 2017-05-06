@@ -5,6 +5,7 @@
 #![feature(pub_restricted)]
 
 #[macro_use] extern crate lazy_static;
+#[macro_use] extern crate quick_error;
 extern crate ring;
 extern crate uuid;
 extern crate rocket;

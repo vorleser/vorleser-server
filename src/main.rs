@@ -8,6 +8,7 @@
 extern crate ring;
 extern crate uuid;
 extern crate rocket;
+extern crate clap;
 #[macro_use] extern crate rocket_contrib;
 extern crate serde_json; #[macro_use] extern crate serde_derive;
 extern crate validator;
@@ -45,20 +46,60 @@ use regex::Regex;
 use std::path::Path;
 use schema::libraries;
 use schema::libraries::dsl::*;
-use models::library::Library;
+use models::library::{Library, NewLibrary};
 use diesel::LoadDsl;
 use diesel::prelude::*;
+use clap::{Arg, App, SubCommand};
+use diesel::insert;
+
+static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
     let pool = helpers::db::init_db_pool();
 
-    if env::args().nth(1) == Some("scan".to_string()) {
+    let matches = App::new(env!("CARGO_PKG_NAME"))
+        .about(env!("CARGO_PKG_DESCRIPTION"))
+        .version(env!("CARGO_PKG_VERSION"))
+        .arg(Arg::with_name("scan"))
+        .subcommand(SubCommand::with_name("new")
+                    .about("Create a new Library")
+                    .arg(Arg::with_name("path")
+                         .takes_value(true)
+                         .required(true))
+                    .arg(Arg::with_name("regex")
+                         .takes_value(true)
+                         .default_value(PATH_REGEX)))
+        .get_matches();
+
+    if let Some(matches) = matches.subcommand_matches("new") {
+        let ref conn = *pool.get().unwrap();
+        let path = matches.value_of("path").expect("Please provide a valid utf-8 path.");
+        let regex = matches.value_of("regex")
+            .expect("Regex needs to be valid utf-8.");
+        match Regex::new(regex) {
+            Ok(_) => {
+                match insert(
+                    &NewLibrary{
+                        location: path.to_owned(),
+                        is_audiobook_regex: regex.to_owned()
+                    }).into(libraries::table).execute(&*conn)
+                {
+                    Ok(1) => println!("Successfully created library."),
+                    _ => println!("Library creation failed.")
+                }
+            },
+            Err(e) => println!("{:?}", e)
+        }
+        std::process::exit(0);
+    };
+
+    if matches.is_present("scan") {
         let ref db = *pool.get().unwrap();
-        let allLibraries = libraries.load::<Library>(db).unwrap();
-        for l in allLibraries {
+        let all_libraries = libraries.load::<Library>(db).unwrap();
+        for l in all_libraries {
             println!("scanning library {}", l.location);
             let scanner = Scanner {
-                regex: Regex::new("^[^/]+$").expect("Invalid Regex!"),
+                regex: Regex::new("").expect("Invalid Regex!"),
                 library: l,
                 pool: pool.clone(),
             };
@@ -75,9 +116,8 @@ fn main() {
                api::auth::register,
         ])
         .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
-                       handlers::forbidden_handler, handlers::not_found_handler,
-                       handlers::internal_server_error_handler,
-                       handlers::service_unavailable_handler])
+               handlers::forbidden_handler, handlers::not_found_handler,
+               handlers::internal_server_error_handler,
+               handlers::service_unavailable_handler])
         .launch();
-
 }

@@ -1,39 +1,53 @@
 [package]
+authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
 name = "vorleser-rust"
 version = "0.1.0"
-authors = ["Hans Ole Hatzel <hhatzel@gmail.com>"]
-
 [dependencies]
-regex = "0.2.1"
-walkdir = "1"
-libc = "0.2"
-uuid = { version = "0.4", features = ["use_std", "serde", "v4", "rustc-serialize"] }
-chrono = { version = "0.3", features = ["serde"] }
 argon2rs = "0.2"
-rocket = "0.2.*"
-rocket_codegen = "0.2.*"
-diesel = { version = "0.11", features = ["postgres", "uuid", "chrono", "serde_json"] }
-diesel_codegen = { version = "0.11", features = ["postgres"] }
-r2d2 = "0.7.1"
-r2d2-diesel = "0.11"
-serde = "0.9"
-serde_json = "0.9"
-serde_derive = "0.9"
-lazy_static = "0.2"
-validator = "0.4"
-validator_derive = "0.4"
-rustc-serialize = "0.3"
+clap = "*"
 dotenv = "0.8.0"
 image = "0.12.3"
+lazy_static = "0.2"
+libc = "0.2"
+r2d2 = "0.7.1"
+r2d2-diesel = "0.11"
+regex = "0.2.1"
 ring = "0.6"
-humanesort = { git = "https://github.com/hatzel/humanesort" }
+rocket = "0.2.*"
+rocket_codegen = "0.2.*"
+rustc-serialize = "0.3"
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9"
+validator = "0.4"
+validator_derive = "0.4"
+walkdir = "1"
+
+[dependencies.chrono]
+features = ["serde"]
+version = "0.3"
+
+[dependencies.diesel]
+features = ["postgres", "uuid", "chrono", "serde_json"]
+version = "0.11"
+
+[dependencies.diesel_codegen]
+features = ["postgres"]
+version = "0.11"
 
 [dependencies.ffmpeg-sys]
-version = "3.2.0"
 default-features = false
 features = ["avformat"]
+version = "3.2.0"
+
+[dependencies.humanesort]
+git = "https://github.com/hatzel/humanesort"
 
 [dependencies.rocket_contrib]
-version = "0.2.*"
 default-features = false
 features = ["json"]
+version = "0.2.*"
+
+[dependencies.uuid]
+features = ["use_std", "serde", "v4", "rustc-serialize"]
+version = "0.4"

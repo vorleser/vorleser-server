@@ -60,7 +60,8 @@ fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .version(env!("CARGO_PKG_VERSION"))
-        .arg(Arg::with_name("scan"))
+        .subcommand(SubCommand::with_name("serve"))
+        .subcommand(SubCommand::with_name("scan"))
         .subcommand(SubCommand::with_name("new")
                     .about("Create a new Library")
                     .arg(Arg::with_name("path")
@@ -108,16 +109,19 @@ fn main() {
         std::process::exit(0);
     }
 
-    rocket::ignite()
-        .manage(pool)
-        .mount("/api/hello/", routes![api::hello::whoami])
-        .mount("/api/auth/", routes![
-               api::auth::login,
-               api::auth::register,
-        ])
-        .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
-               handlers::forbidden_handler, handlers::not_found_handler,
-               handlers::internal_server_error_handler,
-               handlers::service_unavailable_handler])
-        .launch();
+    if matches.is_present("serve") {
+        rocket::ignite()
+            .manage(pool)
+            .mount("/api/hello/", routes![api::hello::whoami])
+            .mount("/api/auth/", routes![
+                   api::auth::login,
+                   api::auth::register,
+            ])
+            .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
+                   handlers::forbidden_handler, handlers::not_found_handler,
+                   handlers::internal_server_error_handler,
+                   handlers::service_unavailable_handler])
+            .launch();
+    }
+
 }

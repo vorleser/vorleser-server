@@ -7,6 +7,7 @@ use regex::Regex;
 use std::io;
 use std::io::Read;
 use std::fs::File;
+use std::error::Error;
 use std::path::{Path, PathBuf};
 use diesel::prelude::*;
 use worker::mediafile::MediaFile;
@@ -30,9 +31,18 @@ pub struct Scanner {
 quick_error! {
     #[derive(Debug)]
     pub enum ScannError {
-        Io(err: io::Error) {}
-        WalkDir(err: walkdir::Error) {}
-        MediaError(err: MediaError) {}
+        Io(err: io::Error) {
+            description(err.description())
+        }
+        Db(err: diesel::result::Error) {
+            description(err.description())
+        }
+        WalkDir(err: walkdir::Error) {
+            description(err.description())
+        }
+        MediaError(err: MediaError) {
+            description(err.description())
+        }
     }
 }
 
@@ -49,10 +59,10 @@ impl Scanner {
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
     pub fn scan_library(&mut self) -> Result<(), ScannError> {
-        //todo: it might be nice to check for file changed data and only check new files
         println!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(SystemTime::now());
+        let conn = &*self.pool.get().unwrap();
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
         loop {
             let entry = match walker.next() {
@@ -60,10 +70,11 @@ impl Scanner {
                 Some(Err(e)) => return Err(ScannError::WalkDir(e)),
                 Some(Ok(i)) => i,
             };
-            let path = entry.path().strip_prefix(&self.library.location).unwrap();
-            if path.components().count() == 0 { continue };
-            if is_audiobook(path, &self.regex) {
-                let should_scan = match most_recent_change(&self.library.location) {
+            let path = entry.path();
+            let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
+            if relative_path.components().count() == 0 { continue };
+            if is_audiobook(relative_path, &self.regex) {
+                let should_scan = match most_recent_change(&path) {
                     Err(e) => return Err(e),
                     Ok(Some(time)) => if let Some(last_scan_time) = last_scan {
                         time >= last_scan_time
@@ -77,7 +88,7 @@ impl Scanner {
                     }
                 };
                 if should_scan {
-                    self.process_audiobook(&path);
+                    self.process_audiobook(&path, conn);
                     println!("Processed: {:?}", path);
                 }
                 // If it is an audiobook we don't continue searching deeper in the dir tree here
@@ -88,33 +99,37 @@ impl Scanner {
         };
         diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
                .set(&self.library)
-               .execute(&*self.pool.get().unwrap());
+               .execute(conn);
         Ok(())
     }
 
-    fn process_audiobook(&self, path: &AsRef<Path>) {
-        unimplemented!();
+    fn process_audiobook(&self, path: &AsRef<Path>, conn: &diesel::pg::PgConnection) {
         if path.as_ref().is_dir() {
+            println!("Multifile book");
             self.create_multifile_audiobook(self.pool.get().unwrap(), path.as_ref());
         } else {
-            self.create_audiobook(self.pool.get().unwrap(), path);
+            println!("Single file audiobook");
+            match self.create_audiobook(conn, path) {
+                Ok(_) => (),
+                Err(e) => println!("Error: {}", e.description())
+            };
         }
     }
 
-    pub(super) fn create_audiobook(&self, conn: PooledConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
+    pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
         let file = match MediaFile::read_file(&path.as_ref()) {
             Ok(f) => f,
             Err(e) => return Err(ScannError::MediaError(e))
         };
-        conn.transaction(|| -> Result<(), diesel::result::Error> {
-            let md = file.get_mediainfo();
-            let new_book = NewAudiobook {
-                title: md.title,
-                length: md.length,
-                location: path.as_ref().to_str().unwrap().to_owned(),
-                library_id: self.library.id
-            };
-            let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn).unwrap();
+        let md = file.get_mediainfo();
+        let new_book = NewAudiobook {
+            title: md.title,
+            length: md.length,
+            location: path.as_ref().to_str().unwrap().to_owned(),
+            library_id: self.library.id
+        };
+        let inserted = conn.transaction(|| -> Result<usize, diesel::result::Error> {
+            let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
             let book = books.first().unwrap();
             let chapters = file.get_chapters();
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(move |(i, chapter)| {
@@ -125,10 +140,15 @@ impl Scanner {
                     number: i as i64
                 }
             }).collect();
-            let suc = diesel::insert(&new_chapters).into(chapters::table).execute(&*conn).unwrap();
-            return Ok(())
+            diesel::insert(&new_chapters).into(chapters::table).execute(&*conn)
         });
-        Ok(())
+        match inserted {
+            Ok(_) => {
+                println!("Sucessfully saved book: {}", new_book.title);
+                Ok(())
+            },
+            Err(e) => Err(ScannError::Db(e))
+        }
     }
 
     pub(super) fn create_multifile_audiobook(&self, conn: PooledConnection, path: &Path) -> Result<(), MediaError> {

@@ -35,13 +35,19 @@ quick_error! {
             description(err.description())
         }
         Db(err: diesel::result::Error) {
-            description(err.description())
+            from()
+                description(err.description())
         }
         WalkDir(err: walkdir::Error) {
             description(err.description())
         }
         MediaError(err: MediaError) {
             description(err.description())
+        }
+        InvalidUnicode(err: ()) {
+        }
+        Other(descr: &'static str) {
+            description(descr)
         }
     }
 }
@@ -89,7 +95,6 @@ impl Scanner {
                 };
                 if should_scan {
                     self.process_audiobook(&path, conn);
-                    println!("Processed: {:?}", path);
                 }
                 // If it is an audiobook we don't continue searching deeper in the dir tree here
                 if path.is_dir() {
@@ -97,18 +102,18 @@ impl Scanner {
                 }
             }
         };
-        diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
-               .set(&self.library)
-               .execute(conn);
-        Ok(())
+        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
+            .set(&self.library)
+            .execute(conn) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(ScannError::Db(e))
+            }
     }
 
     fn process_audiobook(&self, path: &AsRef<Path>, conn: &diesel::pg::PgConnection) {
         if path.as_ref().is_dir() {
-            println!("Multifile book");
-            self.create_multifile_audiobook(self.pool.get().unwrap(), path.as_ref());
+            self.create_multifile_audiobook(conn, path);
         } else {
-            println!("Single file audiobook");
             match self.create_audiobook(conn, path) {
                 Ok(_) => (),
                 Err(e) => println!("Error: {}", e.description())
@@ -121,11 +126,12 @@ impl Scanner {
             Ok(f) => f,
             Err(e) => return Err(ScannError::MediaError(e))
         };
-        let md = file.get_mediainfo();
+        let relative_path = self.relative_path_str(path)?;
+        let metadata = file.get_mediainfo();
         let new_book = NewAudiobook {
-            title: md.title,
-            length: md.length,
-            location: path.as_ref().to_str().unwrap().to_owned(),
+            title: metadata.title,
+            length: metadata.length,
+            location: relative_path.to_owned(),
             library_id: self.library.id
         };
         let inserted = conn.transaction(|| -> Result<usize, diesel::result::Error> {
@@ -151,9 +157,70 @@ impl Scanner {
         }
     }
 
-    pub(super) fn create_multifile_audiobook(&self, conn: PooledConnection, path: &Path) -> Result<(), MediaError> {
-        println!("Stub for creating audiobook from dir");
-        Ok(())
+    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str, ScannError>{
+        match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
+            Err(_) => Err(ScannError::Other("Path is not inside library.")),
+            Ok(None) => Err(ScannError::Other("Path is not a valid utf-8 String.")),
+            Ok(Some(p)) => Ok(p)
+        }
+    }
+    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
+        // for now each file will be a chapter, maybe in the future we want to use chapter
+        // metadata if it is present.
+        // TODO: build new file
+        let hash = checksum_dir(path);
+        let walker = WalkDir::new(&path.as_ref())
+            .follow_links(true)
+            .sort_by(
+                |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
+                );
+        let mut all_chapters = Vec::new();
+        let mut start_time = 0.0;
+        let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
+            Some(s) => s.into_owned(),
+            None => return Err(ScannError::InvalidUnicode(()))
+        };
+        conn.transaction(|| {
+            let new_book = NewAudiobook {
+                length: 0.0,
+                library_id: self.library.id,
+                location: self.relative_path_str(path)?.to_owned(),
+                title: title
+            };
+            let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
+            let book = books.first().unwrap();
+            for (i, entry) in walker.into_iter().enumerate() {
+                match entry {
+                    Ok(file_path) => {
+                        match MediaFile::read_file(&file_path.path()) {
+                            Ok(f) => {
+                                if i == 0 {
+                                    if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
+                                        diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
+                                            .set(audiobooks::dsl::title.eq(new_title));
+                                    }
+                                };
+                                let info = f.get_mediainfo();
+                                let new_chapter = NewChapter {
+                                    title: info.title,
+                                    start_time: start_time,
+                                    audiobook_id: book.id,
+                                    number: i as i64
+                                };
+                                diesel::insert(&new_chapter).into(chapters::table).execute(&*conn)?;
+                                start_time += info.length;
+                                all_chapters.push(new_chapter)
+                            }
+                            Err(e) => return Err(ScannError::MediaError(e))
+                        }
+                    },
+                    Err(e) => return Err(ScannError::WalkDir(e))
+                };
+            };
+            diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
+                .set(audiobooks::dsl::length.eq(start_time));
+            Ok(())
+        })
     }
 }
 
@@ -200,12 +267,12 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<SystemTime>, ScannErr
                 Err(e) => return Err(ScannError::WalkDir(e))
             }
         })
-        .collect();
+    .collect();
     Ok(times?.iter().max().map(|e| e.clone()))
 }
 
-pub fn checksum_dir(path: &Path) -> Result<Vec<u8>, io::Error> {
-    let walker = WalkDir::new(path)
+pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
+    let walker = WalkDir::new(path.as_ref())
         .follow_links(true)
         .sort_by(
             |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())

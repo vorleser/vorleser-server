@@ -31,6 +31,7 @@ quick_error! {
     pub enum ScannError {
         Io(err: io::Error) {}
         WalkDir(err: walkdir::Error) {}
+        MediaError(err: MediaError) {}
     }
 }
 
@@ -46,21 +47,38 @@ impl Scanner {
     // for all existing audiobooks
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
-    pub fn scan_library(&self) -> Result<(), ()> {
+    pub fn scan_library(&self) -> Result<(), ScannError> {
         //todo: it might be nice to check for file changed data and only check new files
         println!("Scanning library: {}", self.library.location);
+        let last_scan = self.library.last_scan;
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
         loop {
             let entry = match walker.next() {
                 None => break,
-                Some(Err(e)) => return Err(()),
+                Some(Err(e)) => return Err(ScannError::WalkDir(e)),
                 Some(Ok(i)) => i,
             };
             let path = entry.path().strip_prefix(&self.library.location).unwrap();
             if path.components().count() == 0 { continue };
             if is_audiobook(path, &self.regex) {
-                self.process_audiobook(path);
-                println!("{:?}", path);
+                let should_scan = match most_recent_change(&self.library.location) {
+                    Err(e) => return Err(e),
+                    Ok(Some(time)) => if let Some(last_scan_time) = last_scan {
+                        time >= last_scan_time
+                    } else {
+                        // if there was no scan before we should scan now
+                        true
+                    },
+                    Ok(None) => {
+                        println!("No change data for files available, will hash everything.");
+                        true
+                    }
+                };
+                if should_scan {
+                    self.process_audiobook(&path);
+                    println!("Processed: {:?}", path);
+                }
+                // If it is an audiobook we don't continue searching deeper in the dir tree here
                 if path.is_dir() {
                     walker.skip_current_dir();
                 }
@@ -69,23 +87,26 @@ impl Scanner {
         Ok(())
     }
 
-    fn process_audiobook(&self, path: &Path) {
+    fn process_audiobook(&self, path: &AsRef<Path>) {
         unimplemented!();
-        if path.is_dir() {
-            self.create_multifile_audiobook(self.pool.get().unwrap(), path);
+        if path.as_ref().is_dir() {
+            self.create_multifile_audiobook(self.pool.get().unwrap(), path.as_ref());
         } else {
             self.create_audiobook(self.pool.get().unwrap(), path);
         }
     }
 
-    pub(super) fn create_audiobook(&self, conn: PooledConnection, path: &Path) -> Result<(), MediaError> {
-        let file = try!(MediaFile::read_file(path));
+    pub(super) fn create_audiobook(&self, conn: PooledConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
+        let file = match MediaFile::read_file(&path.as_ref()) {
+            Ok(f) => f,
+            Err(e) => return Err(ScannError::MediaError(e))
+        };
         conn.transaction(|| -> Result<(), diesel::result::Error> {
             let md = file.get_mediainfo();
             let new_book = NewAudiobook {
                 title: md.title,
                 length: md.length,
-                location: path.to_str().unwrap().to_owned(),
+                location: path.as_ref().to_str().unwrap().to_owned(),
                 library_id: self.library.id
             };
             let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn).unwrap();
@@ -136,10 +157,10 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &Path) -> Result<(), i
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
-fn most_recent_change(path: &Path) -> Result<Option<SystemTime>, ScannError> {
+fn most_recent_change(path: &AsRef<Path>) -> Result<Option<SystemTime>, ScannError> {
     // this is a suboptimal solution it doesn't really matter here but creating a vector is not
     // great.
-    let times: Result<Vec<SystemTime>, _> = WalkDir::new(path)
+    let times: Result<Vec<SystemTime>, _> = WalkDir::new(path.as_ref())
         .follow_links(true)
         .into_iter()
         .map(|el| -> Result<SystemTime, ScannError> {

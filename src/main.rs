@@ -83,7 +83,8 @@ fn main() {
                 match insert(
                     &NewLibrary{
                         location: path.to_owned(),
-                        is_audiobook_regex: regex.to_owned()
+                        is_audiobook_regex: regex.to_owned(),
+                        last_scan: None
                     }).into(libraries::table).execute(&*conn)
                 {
                     Ok(1) => println!("Successfully created library."),

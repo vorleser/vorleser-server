@@ -13,7 +13,7 @@ pub struct NewLibrary {
 }
 
 #[table_name="libraries"]
-#[derive(Debug, Queryable)]
+#[derive(Debug, Queryable, AsChangeset)]
 pub struct Library {
     pub id: Uuid,
     pub content_change_date: NaiveDateTime,

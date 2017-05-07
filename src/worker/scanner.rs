@@ -18,6 +18,7 @@ use ::models::audiobook::{Audiobook, NewAudiobook};
 use ::models::chapter::NewChapter;
 use ::schema::audiobooks;
 use ::schema::chapters;
+use ::schema::libraries;
 use std::time::SystemTime;
 
 pub struct Scanner {
@@ -47,10 +48,11 @@ impl Scanner {
     // for all existing audiobooks
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
-    pub fn scan_library(&self) -> Result<(), ScannError> {
+    pub fn scan_library(&mut self) -> Result<(), ScannError> {
         //todo: it might be nice to check for file changed data and only check new files
         println!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
+        self.library.last_scan = Some(SystemTime::now());
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
         loop {
             let entry = match walker.next() {
@@ -84,6 +86,9 @@ impl Scanner {
                 }
             }
         };
+        diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
+               .set(&self.library)
+               .execute(&*self.pool.get().unwrap());
         Ok(())
     }
 

@@ -2,7 +2,6 @@
 #![plugin(rocket_codegen)]
 #![feature(custom_attribute)]
 #![allow(dead_code)]
-#![feature(pub_restricted)]
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate quick_error;
@@ -38,13 +37,9 @@ mod responses;
 mod helpers;
 mod worker;
 
-use std::fs::File;
-use std::io::Write;
-
+use std::error::Error;
 use worker::scanner::Scanner;
-use std::env;
 use regex::Regex;
-use std::path::Path;
 use schema::libraries;
 use schema::libraries::dsl::*;
 use models::library::{Library, NewLibrary};
@@ -101,12 +96,16 @@ fn main() {
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {
             println!("scanning library {}", l.location);
-            let scanner = Scanner {
+            let mut scanner = Scanner {
                 regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
                 library: l,
                 pool: pool.clone(),
             };
-            scanner.scan_library();
+            if let Err(error) = scanner.scan_library() {
+                println!("Scan failed with error: {:?}", error.description());
+            } else {
+                println!("Scan succeeded!");
+            }
         }
         std::process::exit(0);
     }

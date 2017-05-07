@@ -32,11 +32,12 @@ quick_error! {
     #[derive(Debug)]
     pub enum ScannError {
         Io(err: io::Error) {
+            from()
             description(err.description())
         }
         Db(err: diesel::result::Error) {
             from()
-                description(err.description())
+            description(err.description())
         }
         WalkDir(err: walkdir::Error) {
             description(err.description())
@@ -132,7 +133,8 @@ impl Scanner {
             title: metadata.title,
             length: metadata.length,
             location: relative_path.to_owned(),
-            library_id: self.library.id
+            library_id: self.library.id,
+            hash: checksum_file(path)?
         };
         let inserted = conn.transaction(|| -> Result<usize, diesel::result::Error> {
             let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
@@ -168,7 +170,7 @@ impl Scanner {
         // for now each file will be a chapter, maybe in the future we want to use chapter
         // metadata if it is present.
         // TODO: build new file
-        let hash = checksum_dir(path);
+        let hash = checksum_dir(path)?;
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
@@ -185,7 +187,8 @@ impl Scanner {
                 length: 0.0,
                 library_id: self.library.id,
                 location: self.relative_path_str(path)?.to_owned(),
-                title: title
+                title: title,
+                hash: hash
             };
             let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
             let book = books.first().unwrap();
@@ -230,7 +233,7 @@ fn is_audiobook(path: &Path, regex: &Regex) -> bool {
 
 
 
-pub fn checksum_file(path: &Path) -> Result<Vec<u8>, io::Error> {
+pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     let mut ctx = digest::Context::new(&digest::SHA256);
     update_hash_from_file(&mut ctx, path)?;
     let mut res = Vec::new();
@@ -238,10 +241,13 @@ pub fn checksum_file(path: &Path) -> Result<Vec<u8>, io::Error> {
     Ok(res)
 }
 
-fn update_hash_from_file(ctx: &mut digest::Context, path: &Path) -> Result<(), io::Error> {
-    let file = File::open(path)?;
-    for b in file.bytes() {
-        ctx.update(&[b?]);
+fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<(), io::Error> {
+    let mut file = File::open(path.as_ref())?;
+    let mut buf: [u8; 1024] = [0; 1024];
+    loop {
+        let count = file.read(&mut buf[..])?;
+        ctx.update(&buf);
+        if count == 0 { break }
     }
     Ok(())
 }
@@ -283,7 +289,7 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
             Ok(e) => {
                 let p = e.path();
                 if e.file_type().is_file() {
-                    update_hash_from_file(&mut ctx, p)?;
+                    update_hash_from_file(&mut ctx, &p)?;
                 }
                 ctx.update(p.to_string_lossy().as_bytes());
             }

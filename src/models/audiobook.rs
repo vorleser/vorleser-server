@@ -9,7 +9,8 @@ pub struct NewAudiobook {
     pub title: String,
     pub location: String,
     pub length: f64,
-    pub library_id: Uuid
+    pub library_id: Uuid,
+    pub hash: Vec<u8>
 }
 
 #[derive(Debug, Queryable)]
@@ -21,7 +22,8 @@ pub struct Audiobook {
     pub title: String,
     pub location: String,
     pub length: f64,
-    pub library_id: Uuid
+    pub library_id: Uuid,
+    pub hash: Vec<u8>
 }
 
 #[derive(Insertable)]

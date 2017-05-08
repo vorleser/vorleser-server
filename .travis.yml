@@ -6,4 +6,5 @@ before_install:
   - docker pull postgres:latest
 script:
   - docker-compose up -d
+  - sleep 5
   - docker-compose run app bash -c "diesel setup && cargo test"

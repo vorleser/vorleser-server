@@ -3,9 +3,10 @@ group: deprecated-2017Q1
 services:
   - docker
 before_install:
-  - echo DATABASE_URL=postgres://vorleser@postgres/vorleser:15432 > .env
+  - echo DATABASE_URL=postgres://vorleser@postgres/vorleser > .env
   - docker build -t vorleser-server .
   - docker pull postgres:latest
 script:
   - docker-compose up -d
+  - sleep 5
   - docker-compose run app bash -c "diesel setup && cargo test"

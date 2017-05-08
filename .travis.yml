@@ -3,7 +3,7 @@ group: deprecated-2017Q1
 services:
   - docker
 before_install:
-  - echo DATABASE_URL=postgres://vorleser@postgres/vorleser > .env
+  - echo DATABASE_URL=postgres://vorleser@postgres/vorleser:15432 > .env
   - docker build -t vorleser-server .
   - docker pull postgres:latest
 script:

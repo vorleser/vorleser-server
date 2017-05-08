@@ -1,3 +1,5 @@
+sudo: required
+group: deprecated-2017Q1
 services:
   - docker
 before_install:
@@ -6,5 +8,4 @@ before_install:
   - docker pull postgres:latest
 script:
   - docker-compose up -d
-  - sleep 20
   - docker-compose run app bash -c "diesel setup && cargo test"

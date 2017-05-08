@@ -139,6 +139,8 @@ impl Scanner {
             return Ok(());
         }
 
+        // if the hash has changed we 
+
         let file = match MediaFile::read_file(&path.as_ref()) {
             Ok(f) => f,
             Err(e) => return Err(ScannError::MediaError(e))
@@ -188,6 +190,7 @@ impl Scanner {
         // metadata if it is present.
         let hash = checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
+        println!("Multifile audiobook at {:?}", path.as_ref());
 
         // if a book with the same hash exists in the database all we want to do is adjust the
         // path to retain all other information related to the book
@@ -225,6 +228,7 @@ impl Scanner {
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file_path) => {
+                        if file_path.path().is_dir() { continue };
                         match MediaFile::read_file(&file_path.path()) {
                             Ok(f) => {
                                 if i == 0 {

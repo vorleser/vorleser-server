@@ -134,7 +134,7 @@ impl Scanner {
         let relative_path = self.relative_path_str(path)?;
         let hash = checksum_file(path)?;
 
-        if Audiobook::update_path(&hash, &relative_path, conn)? {
+        if Audiobook::update_path_for_hash(&hash, &relative_path, conn)? {
             println!("Updated path");
             return Ok(());
         }
@@ -198,8 +198,8 @@ impl Scanner {
         // What happens if we have two exact same audiobooks in the library path?:
         // It should just keep switching the paths around whenever a file creation time is
         // updated which is not to bad.
-        if Audiobook::update_path(&hash, &relative_path, conn)? {
-            println!("Updated path");
+        // TODO: this function is horribly named
+        if Audiobook::update_path_for_hash(&hash, &relative_path, conn)? {
             return Ok(());
         }
 
@@ -223,8 +223,7 @@ impl Scanner {
                 title: title,
                 hash: hash
             };
-            let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
-            let book = books.first().unwrap();
+            let book = diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?;
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file_path) => {
@@ -234,7 +233,7 @@ impl Scanner {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
                                         diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
-                                            .set(audiobooks::dsl::title.eq(new_title));
+                                            .set(audiobooks::dsl::title.eq(new_title)).execute(conn)?;
                                     }
                                 };
                                 let info = f.get_mediainfo();
@@ -244,7 +243,7 @@ impl Scanner {
                                     audiobook_id: book.id,
                                     number: i as i64
                                 };
-                                diesel::insert(&new_chapter).into(chapters::table).execute(&*conn)?;
+                                diesel::insert(&new_chapter).into(chapters::table).execute(conn)?;
                                 start_time += info.length;
                                 all_chapters.push(new_chapter)
                             }
@@ -255,7 +254,7 @@ impl Scanner {
                 };
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
-                .set(audiobooks::dsl::length.eq(start_time));
+                .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
             Ok(())
         })
     }

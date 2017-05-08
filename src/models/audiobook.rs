@@ -35,7 +35,7 @@ impl Audiobook {
 
     /// Updates the path of any book with the given hash to the new_path provided.
     /// Returns true if a path is now correct, returns false if no book with this hash exists.
-    pub fn update_path(hash: &[u8], new_path: &AsRef<str>, conn: &diesel::pg::PgConnection) -> Result<bool, diesel::result::Error> {
+    pub fn update_path_for_hash(hash: &[u8], new_path: &AsRef<str>, conn: &diesel::pg::PgConnection) -> Result<bool, diesel::result::Error> {
         println!("Updating Path");
         if let Ok(book) = Self::find_by_hash(hash, conn) {
             if book.location != new_path.as_ref() {

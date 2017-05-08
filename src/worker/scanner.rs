@@ -4,6 +4,7 @@ use walkdir;
 use humanesort::humane_order;
 use regex::Regex;
 
+use uuid::Uuid;
 use std::io;
 use std::io::Read;
 use std::fs::File;
@@ -21,6 +22,8 @@ use ::schema::audiobooks;
 use ::schema::chapters;
 use ::schema::libraries;
 use std::time::SystemTime;
+use diesel::query_builder::AsChangeset;
+use diesel::query_builder::Changeset;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -45,7 +48,7 @@ quick_error! {
         MediaError(err: MediaError) {
             description(err.description())
         }
-        InvalidUnicode(err: ()) {
+        InvalidUtf8(err: ()) {
         }
         Other(descr: &'static str) {
             description(descr)
@@ -71,6 +74,7 @@ impl Scanner {
         self.library.last_scan = Some(SystemTime::now());
         let conn = &*self.pool.get().unwrap();
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
+
         loop {
             let entry = match walker.next() {
                 None => break,
@@ -103,6 +107,7 @@ impl Scanner {
                 }
             }
         };
+
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
             .set(&self.library)
             .execute(conn) {
@@ -113,7 +118,10 @@ impl Scanner {
 
     fn process_audiobook(&self, path: &AsRef<Path>, conn: &diesel::pg::PgConnection) {
         if path.as_ref().is_dir() {
-            self.create_multifile_audiobook(conn, path);
+            match self.create_multifile_audiobook(conn, path) {
+                Ok(_) => (),
+                Err(e) => println!("Error: {}", e.description())
+            };
         } else {
             match self.create_audiobook(conn, path) {
                 Ok(_) => (),
@@ -123,18 +131,26 @@ impl Scanner {
     }
 
     pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
+        let relative_path = self.relative_path_str(path)?;
+        let hash = checksum_file(path)?;
+
+        if Audiobook::update_path(&hash, &relative_path, conn)? {
+            println!("Updated path");
+            return Ok(());
+        }
+
         let file = match MediaFile::read_file(&path.as_ref()) {
             Ok(f) => f,
             Err(e) => return Err(ScannError::MediaError(e))
         };
-        let relative_path = self.relative_path_str(path)?;
+
         let metadata = file.get_mediainfo();
         let new_book = NewAudiobook {
             title: metadata.title,
             length: metadata.length,
             location: relative_path.to_owned(),
             library_id: self.library.id,
-            hash: checksum_file(path)?
+            hash: hash
         };
         let inserted = conn.transaction(|| -> Result<usize, diesel::result::Error> {
             let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
@@ -166,11 +182,25 @@ impl Scanner {
             Ok(Some(p)) => Ok(p)
         }
     }
+
     pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
         // for now each file will be a chapter, maybe in the future we want to use chapter
         // metadata if it is present.
-        // TODO: build new file
         let hash = checksum_dir(path)?;
+        let relative_path = self.relative_path_str(path)?.to_owned();
+
+        // if a book with the same hash exists in the database all we want to do is adjust the
+        // path to retain all other information related to the book
+        //
+        // What happens if we have two exact same audiobooks in the library path?:
+        // It should just keep switching the paths around whenever a file creation time is
+        // updated which is not to bad.
+        if Audiobook::update_path(&hash, &relative_path, conn)? {
+            println!("Updated path");
+            return Ok(());
+        }
+
+        // TODO: build new file
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
@@ -180,13 +210,13 @@ impl Scanner {
         let mut start_time = 0.0;
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
-            None => return Err(ScannError::InvalidUnicode(()))
+            None => return Err(ScannError::InvalidUtf8(()))
         };
         conn.transaction(|| {
             let new_book = NewAudiobook {
                 length: 0.0,
                 library_id: self.library.id,
-                location: self.relative_path_str(path)?.to_owned(),
+                location: relative_path,
                 title: title,
                 hash: hash
             };
@@ -300,3 +330,4 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     res.extend_from_slice(ctx.finish().as_ref());
     Ok(res)
 }
+

@@ -3,18 +3,16 @@ use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;
 use humanesort::humane_order;
 use regex::Regex;
-
-use uuid::Uuid;
 use std::io;
 use std::io::Read;
 use std::fs::File;
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ring::digest;
-use ::helpers::db::{Pool, PooledConnection};
+use ::helpers::db::Pool;
 use ::models::library::*;
 use ::models::audiobook::{Audiobook, NewAudiobook};
 use ::models::chapter::NewChapter;
@@ -23,8 +21,6 @@ use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
 use std::time::SystemTime;
-use diesel::query_builder::AsChangeset;
-use diesel::query_builder::Changeset;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -140,8 +136,6 @@ impl Scanner {
             info!("Updated path, new location is {}", path.as_ref().to_string_lossy());
             return Ok(());
         }
-
-        // if the hash has changed we 
 
         let file = match MediaFile::read_file(&path.as_ref()) {
             Ok(f) => f,

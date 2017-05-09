@@ -289,10 +289,10 @@ pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
 
 fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<(), io::Error> {
     let mut file = File::open(path.as_ref())?;
-    let mut buf: [u8; 1] = [0; 1];
+    let mut buf: [u8; 1024] = [0; 1024];
     loop {
         let count = file.read(&mut buf[..])?;
-        ctx.update(&buf);
+        ctx.update(&buf[0..count]);
         if count == 0 { break }
     }
     Ok(())

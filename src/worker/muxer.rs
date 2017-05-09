@@ -77,18 +77,18 @@ pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
         try!(NewMediaFile::from_stream(path, stream))
     };
-    println!("writing header");
+    info!("writing header");
     try!(out.write_header());
-    println!("wrote header");
+    info!("wrote header");
 
     let mut previous_files_duration: i64 = 0;
     for f in in_files {
-        println!("next file");
+        trace!("next file");
 
         let best = try!(f.get_best_stream(AVMEDIA_TYPE_AUDIO));
 
         let mut this_file_duration: i64 = 0;
-        println!("previous_files_duration: {}", previous_files_duration);
+        trace!("previous_files_duration: {}", previous_files_duration);
         loop {
             match try!(f.read_packet()) {
                 Some(mut pkt) => {
@@ -112,7 +112,7 @@ pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile
         }
         previous_files_duration = previous_files_duration + this_file_duration;
     }
-    println!("writing trailer");
+    info!("writing trailer");
     try!(out.write_trailer());
     Ok(out)
     // Self::new()

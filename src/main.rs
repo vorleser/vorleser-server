@@ -1,10 +1,22 @@
-#![feature(plugin)]
+#![feature(custom_attribute, plugin)]
 #![plugin(rocket_codegen)]
-#![feature(custom_attribute)]
 #![allow(dead_code)]
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate quick_error;
+#[macro_use(log, info, debug, warn, trace)] extern crate log;
+// disgusting workaround for error also being present in rocket
+#[macro_use]
+macro_rules! error_log {
+    (target: $target:expr, $($arg:tt)*) => (
+        log!(target: $target, ::log::LogLevel::Error, $($arg)*);
+    );
+    ($($arg:tt)*) => (
+        log!(::log::LogLevel::Error, $($arg)*);
+    )
+}
+
+extern crate env_logger;
 extern crate ring;
 extern crate uuid;
 extern crate rocket;
@@ -51,6 +63,7 @@ use diesel::insert;
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
+    env_logger::init().unwrap();
     let pool = helpers::db::init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -82,11 +95,11 @@ fn main() {
                         last_scan: None
                     }).into(libraries::table).execute(&*conn)
                 {
-                    Ok(1) => println!("Successfully created library."),
-                    _ => println!("Library creation failed.")
+                    Ok(1) => info!("Successfully created library."),
+                    _ => error_log!("Library creation failed.")
                 }
             },
-            Err(e) => println!("{:?}", e)
+            Err(e) => error_log!("Invalid regex: {:?}", e)
         }
         std::process::exit(0);
     };
@@ -95,16 +108,15 @@ fn main() {
         let ref db = *pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {
-            println!("scanning library {}", l.location);
             let mut scanner = Scanner {
                 regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
                 library: l,
                 pool: pool.clone(),
             };
             if let Err(error) = scanner.scan_library() {
-                println!("Scan failed with error: {:?}", error.description());
+                error_log!("Scan failed with error: {:?}", error.description());
             } else {
-                println!("Scan succeeded!");
+                info!("Scan succeeded!");
             }
         }
         std::process::exit(0);

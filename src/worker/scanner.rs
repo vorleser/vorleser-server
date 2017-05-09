@@ -69,7 +69,7 @@ impl Scanner {
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
     pub fn scan_library(&mut self) -> Result<(), ScannError> {
-        println!("Scanning library: {}", self.library.location);
+        info!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(SystemTime::now());
         let conn = &*self.pool.get().unwrap();
@@ -94,7 +94,7 @@ impl Scanner {
                         true
                     },
                     Ok(None) => {
-                        println!("No change data for files available, will hash everything.");
+                        info!("No change data for files available, will hash everything.");
                         true
                     }
                 };
@@ -120,12 +120,12 @@ impl Scanner {
         if path.as_ref().is_dir() {
             match self.create_multifile_audiobook(conn, path) {
                 Ok(_) => (),
-                Err(e) => println!("Error: {}", e.description())
+                Err(e) => error_log!("Error: {}", e.description())
             };
         } else {
             match self.create_audiobook(conn, path) {
                 Ok(_) => (),
-                Err(e) => println!("Error: {}", e.description())
+                Err(e) => error_log!("Error: {}", e.description())
             };
         }
     }
@@ -135,7 +135,7 @@ impl Scanner {
         let hash = checksum_file(path)?;
 
         if Audiobook::update_path_for_hash(&hash, &relative_path, conn)? {
-            println!("Updated path");
+            info!("Updated path, new location is {}", path.as_ref().to_string_lossy());
             return Ok(());
         }
 
@@ -170,7 +170,7 @@ impl Scanner {
         });
         match inserted {
             Ok(_) => {
-                println!("Sucessfully saved book: {}", new_book.title);
+                info!("Successfully saved book: {}", new_book.title);
                 Ok(())
             },
             Err(e) => Err(ScannError::Db(e))
@@ -190,7 +190,7 @@ impl Scanner {
         // metadata if it is present.
         let hash = checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
-        println!("Multifile audiobook at {:?}", path.as_ref());
+        info!("Saving multi-file audiobook at {:?}", path.as_ref());
 
         // if a book with the same hash exists in the database all we want to do is adjust the
         // path to retain all other information related to the book
@@ -215,14 +215,14 @@ impl Scanner {
             Some(s) => s.into_owned(),
             None => return Err(ScannError::InvalidUtf8(()))
         };
-        conn.transaction(|| {
-            let new_book = NewAudiobook {
-                length: 0.0,
-                library_id: self.library.id,
-                location: relative_path,
-                title: title,
-                hash: hash
-            };
+        let new_book = NewAudiobook {
+            length: 0.0,
+            library_id: self.library.id,
+            location: relative_path,
+            title: title,
+            hash: hash
+        };
+        let inserted = conn.transaction(|| {
             let book = diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?;
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
@@ -256,7 +256,14 @@ impl Scanner {
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
             Ok(())
-        })
+        });
+        match inserted {
+            Ok(_) => {
+                info!("Successfully saved book: {}", new_book.title);
+                Ok(())
+            },
+            Err(e) => Err(e)
+        }
     }
 }
 

@@ -71,11 +71,11 @@ impl NewMediaFile {
     }
 }
 
-pub fn merge_files(path: &Path, in_files: Vec<MediaFile>) -> Result<NewMediaFile, MediaError> {
-    // todo: check in_files length
+pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile, MediaError> {
+    // TODO: check in_files length
     let mut out = {
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
-        try!(NewMediaFile::from_stream(path, stream))
+        try!(NewMediaFile::from_stream(path.as_ref(), stream))
     };
     info!("writing header");
     try!(out.write_header());

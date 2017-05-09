@@ -21,6 +21,7 @@ use ::models::chapter::NewChapter;
 use ::schema::audiobooks;
 use ::schema::chapters;
 use ::schema::libraries;
+use worker::muxer;
 use std::time::SystemTime;
 use diesel::query_builder::AsChangeset;
 use diesel::query_builder::Changeset;
@@ -46,6 +47,7 @@ quick_error! {
             description(err.description())
         }
         MediaError(err: MediaError) {
+            from()
             description(err.description())
         }
         InvalidUtf8(err: ()) {
@@ -190,7 +192,7 @@ impl Scanner {
         // metadata if it is present.
         let hash = checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
-        info!("Saving multi-file audiobook at {:?}", path.as_ref());
+        info!("Scanning multi-file audiobook at {:?}", path.as_ref());
 
         // if a book with the same hash exists in the database all we want to do is adjust the
         // path to retain all other information related to the book
@@ -210,6 +212,7 @@ impl Scanner {
                 |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
                 );
         let mut all_chapters = Vec::new();
+        let mut mediafiles = Vec::new();
         let mut start_time = 0.0;
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
@@ -228,7 +231,7 @@ impl Scanner {
                 match entry {
                     Ok(file_path) => {
                         if file_path.path().is_dir() { continue };
-                        match MediaFile::read_file(&file_path.path()) {
+                        let f = match MediaFile::read_file(&file_path.path()) {
                             Ok(f) => {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
@@ -245,16 +248,19 @@ impl Scanner {
                                 };
                                 diesel::insert(&new_chapter).into(chapters::table).execute(conn)?;
                                 start_time += info.length;
-                                all_chapters.push(new_chapter)
+                                all_chapters.push(new_chapter);
+                                f
                             }
                             Err(e) => return Err(ScannError::MediaError(e))
-                        }
+                        };
+                        mediafiles.push(f)
                     },
                     Err(e) => return Err(ScannError::WalkDir(e))
                 };
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
+            muxer::merge_files(&book.id.hyphenated().to_string(), &mediafiles)?;
             Ok(())
         });
         match inserted {
@@ -283,7 +289,7 @@ pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
 
 fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<(), io::Error> {
     let mut file = File::open(path.as_ref())?;
-    let mut buf: [u8; 1024] = [0; 1024];
+    let mut buf: [u8; 1] = [0; 1];
     loop {
         let count = file.read(&mut buf[..])?;
         ctx.update(&buf);

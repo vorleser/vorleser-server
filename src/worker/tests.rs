@@ -39,7 +39,7 @@ fn concat_files() {
     let files = read_files();
     let mut tmp_dir = get_tempdir();
     tmp_dir.push(Path::new("muxed.mp3"));
-    muxer::merge_files(&tmp_dir, files).unwrap();
+    muxer::merge_files(&tmp_dir, &files).unwrap();
 }
 
 #[test]
@@ -118,14 +118,14 @@ fn get_thumbnail_png() {
 #[test]
 fn checksum() {
     use super::scanner;
-    let checksum = scanner::checksum_file(Path::new("test-data/all.m4b"));
+    let checksum = scanner::checksum_file(&Path::new("test-data/all.m4b"));
     assert_slice_starts_with(&checksum.unwrap(), &[0x48, 0xab, 0x4a])
 }
 
 #[test]
 fn checksum_dir() {
     use super::scanner;
-    let checksum = scanner::checksum_dir(Path::new("test-data/all"));
+    let checksum = scanner::checksum_dir(&Path::new("test-data/all"));
     checksum.unwrap();
 }
 

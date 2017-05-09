@@ -1,5 +1,5 @@
 * No chapters for ATP, why?
 * pngs are added, why?
-* multifile audiobooks remuxing
 * update instead of reinsert (with hashing)
 * update when path is the same
+* Sane storage location for remuxed files

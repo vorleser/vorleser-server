@@ -231,7 +231,7 @@ impl Scanner {
                 match entry {
                     Ok(file_path) => {
                         if file_path.path().is_dir() { continue };
-                        let f = match MediaFile::read_file(&file_path.path()) {
+                        let media = match MediaFile::read_file(&file_path.path()) {
                             Ok(f) => {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
@@ -253,14 +253,14 @@ impl Scanner {
                             }
                             Err(e) => return Err(ScannError::MediaError(e))
                         };
-                        mediafiles.push(f)
+                        mediafiles.push(media)
                     },
                     Err(e) => return Err(ScannError::WalkDir(e))
                 };
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
-            muxer::merge_files(&book.id.hyphenated().to_string(), &mediafiles)?;
+            muxer::merge_files(&(book.id.hyphenated().to_string() + ".mp3"), &mediafiles)?;
             Ok(())
         });
         match inserted {

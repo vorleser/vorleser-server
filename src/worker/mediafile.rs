@@ -8,6 +8,8 @@ use std::slice;
 use super::error::MediaError;
 use super::util::*;
 use std::collections::HashMap;
+use std::fmt::{Formatter, Debug};
+use std::fmt;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ImageType {
@@ -61,6 +63,12 @@ pub struct MediaFile {
     path: PathBuf,
     averror: i32,
     av_packet: Option<AVPacket>
+}
+
+impl Debug for MediaFile {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error>{
+        write!(f, "Mediafile for {:?}", self.path)
+    }
 }
 
 impl MediaFile {

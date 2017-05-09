@@ -30,7 +30,7 @@ impl NewMediaFile {
             let format = match ptr_to_opt_mut(av_guess_format(ptr::null(), c_file_name.as_ptr(), ptr::null())) {
                 Some(f) => f,
                 None => return Err(MediaError{
-                    description: "Not format could be guessed!".to_string(),
+                    description: "No format could be guessed!".to_string(),
                     code: 1337
                 })
             };

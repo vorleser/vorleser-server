@@ -21,6 +21,8 @@ use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
 use std::time::SystemTime;
+use chrono::prelude::*;
+use std::os::unix::prelude::*;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -69,7 +71,7 @@ impl Scanner {
     pub fn scan_library(&mut self) -> Result<(), ScannError> {
         info!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
-        self.library.last_scan = Some(SystemTime::now());
+        self.library.last_scan = Some(UTC::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
@@ -295,18 +297,18 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Resul
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
-fn most_recent_change(path: &AsRef<Path>) -> Result<Option<SystemTime>, ScannError> {
+fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, ScannError> {
     // this is a suboptimal solution it doesn't really matter here but creating a vector is not
     // great.
-    let times: Result<Vec<SystemTime>, _> = WalkDir::new(path.as_ref())
+    let times: Result<Vec<NaiveDateTime>, _> = WalkDir::new(path.as_ref())
         .follow_links(true)
         .into_iter()
-        .map(|el| -> Result<SystemTime, ScannError> {
+        .map(|el| -> Result<NaiveDateTime, ScannError> {
             match el {
                 Ok(f) => {
-                    match f.metadata().map(|el| el.modified()) {
-                        Ok(Ok(modified)) => return Ok(modified),
-                        Ok(Err(e)) => return Err(ScannError::Io(e)),
+                    match f.metadata().map(|el| NaiveDateTime::from_timestamp(el.mtime(), el.mtime_nsec() as u32)) {
+                        Ok(modified) => return Ok(modified),
+                        // Ok(Err(e)) => return Err(ScannError::Io(e)),
                         Err(e) => return Err(ScannError::WalkDir(e))
                     };
                 },
@@ -340,4 +342,3 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     res.extend_from_slice(ctx.finish().as_ref());
     Ok(res)
 }
-

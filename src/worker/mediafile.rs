@@ -1,7 +1,7 @@
 use ffmpeg::*;
 
 use std::mem;
-use std::ffi::CString;
+use std::ffi::{CStr, CString};
 use std::ptr;
 use std::path::{Path, PathBuf};
 use std::slice;
@@ -10,6 +10,7 @@ use super::util::*;
 use std::collections::HashMap;
 use std::fmt::{Formatter, Debug};
 use std::fmt;
+use std::str::Split;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ImageType {
@@ -58,6 +59,21 @@ impl Chapter {
     }
 }
 
+pub struct Format<'a> {
+    name: &'a str,
+    mime_type: &'a str,
+    extensions: Split<'a, char>,
+    flags: i32,
+    codec: &'a Codec
+}
+
+#[repr(C)]
+#[derive(Debug, PartialEq, Eq)]
+struct Codec {
+    id: AVCodecID,
+    tag: usize
+}
+
 pub struct MediaFile {
     ctx: *mut AVFormatContext,
     path: PathBuf,
@@ -97,6 +113,19 @@ impl MediaFile {
             )));
             try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));
             Ok(new)
+        }
+    }
+
+    pub fn guess_format<'a>(&'a self) -> Format {
+        unsafe{
+            let iformat = &(*(*self.ctx).iformat);
+            Format {
+                name: CStr::from_ptr(iformat.name).to_str().unwrap(),
+                flags: iformat.flags,
+                extensions: CStr::from_ptr(iformat.name).to_str().unwrap().split(','),
+                mime_type: CStr::from_ptr(iformat.mime_type).to_str().unwrap(),
+                codec: mem::transmute(*iformat.codec_tag),
+            }
         }
     }
 

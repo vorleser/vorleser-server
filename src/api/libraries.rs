@@ -10,5 +10,5 @@ use models::library::Library;
 pub fn libraries(current_user: UserModel, db: DB) -> APIResponse {
     use schema::libraries::dsl::*;
     let libs = libraries.load::<Library>(&*db).unwrap();
-    json!(libs)
+    ok().data(json!(libs))
 }

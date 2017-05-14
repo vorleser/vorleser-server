@@ -269,7 +269,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "humanesort"
 version = "0.1.0"
-source = "git+https://github.com/hatzel/humanesort#3ecd9f9ad25e9d7aec508c83815c5e23958e67a2"
+source = "git+https://github.com/hatzel/humanesort#8685169150c746cc4402eb8b2615fadb44f052f8"
 dependencies = [
  "unicode-segmentation 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]

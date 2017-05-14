@@ -1,7 +1,6 @@
 extern crate diesel;
 use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;
-use humanesort::humane_order;
 use regex::Regex;
 use std::io;
 use std::io::Read;
@@ -21,6 +20,7 @@ use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
 use std::time::SystemTime;
+use humanesort::HumaneOrder;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -203,7 +203,7 @@ impl Scanner {
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
-                |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
+                |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
                 );
         let mut all_chapters = Vec::new();
         let mut mediafiles = Vec::new();
@@ -321,7 +321,7 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     let walker = WalkDir::new(path.as_ref())
         .follow_links(true)
         .sort_by(
-            |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
+            |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
             );
     let mut ctx = digest::Context::new(&digest::SHA256);
     for entry in walker {

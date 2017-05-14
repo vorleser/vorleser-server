@@ -39,6 +39,7 @@ extern crate walkdir;
 extern crate dotenv;
 extern crate image;
 extern crate humanesort;
+extern crate serde;
 
 mod api;
 mod validation;
@@ -91,8 +92,7 @@ fn main() {
                 match insert(
                     &NewLibrary{
                         location: path.to_owned(),
-                        is_audiobook_regex: regex.to_owned(),
-                        last_scan: None
+                        is_audiobook_regex: regex.to_owned()
                     }).into(libraries::table).execute(&*conn)
                 {
                     Ok(1) => info!("Successfully created library."),
@@ -125,7 +125,7 @@ fn main() {
     if matches.is_present("serve") {
         rocket::ignite()
             .manage(pool)
-            .mount("/api/hello/", routes![api::hello::whoami])
+            .mount("/api/", routes![api::libraries::libraries])
             .mount("/api/auth/", routes![
                    api::auth::login,
                    api::auth::register,

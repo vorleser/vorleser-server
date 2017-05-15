@@ -1,16 +1,21 @@
 extern crate diesel;
-use walkdir::{WalkDir, WalkDirIterator};
-use walkdir;
-use regex::Regex;
 use std::io;
 use std::io::Read;
 use std::fs::File;
 use std::error::Error;
+use std::ffi::{OsString, OsStr};
 use std::path::Path;
+use std::collections::HashMap;
+
+use walkdir::{WalkDir, WalkDirIterator};
+use walkdir;
+use regex::Regex;
 use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ring::digest;
+use humanesort::HumaneOrder;
+
 use ::helpers::db::Pool;
 use ::models::library::*;
 use ::models::audiobook::{Audiobook, NewAudiobook};
@@ -19,7 +24,6 @@ use ::schema::audiobooks;
 use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
-use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use std::os::unix::prelude::*;
 
@@ -315,6 +319,28 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, Scann
         })
     .collect();
     Ok(times?.iter().max().map(|e| e.clone()))
+}
+
+
+/// Find the most common extension in a directory that might be an audio file.
+pub(super) fn probable_audio_extension(path: &AsRef<Path>) -> Option<OsString> {
+    let mut counts: HashMap<OsString, usize> = HashMap::new();
+    for el in WalkDir::new(path.as_ref())
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|opt| {
+            match opt.map(|wd| wd.path().extension().map(|el| el.to_owned())) {
+                Ok(Some(o)) => Some(o),
+                Ok(None) => None,
+                Err(_) => None
+            }
+        }) {
+        let mut count = counts.entry(el).or_insert(0);
+        *count += 1;
+    };
+    let mut extensions: Vec<(OsString, usize)> = counts.drain().collect();
+    extensions.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
+    extensions.pop().map(|el| el.0)
 }
 
 pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {

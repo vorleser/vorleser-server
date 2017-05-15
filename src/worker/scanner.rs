@@ -105,6 +105,7 @@ impl Scanner {
                     walker.skip_current_dir();
                 }
             }
+            // TODO: end scan by removing all those audiobooks not related to a file
         };
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
@@ -200,7 +201,6 @@ impl Scanner {
             return Ok(());
         }
 
-        // TODO: build new file
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
@@ -255,7 +255,7 @@ impl Scanner {
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
-            muxer::merge_files(&(book.id.hyphenated().to_string() + ".mp3"), &mediafiles)?;
+            muxer::merge_files(&("data/".to_owned() + &book.id.hyphenated().to_string() + ".mp3"), &mediafiles)?;
             Ok(())
         });
         match inserted {
@@ -307,7 +307,6 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, Scann
                 Ok(f) => {
                     match f.metadata().map(|el| NaiveDateTime::from_timestamp(el.mtime(), el.mtime_nsec() as u32)) {
                         Ok(modified) => return Ok(modified),
-                        // Ok(Err(e)) => return Err(ScannError::Io(e)),
                         Err(e) => return Err(ScannError::WalkDir(e))
                     };
                 },

@@ -206,7 +206,7 @@ impl Scanner {
         }
 
         let extension = match probable_audio_extension(&path) {
-            Some(e) => e.to_string_lossy().into_owned(),
+            Some(e) => e,
             None => return Err(ScannError::Other("No valid file extensions found."))
         };
         let walker = WalkDir::new(&path.as_ref())
@@ -232,9 +232,13 @@ impl Scanner {
             let book = diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?;
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
-                    Ok(file_path) => {
-                        if file_path.path().is_dir() { continue };
-                        let media = match MediaFile::read_file(&file_path.path()) {
+                    Ok(file) => {
+                        if file.path().is_dir() { continue };
+                        match file.path().extension() {
+                            Some(ext) => if ext != extension { continue },
+                            None => { continue }
+                        };
+                        let media = match MediaFile::read_file(&file.path()) {
                             Ok(f) => {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
@@ -263,7 +267,10 @@ impl Scanner {
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
-            muxer::merge_files(&("data/".to_owned() + &book.id.hyphenated().to_string() + &extension), &mediafiles)?;
+            muxer::merge_files(
+                &("data/".to_string() + &book.id.hyphenated().to_string() + &extension.to_string_lossy().into_owned()),
+                &mediafiles
+                )?;
             Ok(())
         });
         match inserted {

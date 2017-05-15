@@ -329,7 +329,7 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, Scann
             }
         })
     .collect();
-    Ok(times?.iter().max().map(|e| e.clone()))
+    Ok(times?.iter().max().cloned())
 }
 
 
@@ -343,8 +343,7 @@ pub(super) fn probable_audio_extension(path: &AsRef<Path>) -> Option<OsString> {
         .filter_map(|opt| {
             match opt.map(|wd| wd.path().extension().map(|el| el.to_owned())) {
                 Ok(Some(o)) => Some(o),
-                Ok(None) => None,
-                Err(_) => None
+                _ => None,
             }
         }) {
         let mut count = counts.entry(el).or_insert(0);
@@ -363,15 +362,12 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
             );
     let mut ctx = digest::Context::new(&digest::SHA256);
     for entry in walker {
-        match entry {
-            Ok(e) => {
+        if let Ok(e) = entry {
                 let p = e.path();
                 if e.file_type().is_file() {
                     update_hash_from_file(&mut ctx, &p)?;
                 }
                 ctx.update(p.to_string_lossy().as_bytes());
-            }
-            _ => ()
         }
     }
     let mut res = Vec::new();

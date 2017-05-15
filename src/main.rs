@@ -82,7 +82,7 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("new") {
-        let ref conn = *pool.get().unwrap();
+        let conn = &*pool.get().unwrap();
         let path = matches.value_of("path").expect("Please provide a valid utf-8 path.");
         let regex = matches.value_of("regex")
             .expect("Regex needs to be valid utf-8.");
@@ -104,7 +104,7 @@ fn main() {
     };
 
     if matches.is_present("scan") {
-        let ref db = *pool.get().unwrap();
+        let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {
             let mut scanner = Scanner {

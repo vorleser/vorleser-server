@@ -44,7 +44,7 @@ impl Chapter {
         let d = dict_to_map(av.metadata as *mut Dictionary);
         let title = d.get("title").cloned();
         Chapter {
-            start: start.clone(),
+            start: start,
             title: title,
             metadata: d,
         }
@@ -124,7 +124,7 @@ impl MediaFile {
                 flags: iformat.flags,
                 extensions: CStr::from_ptr(iformat.name).to_str().unwrap().split(','),
                 mime_type: CStr::from_ptr(iformat.mime_type).to_str().unwrap(),
-                codec: mem::transmute(*iformat.codec_tag),
+                codec: &*(*iformat.codec_tag as *const Codec),
             }
         }
     }

@@ -205,6 +205,10 @@ impl Scanner {
             return Ok(());
         }
 
+        let extension = match probable_audio_extension(&path) {
+            Some(e) => e.to_string_lossy().into_owned(),
+            None => return Err(ScannError::Other("No valid file extensions found."))
+        };
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
@@ -259,7 +263,7 @@ impl Scanner {
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
-            muxer::merge_files(&("data/".to_owned() + &book.id.hyphenated().to_string() + ".mp3"), &mediafiles)?;
+            muxer::merge_files(&("data/".to_owned() + &book.id.hyphenated().to_string() + &extension), &mediafiles)?;
             Ok(())
         });
         match inserted {
@@ -324,6 +328,7 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, Scann
 
 /// Find the most common extension in a directory that might be an audio file.
 pub(super) fn probable_audio_extension(path: &AsRef<Path>) -> Option<OsString> {
+    // TODO: discard files that don't look like media files
     let mut counts: HashMap<OsString, usize> = HashMap::new();
     for el in WalkDir::new(path.as_ref())
         .follow_links(true)

@@ -18,7 +18,7 @@ use humanesort::HumaneOrder;
 
 use ::helpers::db::Pool;
 use ::models::library::*;
-use ::models::audiobook::{Audiobook, NewAudiobook};
+use ::models::audiobook::{Audiobook, NewAudiobook, Update};
 use ::models::chapter::NewChapter;
 use ::schema::audiobooks;
 use ::schema::chapters;
@@ -26,6 +26,7 @@ use ::schema::libraries;
 use worker::muxer;
 use chrono::prelude::*;
 use std::os::unix::prelude::*;
+use diesel::BelongingToDsl;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -138,16 +139,19 @@ impl Scanner {
         let relative_path = self.relative_path_str(path)?;
         let hash = checksum_file(path)?;
 
-        if Audiobook::update_path_for_hash(&hash, &relative_path, conn)? {
-            info!("Updated path, new location is {}", path.as_ref().to_string_lossy());
+        let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
+            Update::Nothing => true,
+            Update::Path => true,
+            Update::NotFound => false
+        };
+        if done {
             return Ok(());
-        }
+        };
 
         let file = match MediaFile::read_file(&path.as_ref()) {
             Ok(f) => f,
             Err(e) => return Err(ScannError::MediaError(e))
         };
-        debug!("{:?}", file.guess_format());
 
         let metadata = file.get_mediainfo();
         let new_book = NewAudiobook {
@@ -157,6 +161,7 @@ impl Scanner {
             library_id: self.library.id,
             hash: hash
         };
+
         let inserted = conn.transaction(|| -> Result<usize, diesel::result::Error> {
             let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
             let book = books.first().unwrap();
@@ -189,8 +194,8 @@ impl Scanner {
     }
 
     pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
-        // for now each file will be a chapter, maybe in the future we want to use chapter
-        // metadata if it is present.
+        // TODO: This might lead to inconsisten data as we hash before iterating over the files
+        // changes might happen
         let hash = checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
         info!("Scanning multi-file audiobook at {:?}", path.as_ref());
@@ -201,10 +206,14 @@ impl Scanner {
         // What happens if we have two exact same audiobooks in the library path?:
         // It should just keep switching the paths around whenever a file creation time is
         // updated which is not to bad.
-        // TODO: this function is horribly named
-        if Audiobook::update_path_for_hash(&hash, &relative_path, conn)? {
+        let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
+            Update::Nothing => true,
+            Update::Path => true,
+            Update::NotFound => false
+        };
+        if done {
             return Ok(());
-        }
+        };
 
         let extension = match probable_audio_extension(&path) {
             Some(e) => e,
@@ -222,6 +231,8 @@ impl Scanner {
             Some(s) => s.into_owned(),
             None => return Err(ScannError::InvalidUtf8(()))
         };
+
+        Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::location.eq(&relative_path));
         let new_book = NewAudiobook {
             length: 0.0,
             library_id: self.library.id,
@@ -266,7 +277,7 @@ impl Scanner {
                     Err(e) => return Err(ScannError::WalkDir(e))
                 };
             };
-            diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
+            diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
             muxer::merge_files(
                 &("data/".to_string() + &book.id.hyphenated().to_string() + &extension.to_string_lossy().into_owned()),
@@ -287,8 +298,6 @@ impl Scanner {
 fn is_audiobook(path: &Path, regex: &Regex) -> bool {
     regex.is_match(path.to_str().unwrap())
 }
-
-
 
 pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     let mut ctx = digest::Context::new(&digest::SHA256);

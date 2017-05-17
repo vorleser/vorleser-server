@@ -1,5 +1,6 @@
 use uuid::Uuid;
 use diesel::prelude::*;
+use models::audiobook::Audiobook;
 use schema::chapters;
 
 #[table_name="chapters"]
@@ -12,7 +13,7 @@ pub struct NewChapter {
 }
 
 #[table_name="chapters"]
-#[derive(Debug, Queryable)]
+#[derive(Debug, Queryable, Associations, Identifiable)]
 #[belongs_to(Audiobook)]
 pub struct Chapter {
     id: Uuid,

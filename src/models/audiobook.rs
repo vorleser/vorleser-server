@@ -4,6 +4,7 @@ use diesel::prelude::*;
 use schema::audiobooks;
 use schema::playstates;
 use std::path::Path;
+use chrono::NaiveDateTime;
 
 #[table_name="audiobooks"]
 #[derive(Insertable)]
@@ -49,20 +50,12 @@ impl Audiobook {
     }
 }
 
-#[derive(Insertable)]
-#[table_name="playstates"]
-pub struct NewPlaystate {
-    pub position: f64,
-    pub completed: bool,
-    pub user_id: Uuid,
-    pub audiobook_id: Uuid
-}
-
-#[derive(Insertable)]
+#[derive(Insertable, Queryable, AsChangeset, Deserialize)]
 #[table_name="playstates"]
 pub struct Playstate {
     pub position: f64,
     pub completed: bool,
     pub user_id: Uuid,
-    pub audiobook_id: Uuid
+    pub audiobook_id: Uuid,
+    pub timestamp: NaiveDateTime
 }

@@ -53,5 +53,6 @@ CREATE TABLE playstates (
     user_id UUID REFERENCES users (id),
     completed BOOL NOT NULL,
     position DOUBLE PRECISION NOT NULL,
+    timestamp TIMESTAMP NOT NULL,
     PRIMARY KEY(audiobook_id, user_id)
 );

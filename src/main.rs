@@ -1,6 +1,6 @@
 #![feature(custom_attribute, plugin)]
 #![plugin(rocket_codegen)]
-#![allow(dead_code)]
+#![allow(dead_code, unused)]
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate quick_error;
@@ -134,10 +134,14 @@ fn main() {
                    api::auth::login,
                    api::auth::register,
             ])
-            .catch(errors![handlers::bad_request_handler, handlers::unauthorized_handler,
-                   handlers::forbidden_handler, handlers::not_found_handler,
-                   handlers::internal_server_error_handler,
-                   handlers::service_unavailable_handler])
+            .catch(errors![
+                handlers::bad_request_handler,
+                handlers::unauthorized_handler,
+                handlers::forbidden_handler,
+                handlers::not_found_handler,
+                handlers::internal_server_error_handler,
+                handlers::service_unavailable_handler
+            ])
             .launch();
     }
 

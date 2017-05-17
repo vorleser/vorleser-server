@@ -19,7 +19,7 @@ pub struct UserModel {
     pub password_hash: String,
 }
 
-#[derive(Debug, RustcEncodable, RustcDecodable)]
+#[derive(Debug, Serialize, Deserialize)]
 struct UserLoginToken {
     user_id: Uuid,
 }

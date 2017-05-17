@@ -29,7 +29,6 @@ extern crate validator;
 #[macro_use] extern crate diesel_codegen;
 extern crate chrono;
 extern crate argon2rs;
-extern crate rustc_serialize;
 extern crate r2d2;
 extern crate r2d2_diesel;
 extern crate ffmpeg_sys as ffmpeg;
@@ -39,6 +38,7 @@ extern crate walkdir;
 extern crate dotenv;
 extern crate image;
 extern crate humanesort;
+extern crate serde;
 
 mod api;
 mod validation;
@@ -82,7 +82,7 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("new") {
-        let ref conn = *pool.get().unwrap();
+        let conn = &*pool.get().unwrap();
         let path = matches.value_of("path").expect("Please provide a valid utf-8 path.");
         let regex = matches.value_of("regex")
             .expect("Regex needs to be valid utf-8.");
@@ -91,8 +91,7 @@ fn main() {
                 match insert(
                     &NewLibrary{
                         location: path.to_owned(),
-                        is_audiobook_regex: regex.to_owned(),
-                        last_scan: None
+                        is_audiobook_regex: regex.to_owned()
                     }).into(libraries::table).execute(&*conn)
                 {
                     Ok(1) => info!("Successfully created library."),
@@ -105,7 +104,7 @@ fn main() {
     };
 
     if matches.is_present("scan") {
-        let ref db = *pool.get().unwrap();
+        let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {
             let mut scanner = Scanner {
@@ -125,7 +124,7 @@ fn main() {
     if matches.is_present("serve") {
         rocket::ignite()
             .manage(pool)
-            .mount("/api/hello/", routes![api::hello::whoami])
+            .mount("/api/", routes![api::libraries::libraries])
             .mount("/api/auth/", routes![
                    api::auth::login,
                    api::auth::register,

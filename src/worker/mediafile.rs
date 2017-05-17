@@ -44,7 +44,7 @@ impl Chapter {
         let d = dict_to_map(av.metadata as *mut Dictionary);
         let title = d.get("title").cloned();
         Chapter {
-            start: start.clone(),
+            start: start,
             title: title,
             metadata: d,
         }
@@ -59,12 +59,12 @@ impl Chapter {
     }
 }
 
-#[derive(Debug)]
 pub struct Format<'a> {
-    name: Option<&'a str>,
-    mime_type: Option<&'a str>,
-    extensions: Option<Split<'a, char>>,
+    name: &'a str,
+    mime_type: &'a str,
+    extensions: Split<'a, char>,
     flags: i32,
+    codec: &'a Codec
 }
 
 #[repr(C)]
@@ -119,24 +119,12 @@ impl MediaFile {
     pub fn guess_format<'a>(&'a self) -> Format {
         unsafe{
             let iformat = &(*(*self.ctx).iformat);
-            println!("before");
-            let f = Format {
-                name: if iformat.name.is_null() {
-                    None
-                } else {
-                    Some(CStr::from_ptr(iformat.name).to_str().unwrap())
-                },
+            Format {
+                name: CStr::from_ptr(iformat.name).to_str().unwrap(),
                 flags: iformat.flags,
-                extensions: if iformat.name.is_null() {
-                    None
-                } else {
-                    Some(CStr::from_ptr(iformat.name).to_str().unwrap().split(','))
-                },
-                mime_type: if iformat.mime_type.is_null() {
-                    None
-                } else {
-                    Some(CStr::from_ptr(iformat.mime_type).to_str().unwrap())
-                }
+                extensions: CStr::from_ptr(iformat.name).to_str().unwrap().split(','),
+                mime_type: CStr::from_ptr(iformat.mime_type).to_str().unwrap(),
+                codec: &*(*iformat.codec_tag as *const Codec),
             }
         }
     }

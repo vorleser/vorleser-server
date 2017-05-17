@@ -1,14 +1,14 @@
 use std::path::{Path, PathBuf};
-use super::muxer;
 use super::mediafile::MediaFile;
-use super::mediafile::ImageType;
 use std::env;
-use std::io::Cursor;
 use std::fs::create_dir_all;
+use super::muxer;
+use std::io::Cursor;
+use super::mediafile::ImageType;
 use image::jpeg::JPEGDecoder;
 use image::png::PNGDecoder;
 use image::ImageDecoder;
-use ::helpers::db::init_db_pool;
+use std::ffi::OsString;
 
 fn get_tempdir() -> PathBuf {
     let mut dir = env::temp_dir();
@@ -24,6 +24,13 @@ fn read_files() -> Vec<MediaFile> {
             &name
         )).unwrap()
     ).collect()
+}
+
+#[test]
+fn common_extension() {
+    use worker::scanner::probable_audio_extension;
+    let extension = probable_audio_extension(&"test-data/all");
+    assert_eq!(extension.unwrap(), OsString::from("mp3"))
 }
 
 #[test]

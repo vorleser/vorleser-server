@@ -1,17 +1,21 @@
 extern crate diesel;
-use walkdir::{WalkDir, WalkDirIterator};
-use walkdir;
-use humanesort::humane_order;
-use regex::Regex;
 use std::io;
 use std::io::Read;
 use std::fs::File;
 use std::error::Error;
+use std::ffi::{OsString, OsStr};
 use std::path::Path;
+use std::collections::HashMap;
+
+use walkdir::{WalkDir, WalkDirIterator};
+use walkdir;
+use regex::Regex;
 use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ring::digest;
+use humanesort::HumaneOrder;
+
 use ::helpers::db::Pool;
 use ::models::library::*;
 use ::models::audiobook::{Audiobook, NewAudiobook};
@@ -20,7 +24,8 @@ use ::schema::audiobooks;
 use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
-use std::time::SystemTime;
+use chrono::prelude::*;
+use std::os::unix::prelude::*;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -69,7 +74,7 @@ impl Scanner {
     pub fn scan_library(&mut self) -> Result<(), ScannError> {
         info!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
-        self.library.last_scan = Some(SystemTime::now());
+        self.library.last_scan = Some(UTC::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
@@ -104,6 +109,7 @@ impl Scanner {
                     walker.skip_current_dir();
                 }
             }
+            // TODO: end scan by removing all those audiobooks not related to a file
         };
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
@@ -200,11 +206,14 @@ impl Scanner {
             return Ok(());
         }
 
-        // TODO: build new file
+        let extension = match probable_audio_extension(&path) {
+            Some(e) => e,
+            None => return Err(ScannError::Other("No valid file extensions found."))
+        };
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
-                |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
+                |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
                 );
         let mut all_chapters = Vec::new();
         let mut mediafiles = Vec::new();
@@ -224,9 +233,13 @@ impl Scanner {
             let book = diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?;
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
-                    Ok(file_path) => {
-                        if file_path.path().is_dir() { continue };
-                        let media = match MediaFile::read_file(&file_path.path()) {
+                    Ok(file) => {
+                        if file.path().is_dir() { continue };
+                        match file.path().extension() {
+                            Some(ext) => if ext != extension { continue },
+                            None => { continue }
+                        };
+                        let media = match MediaFile::read_file(&file.path()) {
                             Ok(f) => {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
@@ -255,7 +268,10 @@ impl Scanner {
             };
             diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
-            muxer::merge_files(&(book.id.hyphenated().to_string() + ".mp3"), &mediafiles)?;
+            muxer::merge_files(
+                &("data/".to_string() + &book.id.hyphenated().to_string() + &extension.to_string_lossy().into_owned()),
+                &mediafiles
+                )?;
             Ok(())
         });
         match inserted {
@@ -296,18 +312,17 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Resul
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
-fn most_recent_change(path: &AsRef<Path>) -> Result<Option<SystemTime>, ScannError> {
+fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, ScannError> {
     // this is a suboptimal solution it doesn't really matter here but creating a vector is not
     // great.
-    let times: Result<Vec<SystemTime>, _> = WalkDir::new(path.as_ref())
+    let times: Result<Vec<NaiveDateTime>, _> = WalkDir::new(path.as_ref())
         .follow_links(true)
         .into_iter()
-        .map(|el| -> Result<SystemTime, ScannError> {
+        .map(|el| -> Result<NaiveDateTime, ScannError> {
             match el {
                 Ok(f) => {
-                    match f.metadata().map(|el| el.modified()) {
-                        Ok(Ok(modified)) => return Ok(modified),
-                        Ok(Err(e)) => return Err(ScannError::Io(e)),
+                    match f.metadata().map(|el| NaiveDateTime::from_timestamp(el.mtime(), el.mtime_nsec() as u32)) {
+                        Ok(modified) => return Ok(modified),
                         Err(e) => return Err(ScannError::WalkDir(e))
                     };
                 },
@@ -315,30 +330,48 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<SystemTime>, ScannErr
             }
         })
     .collect();
-    Ok(times?.iter().max().map(|e| e.clone()))
+    Ok(times?.iter().max().cloned())
+}
+
+
+/// Find the most common extension in a directory that might be an audio file.
+pub(super) fn probable_audio_extension(path: &AsRef<Path>) -> Option<OsString> {
+    // TODO: discard files that don't look like media files
+    let mut counts: HashMap<OsString, usize> = HashMap::new();
+    for el in WalkDir::new(path.as_ref())
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|opt| {
+            match opt.map(|wd| wd.path().extension().map(|el| el.to_owned())) {
+                Ok(Some(o)) => Some(o),
+                _ => None,
+            }
+        }) {
+        let mut count = counts.entry(el).or_insert(0);
+        *count += 1;
+    };
+    let mut extensions: Vec<(OsString, usize)> = counts.drain().collect();
+    extensions.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
+    extensions.pop().map(|el| el.0)
 }
 
 pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     let walker = WalkDir::new(path.as_ref())
         .follow_links(true)
         .sort_by(
-            |s, o| humane_order(s.to_string_lossy(), o.to_string_lossy())
+            |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
             );
     let mut ctx = digest::Context::new(&digest::SHA256);
     for entry in walker {
-        match entry {
-            Ok(e) => {
+        if let Ok(e) = entry {
                 let p = e.path();
                 if e.file_type().is_file() {
                     update_hash_from_file(&mut ctx, &p)?;
                 }
                 ctx.update(p.to_string_lossy().as_bytes());
-            }
-            _ => ()
         }
     }
     let mut res = Vec::new();
     res.extend_from_slice(ctx.finish().as_ref());
     Ok(res)
 }
-

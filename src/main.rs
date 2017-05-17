@@ -63,7 +63,6 @@ use diesel::insert;
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
-    env_logger::init().unwrap();
     let pool = helpers::db::init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -82,6 +81,7 @@ fn main() {
         .get_matches();
 
     if let Some(matches) = matches.subcommand_matches("new") {
+        env_logger::init().unwrap();
         let conn = &*pool.get().unwrap();
         let path = matches.value_of("path").expect("Please provide a valid utf-8 path.");
         let regex = matches.value_of("regex")
@@ -104,6 +104,7 @@ fn main() {
     };
 
     if matches.is_present("scan") {
+        env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {

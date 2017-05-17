@@ -124,7 +124,11 @@ fn main() {
     if matches.is_present("serve") {
         rocket::ignite()
             .manage(pool)
-            .mount("/api/", routes![api::libraries::libraries])
+            .mount("/api/", routes![
+                api::libraries::libraries,
+                api::libraries::all_the_things,
+                api::libraries::update_playstate,
+            ])
             .mount("/api/auth/", routes![
                    api::auth::login,
                    api::auth::register,

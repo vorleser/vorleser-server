@@ -147,7 +147,6 @@ impl Scanner {
             Ok(f) => f,
             Err(e) => return Err(ScannError::MediaError(e))
         };
-        debug!("{:?}", file.guess_format());
 
         let metadata = file.get_mediainfo();
         let new_book = NewAudiobook {

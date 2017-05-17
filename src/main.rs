@@ -55,6 +55,8 @@ use regex::Regex;
 use schema::libraries;
 use schema::libraries::dsl::*;
 use models::library::{Library, NewLibrary};
+use models::user::{UserModel, NewUser};
+use schema::users;
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
@@ -70,22 +72,34 @@ fn main() {
         .version(env!("CARGO_PKG_VERSION"))
         .subcommand(SubCommand::with_name("serve"))
         .subcommand(SubCommand::with_name("scan"))
+        .subcommand(SubCommand::with_name("create_user")
+            .arg(Arg::with_name("email")
+                .takes_value(true)
+                .required(true)
+            )
+            .arg(Arg::with_name("password")
+                .takes_value(true)
+                .required(true)
+            )
+        )
         .subcommand(SubCommand::with_name("new")
-                    .about("Create a new Library")
-                    .arg(Arg::with_name("path")
-                         .takes_value(true)
-                         .required(true))
-                    .arg(Arg::with_name("regex")
-                         .takes_value(true)
-                         .default_value(PATH_REGEX)))
+            .about("Create a new Library")
+            .arg(Arg::with_name("path")
+                .takes_value(true)
+                .required(true)
+            )
+            .arg(Arg::with_name("regex")
+                .takes_value(true)
+                .default_value(PATH_REGEX)
+            )
+        )
         .get_matches();
 
-    if let Some(matches) = matches.subcommand_matches("new") {
+    if let Some(new_command) = matches.subcommand_matches("new") {
         env_logger::init().unwrap();
         let conn = &*pool.get().unwrap();
-        let path = matches.value_of("path").expect("Please provide a valid utf-8 path.");
-        let regex = matches.value_of("regex")
-            .expect("Regex needs to be valid utf-8.");
+        let path = new_command.value_of("path").expect("Please provide a valid utf-8 path.");
+        let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
         match Regex::new(regex) {
             Ok(_) => {
                 match insert(
@@ -103,7 +117,7 @@ fn main() {
         std::process::exit(0);
     };
 
-    if matches.is_present("scan") {
+    if let Some(_) = matches.subcommand_matches("scan") {
         env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
@@ -122,7 +136,26 @@ fn main() {
         std::process::exit(0);
     }
 
-    if matches.is_present("serve") {
+    if let Some(create_user) = matches.subcommand_matches("create_user") {
+        env_logger::init().unwrap();
+        let db = &*pool.get().unwrap();
+
+        let email = create_user.value_of("email").expect("a man has no name");
+        let pass = create_user.value_of("password").expect("a man has no password");
+
+        let new_password_hash = UserModel::make_password_hash(pass);
+        let new_user = NewUser {
+            email: email.to_string(),
+            password_hash: new_password_hash,
+        };
+
+        let user = diesel::insert(&new_user)
+            .into(users::table)
+            .get_result::<UserModel>(&*db)
+            .expect("Error saving user");
+    }
+
+    if let Some(_) = matches.subcommand_matches("serve") {
         rocket::ignite()
             .manage(pool)
             .mount("/api/", routes![

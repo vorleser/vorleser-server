@@ -25,6 +25,7 @@ validator = "0.4"
 validator_derive = "0.4"
 walkdir = "1"
 humanesort = "0.1.0-alpha"
+error-chain = "0.10.0"
 
 [dependencies.chrono]
 features = ["serde"]

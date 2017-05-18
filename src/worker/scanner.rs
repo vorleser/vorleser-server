@@ -2,7 +2,6 @@ extern crate diesel;
 use std::io;
 use std::io::Read;
 use std::fs::File;
-use std::error::Error;
 use std::ffi::{OsString, OsStr};
 use std::path::Path;
 use std::collections::HashMap;
@@ -34,28 +33,20 @@ pub struct Scanner {
     pub pool: Pool
 }
 
-quick_error! {
-    #[derive(Debug)]
-    pub enum ScannError {
-        Io(err: io::Error) {
-            from()
-            description(err.description())
+error_chain! {
+    foreign_links {
+        Media(MediaError);
+        WalkDir(walkdir::Error);
+        Db(diesel::result::Error);
+        Io(io::Error);
+    }
+
+    errors {
+        InvalidUtf8 {
+            description("Invalid Utf-8")
         }
-        Db(err: diesel::result::Error) {
-            from()
-            description(err.description())
-        }
-        WalkDir(err: walkdir::Error) {
-            description(err.description())
-        }
-        MediaError(err: MediaError) {
-            from()
-            description(err.description())
-        }
-        InvalidUtf8(err: ()) {
-        }
-        Other(descr: &'static str) {
-            description(descr)
+        Other(t: &'static str) {
+            description(t)
         }
     }
 }
@@ -72,7 +63,7 @@ impl Scanner {
     // for all existing audiobooks
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
-    pub fn scan_library(&mut self) -> Result<(), ScannError> {
+    pub fn scan_library(&mut self) -> Result<()> {
         info!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(UTC::now().naive_utc());
@@ -82,7 +73,7 @@ impl Scanner {
         loop {
             let entry = match walker.next() {
                 None => break,
-                Some(Err(e)) => return Err(ScannError::WalkDir(e)),
+                Some(Err(e)) => return Err(e.into()),
                 Some(Ok(i)) => i,
             };
             let path = entry.path();
@@ -117,7 +108,7 @@ impl Scanner {
             .set(&self.library)
             .execute(conn) {
                 Ok(_) => Ok(()),
-                Err(e) => Err(ScannError::Db(e))
+                Err(e) => Err(e.into())
             }
     }
 
@@ -135,7 +126,7 @@ impl Scanner {
         }
     }
 
-    pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
+    pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
         let relative_path = self.relative_path_str(path)?;
         let hash = checksum_file(path)?;
 
@@ -150,7 +141,7 @@ impl Scanner {
 
         let file = match MediaFile::read_file(&path.as_ref()) {
             Ok(f) => f,
-            Err(e) => return Err(ScannError::MediaError(e))
+            Err(e) => return Err(e.into())
         };
 
         let metadata = file.get_mediainfo();
@@ -162,7 +153,7 @@ impl Scanner {
             hash: hash
         };
 
-        let inserted = conn.transaction(|| -> Result<(Audiobook, usize), diesel::result::Error> {
+        let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
             book.delete_all_chapters(&conn);
             let chapters = file.get_chapters();
@@ -181,19 +172,19 @@ impl Scanner {
                 info!("Successfully saved book: {} with {} chapters.", b.title, num_chapters);
                 Ok(())
             },
-            Err(e) => Err(ScannError::Db(e))
+            Err(e) => Err(e)
         }
     }
 
-    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str, ScannError>{
+    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
         match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
-            Err(_) => Err(ScannError::Other("Path is not inside library.")),
-            Ok(None) => Err(ScannError::Other("Path is not a valid utf-8 String.")),
+            Err(_) => Err(ErrorKind::Other("Path is not inside library.").into()),
+            Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
             Ok(Some(p)) => Ok(p)
         }
     }
 
-    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<(), ScannError> {
+    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
         // TODO: This might lead to inconsisten data as we hash before iterating over the files
         // changes might happen
         let hash = checksum_dir(path)?;
@@ -217,7 +208,7 @@ impl Scanner {
 
         let extension = match probable_audio_extension(&path) {
             Some(e) => e,
-            None => return Err(ScannError::Other("No valid file extensions found."))
+            None => return Err(ErrorKind::Other("No valid file extensions found.").into())
         };
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
@@ -229,7 +220,7 @@ impl Scanner {
         let mut start_time = 0.0;
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
-            None => return Err(ScannError::InvalidUtf8(()))
+            None => return Err(ErrorKind::InvalidUtf8.into())
         };
 
         let default_book = NewAudiobook {
@@ -240,7 +231,7 @@ impl Scanner {
             hash: hash
         };
 
-        let inserted = conn.transaction(||  -> Result<(), ScannError> {
+        let inserted = conn.transaction(||  -> Result<()> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
             book.delete_all_chapters(&conn);
             for (i, entry) in walker.into_iter().enumerate() {
@@ -271,11 +262,11 @@ impl Scanner {
                                 all_chapters.push(new_chapter);
                                 f
                             }
-                            Err(e) => return Err(ScannError::MediaError(e))
+                            Err(e) => return Err(e.into())
                         };
                         mediafiles.push(media)
                     },
-                    Err(e) => return Err(ScannError::WalkDir(e))
+                    Err(e) => return Err(e.into())
                 };
             };
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
@@ -300,7 +291,7 @@ fn is_audiobook(path: &Path, regex: &Regex) -> bool {
     regex.is_match(path.to_str().unwrap())
 }
 
-pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
+pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>> {
     let mut ctx = digest::Context::new(&digest::SHA256);
     update_hash_from_file(&mut ctx, path)?;
     let mut res = Vec::new();
@@ -308,7 +299,7 @@ pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
     Ok(res)
 }
 
-fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<(), io::Error> {
+fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<()> {
     let mut file = File::open(path.as_ref())?;
     let mut buf: [u8; 1024] = [0; 1024];
     loop {
@@ -322,21 +313,21 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Resul
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
-fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>, ScannError> {
+fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
     // this is a suboptimal solution it doesn't really matter here but creating a vector is not
     // great.
-    let times: Result<Vec<NaiveDateTime>, _> = WalkDir::new(path.as_ref())
+    let times: Result<Vec<NaiveDateTime>> = WalkDir::new(path.as_ref())
         .follow_links(true)
         .into_iter()
-        .map(|el| -> Result<NaiveDateTime, ScannError> {
+        .map(|el| -> Result<NaiveDateTime> {
             match el {
                 Ok(f) => {
                     match f.metadata().map(|el| NaiveDateTime::from_timestamp(el.mtime(), el.mtime_nsec() as u32)) {
                         Ok(modified) => return Ok(modified),
-                        Err(e) => return Err(ScannError::WalkDir(e))
+                        Err(e) => return Err(e.into())
                     };
                 },
-                Err(e) => return Err(ScannError::WalkDir(e))
+                Err(e) => return Err(e.into())
             }
         })
     .collect();
@@ -365,7 +356,7 @@ pub(super) fn probable_audio_extension(path: &AsRef<Path>) -> Option<OsString> {
     extensions.pop().map(|el| el.0)
 }
 
-pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>, io::Error> {
+pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
     let walker = WalkDir::new(path.as_ref())
         .follow_links(true)
         .sort_by(

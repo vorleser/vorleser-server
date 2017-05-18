@@ -3,7 +3,7 @@
 #![allow(dead_code, unused)]
 
 #[macro_use] extern crate lazy_static;
-#[macro_use] extern crate quick_error;
+#[macro_use] extern crate error_chain;
 #[macro_use(log, info, debug, warn, trace)] extern crate log;
 // disgusting workaround for error also being present in rocket
 #[macro_use]

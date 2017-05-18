@@ -9,6 +9,43 @@ use image::jpeg::JPEGDecoder;
 use image::png::PNGDecoder;
 use image::ImageDecoder;
 use std::ffi::OsString;
+use helpers;
+use helpers::db::init_db_pool;
+use diesel;
+use diesel::prelude::*;
+
+describe! worker_tests {
+    before_each {
+        let mut pool = init_db_pool();
+        let conn = pool.get().unwrap();
+        let rocket = helpers::rocket::factory(pool);
+    }
+
+    after_each {
+        conn.execute("TRUNCATE audiobooks, chapters, playstates RESTART IDENTITY CASCADE").unwrap();
+    }
+
+    describe! scanner_tests {
+        before_each {
+            use models::library::{NewLibrary, Library};
+            use schema::libraries;
+            use worker::scanner;
+            let new_lib = NewLibrary{
+                location: "test-data".to_owned(),
+                is_audiobook_regex: "^[^/]+$".to_owned()
+            };
+            let library: Library = diesel::insert(&new_lib).into(libraries::table).get_result(&*conn).unwrap();
+            let test_scanner = scanner::Scanner::new(init_db_pool(), library.clone());
+        }
+
+        it "Can create single file audiobooks" {
+            use ::models::audiobook::{Audiobook, NewAudiobook, Update};
+            test_scanner.create_audiobook(&*conn, &Path::new("test-data/all.m4b")).unwrap();
+            assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
+        }
+
+    }
+}
 
 fn get_tempdir() -> PathBuf {
     let mut dir = env::temp_dir();
@@ -119,7 +156,7 @@ fn get_thumbnail_png() {
 // fn create_audiobook() {
 //     use super::scanner;
 //     let pool = init_db_pool();
-//     scanner::create_audiobook(pool.get().unwrap(), Path::new("test-data/all.m4b")).unwrap();
+//     
 // }
 
 #[test]

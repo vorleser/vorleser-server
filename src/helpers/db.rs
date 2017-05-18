@@ -10,6 +10,7 @@ use dotenv::dotenv;
 
 pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
 pub type PooledConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
+pub type Connection = PgConnection;
 
 pub fn init_db_pool() -> Pool {
     let config = r2d2::Config::default();

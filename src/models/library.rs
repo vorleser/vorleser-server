@@ -13,7 +13,7 @@ pub struct NewLibrary {
 }
 
 #[table_name="libraries"]
-#[derive(Debug, Queryable, AsChangeset, Serialize, Associations, Identifiable)]
+#[derive(Debug, Clone, Queryable, AsChangeset, Serialize, Associations, Identifiable)]
 #[has_many(audiobooks)]
 pub struct Library {
     pub id: Uuid,

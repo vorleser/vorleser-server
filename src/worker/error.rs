@@ -1,8 +1,31 @@
 use std::fmt;
 use std::ffi::CStr;
-use std::error::Error;
 use ffmpeg::av_strerror;
 use std::os::raw::c_char;
+use walkdir;
+use diesel;
+use std::io;
+use std::error::Error as StdError;
+
+error_chain! {
+    foreign_links {
+        Media(MediaError);
+        WalkDir(walkdir::Error);
+        Db(diesel::result::Error);
+        Io(io::Error);
+    }
+
+    errors {
+        InvalidUtf8 {
+            description("Invalid Utf-8")
+        }
+        Other(t: &'static str) {
+            description(t)
+        }
+        MediaError {
+        }
+    }
+}
 
 #[derive(Debug)]
 pub struct MediaError {
@@ -31,12 +54,12 @@ impl MediaError {
     }
 }
 
-impl Error for MediaError {
+impl StdError for MediaError {
     fn description(&self) -> &str {
         return &self.description;
     }
 
-    fn cause(&self) -> Option<&Error> {
+    fn cause(&self) -> Option<&StdError> {
         None
     }
 }

@@ -33,23 +33,6 @@ pub struct Scanner {
     pub pool: Pool
 }
 
-error_chain! {
-    foreign_links {
-        Media(MediaError);
-        WalkDir(walkdir::Error);
-        Db(diesel::result::Error);
-        Io(io::Error);
-    }
-
-    errors {
-        InvalidUtf8 {
-            description("Invalid Utf-8")
-        }
-        Other(t: &'static str) {
-            description(t)
-        }
-    }
-}
 
 impl Scanner {
     pub fn new(conn_pool: Pool, library: Library) -> Self {

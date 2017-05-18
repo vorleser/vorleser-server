@@ -56,6 +56,13 @@ impl Audiobook {
             return Ok(Update::NotFound);
         }
     }
+
+    pub fn delete_all_chapters(&self, conn: &diesel::pg::PgConnection) -> diesel::result::QueryResult<usize> {
+        diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
+    }
+
+    pub fn ensure_exsits(&self) {
+    }
 }
 
 #[derive(Insertable, Queryable, AsChangeset, Deserialize)]

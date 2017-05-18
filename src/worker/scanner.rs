@@ -19,7 +19,7 @@ use humanesort::HumaneOrder;
 use ::helpers::db::Pool;
 use ::models::library::*;
 use ::models::audiobook::{Audiobook, NewAudiobook, Update};
-use ::models::chapter::NewChapter;
+use ::models::chapter::{NewChapter, Chapter};
 use ::schema::audiobooks;
 use ::schema::chapters;
 use ::schema::libraries;
@@ -232,16 +232,28 @@ impl Scanner {
             None => return Err(ScannError::InvalidUtf8(()))
         };
 
-        Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::location.eq(&relative_path));
-        let new_book = NewAudiobook {
-            length: 0.0,
-            library_id: self.library.id,
-            location: relative_path,
-            title: title,
-            hash: hash
-        };
-        let inserted = conn.transaction(|| {
-            let book = diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?;
+        let inserted = conn.transaction(||  -> Result<(), ScannError> {
+            let book: Audiobook = match Audiobook::belonging_to(&self.library)
+                                .filter(audiobooks::dsl::location.eq(&relative_path))
+                                .first(&*conn)
+                                .optional() {
+                Ok(Some(b)) => {
+                    let correct_type: Audiobook = b;
+                    let deleted: usize = correct_type.delete_all_chapters(conn)?;
+                    correct_type
+                },
+                Ok(None) => {
+                    let new_book = NewAudiobook {
+                        length: 0.0,
+                        library_id: self.library.id,
+                        location: relative_path,
+                        title: title,
+                        hash: hash
+                    };
+                    diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?
+                }
+                Err(e) => return Err(ScannError::Db(e))
+            };
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {
@@ -287,7 +299,7 @@ impl Scanner {
         });
         match inserted {
             Ok(_) => {
-                info!("Successfully saved book: {}", new_book.title);
+                info!("Successfully saved book");
                 Ok(())
             },
             Err(e) => Err(e)

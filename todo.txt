@@ -1,5 +1,2 @@
 * No chapters for ATP, why?
 * pngs are added, why?
-* update instead of reinsert (with hashing)
-* update when path is the same
-* Sane storage location for remuxed files

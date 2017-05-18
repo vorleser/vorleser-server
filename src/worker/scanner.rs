@@ -154,7 +154,7 @@ impl Scanner {
         };
 
         let metadata = file.get_mediainfo();
-        let new_book = NewAudiobook {
+        let default_book = NewAudiobook {
             title: metadata.title,
             length: metadata.length,
             location: relative_path.to_owned(),
@@ -162,11 +162,11 @@ impl Scanner {
             hash: hash
         };
 
-        let inserted = conn.transaction(|| -> Result<usize, diesel::result::Error> {
-            let books = diesel::insert(&new_book).into(audiobooks::table).get_results::<Audiobook>(&*conn)?;
-            let book = books.first().unwrap();
+        let inserted = conn.transaction(|| -> Result<(Audiobook, usize), diesel::result::Error> {
+            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
+            book.delete_all_chapters(&conn);
             let chapters = file.get_chapters();
-            let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(move |(i, chapter)| {
+            let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 NewChapter {
                     audiobook_id: book.id,
                     start_time: chapter.start,
@@ -174,11 +174,11 @@ impl Scanner {
                     number: i as i64
                 }
             }).collect();
-            diesel::insert(&new_chapters).into(chapters::table).execute(&*conn)
+            Ok((book, diesel::insert(&new_chapters).into(chapters::table).execute(&*conn)?))
         });
         match inserted {
-            Ok(_) => {
-                info!("Successfully saved book: {}", new_book.title);
+            Ok((b, num_chapters)) => {
+                info!("Successfully saved book: {} with {} chapters.", b.title, num_chapters);
                 Ok(())
             },
             Err(e) => Err(ScannError::Db(e))

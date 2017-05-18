@@ -1,5 +1,6 @@
 #![feature(custom_attribute, plugin)]
 #![plugin(rocket_codegen)]
+#![cfg_attr(test, plugin(stainless))]
 #![allow(dead_code, unused)]
 
 #[macro_use] extern crate lazy_static;

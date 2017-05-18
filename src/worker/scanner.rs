@@ -83,8 +83,29 @@ impl Scanner {
                 if path.is_dir() {
                     walker.skip_current_dir();
                 }
-            }
-            // TODO: end scan by removing all those audiobooks not related to a file
+            };
+            // TODO: we should just mark books deleted here, after all accidents where the
+            // filesystem is gone for a bit should not lead to you loosing all playback data
+            // we should also be able to recover from having the book set to deleted
+            let mut deleted = 0;
+            for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
+                if !Path::new(&(self.library.location.clone() + &book.location)).exists() {
+                    let del = diesel::delete(
+                            Audiobook::belonging_to(&self.library)
+                            .filter(audiobooks::dsl::id.eq(book.id))
+                        ).execute(&*conn)?;
+                    match del {
+                        0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
+                        1 => deleted += 1,
+                        x => {
+                            warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
+                            deleted += x;
+                        }
+                    }
+                }
+            };
+            info!("Deleted {} audiobooks because there files are no longer present.", deleted);
+            ()
         };
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
@@ -168,8 +189,9 @@ impl Scanner {
     }
 
     pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
-        // TODO: This might lead to inconsisten data as we hash before iterating over the files
-        // changes might happen
+        // This might lead to inconsistent data as we hash before iterating over the files,
+        // not better way to go about this seems possible to me
+        // TODO: think about this
         let hash = checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
         info!("Scanning multi-file audiobook at {:?}", path.as_ref());

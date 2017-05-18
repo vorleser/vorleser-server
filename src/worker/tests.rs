@@ -79,6 +79,12 @@ fn read_files_test() {
 }
 
 #[test]
+fn guess_format() {
+    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    file.guess_format();
+}
+
+#[test]
 fn concat_files() {
     let files = read_files();
     let mut tmp_dir = get_tempdir();
@@ -127,7 +133,7 @@ fn file_not_existing() {
         Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
         );
     match f {
-        Err(me) => assert!(me.description.starts_with("No such file")),
+        Err(me) => assert!(me.description().starts_with("No such file")),
         Ok(_) => panic!("We expect a Media Error here.")
     }
 }

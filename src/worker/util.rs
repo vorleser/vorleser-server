@@ -1,9 +1,10 @@
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::slice;
 use std::collections::HashMap;
 use std::sync::Mutex;
-use super::error::MediaError;
+use std::os::raw::c_char;
 use ffmpeg::{AVDictionaryEntry, AVRational, av_register_all};
+use worker::error::*;
 
 lazy_static! {
     static ref FFMPEG_INITIALIZED: Mutex<bool> = Mutex::new(false);
@@ -13,6 +14,17 @@ lazy_static! {
 pub struct Dictionary {
     pub count: usize,
     pub elems: *mut AVDictionaryEntry
+}
+
+
+fn string_from_ptr(ptr: *const c_char) -> Result<Option<String>> {
+    if ptr.is_null() {
+        Ok(None)
+    } else {
+        unsafe {
+            Ok(Some(CStr::from_ptr(ptr).to_str()?.to_owned()))
+        }
+    }
 }
 
 pub(super) fn dict_to_map(dict_pointer: *mut Dictionary) -> HashMap<String, String> {
@@ -45,9 +57,9 @@ pub(super) fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
     time as f64 * (timebase.num as f64 / timebase.den as f64)
 }
 
-pub(super) fn check_av_result(num: i32) -> Result<i32, MediaError> {
+pub(super) fn check_av_result(num: i32) -> Result<i32> {
     if num < 0 {
-        Err(MediaError::new(num))
+        Err(ErrorKind::MediaError(num).into())
     }
     else {
         Ok(num)

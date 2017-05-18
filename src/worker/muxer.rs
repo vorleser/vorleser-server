@@ -3,16 +3,16 @@ use ffmpeg::*;
 use std::ffi::CString;
 use std::ptr;
 use std::path::Path;
-use super::error::MediaError;
 use super::mediafile::MediaFile;
 use super::util::*;
+use worker::error::*;
 
 pub struct NewMediaFile {
     ctx: *mut AVFormatContext
 }
 
 impl NewMediaFile {
-    pub fn from_stream(file_name: &Path, stream: &AVStream) -> Result<Self, MediaError> {
+    pub fn from_stream(file_name: &Path, stream: &AVStream) -> Result<Self> {
         unsafe {
             let time_base = (*stream).time_base;
             Self::new(
@@ -23,16 +23,13 @@ impl NewMediaFile {
         }
     }
 
-    pub fn new(file_name: &Path, codec: &mut AVCodecParameters, time_base: AVRational) -> Result<Self, MediaError> {
+    pub fn new(file_name: &Path, codec: &mut AVCodecParameters, time_base: AVRational) -> Result<Self> {
         ensure_av_register_all();
         let c_file_name = CString::new(file_name.to_str().unwrap()).unwrap();
         unsafe {
             let format = match ptr_to_opt_mut(av_guess_format(ptr::null(), c_file_name.as_ptr(), ptr::null())) {
                 Some(f) => f,
-                None => return Err(MediaError{
-                    description: "No format could be guessed!".to_string(),
-                    code: 1337
-                })
+                None => return Err(ErrorKind::Other("No Format could be guessed").into())
             };
             let mut ctx = ptr::null_mut();
             try!(check_av_result(avformat_alloc_output_context2(&mut ctx, ptr::null(), ptr::null(), c_file_name.as_ptr())));
@@ -48,14 +45,14 @@ impl NewMediaFile {
         // avformat_new_stream(ctx, );
     }
 
-    pub fn write_header(&mut self) -> Result<(), MediaError> {
+    pub fn write_header(&mut self) -> Result<()> {
         unsafe {
             try!(check_av_result(avformat_write_header(self.ctx, ptr::null_mut())));
         }
         Ok(())
     }
 
-    fn write_frame(&mut self, pkt: &mut AVPacket) -> Result<(), MediaError> {
+    fn write_frame(&mut self, pkt: &mut AVPacket) -> Result<()> {
         unsafe {
             pkt.stream_index = 0;
             try!(check_av_result(av_write_frame(self.ctx, pkt)));
@@ -63,7 +60,7 @@ impl NewMediaFile {
         Ok(())
     }
 
-    fn write_trailer(&mut self) -> Result<(), MediaError> {
+    fn write_trailer(&mut self) -> Result<()> {
         unsafe {
             try!(check_av_result(av_write_trailer(self.ctx)));
         }
@@ -71,7 +68,7 @@ impl NewMediaFile {
     }
 }
 
-pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile, MediaError> {
+pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile> {
     // TODO: check in_files length
     let mut out = {
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));

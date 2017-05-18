@@ -5,12 +5,14 @@ use std::ffi::{CStr, CString};
 use std::ptr;
 use std::path::{Path, PathBuf};
 use std::slice;
-use super::error::MediaError;
 use super::util::*;
 use std::collections::HashMap;
 use std::fmt::{Formatter, Debug};
-use std::fmt;
 use std::str::Split;
+use worker::error::*;
+use std::fmt;
+use std::error;
+use std::result;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ImageType {
@@ -82,19 +84,16 @@ pub struct MediaFile {
 }
 
 impl Debug for MediaFile {
-    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error>{
+    fn fmt(&self, f: &mut Formatter) -> result::Result<(), fmt::Error> {
         write!(f, "Mediafile for {:?}", self.path)
     }
 }
 
 impl MediaFile {
-    pub fn read_file(file_name: &Path) -> Result<Self, MediaError> {
+    pub fn read_file(file_name: &Path) -> Result<Self> {
         let file_name_str = match file_name.to_str() {
             Some(s) => s,
-            None => return Err(MediaError::from_description(
-                0,
-                "Non UTF8 Path provided".to_string()
-            ))
+            None => return Err(ErrorKind::InvalidUtf8.into())
         };
         unsafe {
             ensure_av_register_all();
@@ -129,18 +128,18 @@ impl MediaFile {
         }
     }
 
-    pub fn read_packet(&self) -> Result<Option<AVPacket>, MediaError> {
+    pub fn read_packet(&self) -> Result<Option<AVPacket>> {
         unsafe {
             let mut pkt = mem::uninitialized::<AVPacket>();
             match check_av_result(av_read_frame(self.ctx, &mut pkt)) {
-                Err(MediaError{code: AVERROR_EOF, .. } ) => Ok(None),
+                Err(Error(ErrorKind::MediaError(AVERROR_EOF), _)) => Ok(None),
                 Err(e) => Err(e),
                 _ => Ok(Some(pkt))
             }
         }
     }
 
-    pub fn get_cover_art(self) -> Result<Option<Image>, MediaError> {
+    pub fn get_cover_art(self) -> Result<Option<Image>> {
         unsafe {
             let best_image = try!(self.get_best_stream(AVMEDIA_TYPE_VIDEO));
             let codec = (*best_image.codecpar).codec_id;
@@ -206,7 +205,7 @@ impl MediaFile {
         }
     }
 
-    pub fn get_best_stream(&self, media_type: AVMediaType) -> Result<&AVStream, MediaError> {
+    pub fn get_best_stream(&self, media_type: AVMediaType) -> Result<&AVStream> {
         unsafe {
             // for s in self.get_streams() {
             //     if (*(*s).codecpar).codec_type == AVMEDIA_TYPE_AUDIO {

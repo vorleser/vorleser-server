@@ -232,28 +232,17 @@ impl Scanner {
             None => return Err(ScannError::InvalidUtf8(()))
         };
 
+        let default_book = NewAudiobook {
+            length: 0.0,
+            library_id: self.library.id,
+            location: relative_path.clone(),
+            title: title,
+            hash: hash
+        };
+
         let inserted = conn.transaction(||  -> Result<(), ScannError> {
-            let book: Audiobook = match Audiobook::belonging_to(&self.library)
-                                .filter(audiobooks::dsl::location.eq(&relative_path))
-                                .first(&*conn)
-                                .optional() {
-                Ok(Some(b)) => {
-                    let correct_type: Audiobook = b;
-                    let deleted: usize = correct_type.delete_all_chapters(conn)?;
-                    correct_type
-                },
-                Ok(None) => {
-                    let new_book = NewAudiobook {
-                        length: 0.0,
-                        library_id: self.library.id,
-                        location: relative_path,
-                        title: title,
-                        hash: hash
-                    };
-                    diesel::insert(&new_book).into(audiobooks::table).get_result::<Audiobook>(conn)?
-                }
-                Err(e) => return Err(ScannError::Db(e))
-            };
+            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
+            book.delete_all_chapters(&conn);
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {

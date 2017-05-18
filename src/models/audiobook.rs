@@ -7,6 +7,7 @@ use std::path::Path;
 use ::models::library::Library;
 use ::models::chapter::Chapter;
 use chrono::NaiveDateTime;
+use diesel::pg::PgConnection;
 
 #[table_name="audiobooks"]
 #[derive(Insertable)]
@@ -61,7 +62,20 @@ impl Audiobook {
         diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
     }
 
-    pub fn ensure_exsits(&self) {
+    pub fn ensure_exsits_in(relative_path: &AsRef<str>, library: &Library,
+                            new_book: &NewAudiobook, conn: &PgConnection)
+        -> Result<Audiobook, diesel::result::Error> {
+        match Self::belonging_to(library)
+            .filter(audiobooks::dsl::location.eq(relative_path.as_ref()))
+            .first(&*conn)
+            .optional()? {
+                Some(b) => {
+                    Ok(b)
+                },
+                None => {
+                    diesel::insert(new_book).into(audiobooks::table).get_result::<Audiobook>(conn)
+                }
+            }
     }
 }
 

@@ -99,7 +99,7 @@ pub(super) fn ptr_to_opt<T>(ptr: *const T) -> Option<*const T> {
 ///
 /// Sniff mimetype based on the first `count` bytes of the file.
 ///
-pub(super) fn sniff_file(path: &AsRef<Path>) -> Result<Option<String>>{
+pub(super) fn sniff_mime_type(path: &AsRef<Path>) -> Result<Option<String>>{
     let mut f = File::open(path.as_ref())?;
     let mut buf: [u8; 4096] = [0; 4096];
     f.read_exact(&mut buf[..]);

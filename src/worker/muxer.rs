@@ -25,7 +25,6 @@ impl NewMediaFile {
 
     pub fn new(file_name: &Path, codec: &mut AVCodecParameters, time_base: AVRational) -> Result<Self> {
         ensure_av_register_all();
-        println!("{}", file_name.to_str().unwrap());
         let c_file_name = CString::new(
                 match file_name.to_str() {
                     Some(s) => s,

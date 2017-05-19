@@ -19,7 +19,6 @@ describe! worker_tests {
     before_each {
         let mut pool = init_db_pool();
         let conn = pool.get().unwrap();
-        let rocket = helpers::rocket::factory(pool);
     }
 
     after_each {

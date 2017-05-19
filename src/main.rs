@@ -53,6 +53,8 @@ mod handlers;
 mod responses;
 mod helpers;
 mod worker;
+#[cfg(test)]
+mod tests;
 
 use std::error::Error;
 use worker::scanner::Scanner;

@@ -141,15 +141,14 @@ impl Scanner {
         let hash = checksum_file(path)?;
 
         let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
-            Update::Nothing => true,
-            Update::Path => true,
+            Update::Nothing | Update::Path => true,
             Update::NotFound => false
         };
         if done {
             return Ok(());
         };
 
-        let file = MediaFile::read_file(&path.as_ref())?;
+        let file = MediaFile::read_file(path.as_ref())?;
         let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Not an audiofile"))?;
 
         let metadata = file.get_mediainfo();
@@ -163,8 +162,8 @@ impl Scanner {
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
-            book.delete_all_chapters(&conn);
+            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
+            book.delete_all_chapters(conn);
             let chapters = file.get_chapters();
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 NewChapter {
@@ -208,8 +207,7 @@ impl Scanner {
         // It should just keep switching the paths around whenever a file creation time is
         // updated which is not to bad.
         let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
-            Update::Nothing => true,
-            Update::Path => true,
+            Update::Nothing | Update::Path => true,
             Update::NotFound => false
         };
         if done {
@@ -244,7 +242,7 @@ impl Scanner {
 
         let inserted = conn.transaction(||  -> Result<()> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
-            book.delete_all_chapters(&conn);
+            book.delete_all_chapters(conn);
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {
@@ -254,7 +252,7 @@ impl Scanner {
                             Some(ext) => if ext != filetype.extension { continue },
                             None => { continue }
                         };
-                        let media = match MediaFile::read_file(&file.path()) {
+                        let media = match MediaFile::read_file(file.path()) {
                             Ok(f) => {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
@@ -337,11 +335,11 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
             match el {
                 Ok(f) => {
                     match f.metadata().map(|el| NaiveDateTime::from_timestamp(el.mtime(), el.mtime_nsec() as u32)) {
-                        Ok(modified) => return Ok(modified),
-                        Err(e) => return Err(e.into())
-                    };
+                        Ok(modified) => Ok(modified),
+                        Err(e) => Err(e.into())
+                    }
                 },
-                Err(e) => return Err(e.into())
+                Err(e) => Err(e.into())
             }
         })
     .collect();
@@ -362,7 +360,7 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<Filet
                         Ok(Some(t)) => t,
                         _ => return None
                     };
-                    match mime_type.split("/").next() {
+                    match mime_type.split('/').next() {
                         Some("audio") => (),
                         _ => return None
                     };

@@ -45,7 +45,7 @@ impl UserModel {
             .get_result::<ApiToken>(&*db)
             .expect("Error saving new api token");
 
-        return token.id.to_string()
+        token.id.to_string()
     }
 
     pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Option<UserModel> {

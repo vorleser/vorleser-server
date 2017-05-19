@@ -153,6 +153,10 @@ impl Scanner {
             Ok(f) => f,
             Err(e) => return Err(e.into())
         };
+        let mime = match util::sniff_mime_type(&path)? {
+            Some(m) => m,
+            None => return Err(ErrorKind::Other("Not an audiofile").into())
+        };
 
         let metadata = file.get_mediainfo();
         let default_book = NewAudiobook {
@@ -160,7 +164,8 @@ impl Scanner {
             length: metadata.length,
             location: relative_path.to_owned(),
             library_id: self.library.id,
-            hash: hash
+            hash: hash,
+            mime_type: mime
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
@@ -239,7 +244,8 @@ impl Scanner {
             library_id: self.library.id,
             location: relative_path.clone(),
             title: title,
-            hash: hash
+            hash: hash,
+            mime_type: filetype.mime_type.clone()
         };
 
         let inserted = conn.transaction(||  -> Result<()> {

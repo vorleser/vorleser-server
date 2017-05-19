@@ -14,9 +14,10 @@ use diesel::pg::PgConnection;
 pub struct NewAudiobook {
     pub title: String,
     pub location: String,
+    pub mime_type: String,
     pub length: f64,
     pub library_id: Uuid,
-    pub hash: Vec<u8>
+    pub hash: Vec<u8>,
 }
 
 #[table_name="audiobooks"]
@@ -27,9 +28,10 @@ pub struct Audiobook {
     pub id: Uuid,
     pub title: String,
     pub location: String,
+    pub mime_type: String,
     pub length: f64,
     pub library_id: Uuid,
-    pub hash: Vec<u8>
+    pub hash: Vec<u8>,
 }
 
 pub enum Update {
@@ -86,5 +88,5 @@ pub struct Playstate {
     pub completed: bool,
     pub user_id: Uuid,
     pub audiobook_id: Uuid,
-    pub timestamp: NaiveDateTime
+    pub timestamp: NaiveDateTime,
 }

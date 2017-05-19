@@ -149,14 +149,8 @@ impl Scanner {
             return Ok(());
         };
 
-        let file = match MediaFile::read_file(&path.as_ref()) {
-            Ok(f) => f,
-            Err(e) => return Err(e.into())
-        };
-        let mime = match util::sniff_mime_type(&path)? {
-            Some(m) => m,
-            None => return Err(ErrorKind::Other("Not an audiofile").into())
-        };
+        let file = MediaFile::read_file(&path.as_ref())?;
+        let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Not an audiofile"))?;
 
         let metadata = file.get_mediainfo();
         let default_book = NewAudiobook {

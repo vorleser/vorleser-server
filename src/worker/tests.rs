@@ -13,6 +13,7 @@ use helpers;
 use helpers::db::init_db_pool;
 use diesel;
 use diesel::prelude::*;
+use ::worker::util;
 
 describe! worker_tests {
     before_each {
@@ -114,7 +115,12 @@ describe! mediafile_tests {
             muxer::merge_files(&tmp_dir, &files).unwrap();
         }
     }
+}
 
+describe! mimetype {
+    it "should find the mime type" {
+        assert_eq!(util::sniff_file(&"test-data/1.mp3".to_owned()).unwrap().unwrap(), "audio/mpeg")
+    }
 }
 
 fn get_tempdir() -> PathBuf {

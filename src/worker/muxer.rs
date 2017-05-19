@@ -75,6 +75,7 @@ impl NewMediaFile {
 
 pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile> {
     // TODO: check in_files length
+    // TODO: check that formats are actually compatible
     if in_files.len() == 0 { return Err(ErrorKind::Other("No Mediafiles").into()); };
     let mut out = {
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));

@@ -147,17 +147,7 @@ fn main() {
 
         let email = create_user.value_of("email").expect("a man has no name");
         let pass = create_user.value_of("password").expect("a man has no password");
-
-        let new_password_hash = UserModel::make_password_hash(pass);
-        let new_user = NewUser {
-            email: email.to_string(),
-            password_hash: new_password_hash,
-        };
-
-        let user = diesel::insert(&new_user)
-            .into(users::table)
-            .get_result::<UserModel>(&*db)
-            .expect("Error saving user");
+        let user = UserModel::create(&email, &pass, db).expect("Error saving user");
     }
 
     if let Some(_) = matches.subcommand_matches("serve") {

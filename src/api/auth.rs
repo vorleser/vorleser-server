@@ -35,7 +35,7 @@ pub fn register(user: JSON<UserSerializer>, db: DB) -> APIResponse {
         return conflict().message("User already exists.");
     }
 
-    let new_password_hash = UserModel::make_password_hash(user.password.as_str());
+    let new_password_hash = UserModel::make_password_hash(&user.password.as_str());
     let new_user = NewUser {
         email: user.email.clone(),
         password_hash: new_password_hash,

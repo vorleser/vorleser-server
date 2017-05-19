@@ -25,9 +25,22 @@ struct UserLoginToken {
 }
 
 impl UserModel {
-    pub fn make_password_hash(new_password: &str) -> String {
-        let password_hash = argon2i_simple(new_password, "loginsalt");
+    pub fn make_password_hash(new_password: &AsRef<str>) -> String {
+        // TODO: proper salting!!!
+        let password_hash = argon2i_simple(new_password.as_ref(), "loginsalt");
         String::from_utf8_lossy(&password_hash).into_owned()
+    }
+
+    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel, diesel::result::Error> {
+        let new_password_hash = UserModel::make_password_hash(password);
+        let new_user = NewUser {
+            email: email.as_ref().to_owned(),
+            password_hash: new_password_hash,
+        };
+
+        diesel::insert(&new_user)
+            .into(users::table)
+            .get_result::<UserModel>(&*conn)
     }
 
     pub fn verify_password(&self, candidate_password: &str) -> bool {

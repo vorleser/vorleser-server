@@ -25,7 +25,12 @@ impl NewMediaFile {
 
     pub fn new(file_name: &Path, codec: &mut AVCodecParameters, time_base: AVRational) -> Result<Self> {
         ensure_av_register_all();
-        let c_file_name = CString::new(file_name.to_str().unwrap()).unwrap();
+        println!("{}", file_name.to_str().unwrap());
+        let c_file_name = CString::new(
+                match file_name.to_str() {
+                    Some(s) => s,
+                    None => return Err(ErrorKind::InvalidUtf8.into())
+                }).unwrap();
         unsafe {
             let format = match ptr_to_opt_mut(av_guess_format(ptr::null(), c_file_name.as_ptr(), ptr::null())) {
                 Some(f) => f,
@@ -70,6 +75,7 @@ impl NewMediaFile {
 
 pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile> {
     // TODO: check in_files length
+    if in_files.len() == 0 { return Err(ErrorKind::Other("No Mediafiles").into()); };
     let mut out = {
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
         try!(NewMediaFile::from_stream(path.as_ref(), stream))

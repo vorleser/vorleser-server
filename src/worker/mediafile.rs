@@ -80,7 +80,7 @@ pub struct MediaFile {
     ctx: *mut AVFormatContext,
     path: PathBuf,
     averror: i32,
-    av_packet: Option<AVPacket>
+    av_packet: Option<AVPacket>,
 }
 
 impl Debug for MediaFile {
@@ -97,12 +97,12 @@ impl MediaFile {
         };
         unsafe {
             ensure_av_register_all();
-            let c_file_name = CString::new(file_name_str).unwrap();
+            let c_file_name = CString::new(file_name_str).expect("Null byte in filename.");
             let mut new = Self {
                 path: file_name.to_owned(),
                 ctx: avformat_alloc_context(),
                 averror: 0,
-                av_packet: None
+                av_packet: None,
             };
             new.averror = try!(check_av_result(avformat_open_input(
                 &mut new.ctx,
@@ -113,6 +113,28 @@ impl MediaFile {
             try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));
             Ok(new)
         }
+    }
+
+    pub fn probe_format(&self) -> Result<()> {
+        let probesize = 5000000;
+        let mut buf: Vec<u8> = Vec::with_capacity((probesize + AVPROBE_PADDING_SIZE) as usize);
+        for x in 0..(probesize + AVPROBE_PADDING_SIZE) {
+            buf.push(0)
+        };
+        let c_file_name = CString::new(self.path.to_str()
+                                       .unwrap_or({
+                                           return Err(ErrorKind::InvalidUtf8.into())
+                                       })).expect("Null byte in filename");
+        let mut probe_data = AVProbeData {
+            filename: c_file_name.as_ptr(),
+            buf: buf.as_mut_ptr(),
+            buf_size: probesize,
+            mime_type: ptr::null()
+        };
+        unsafe {
+            av_probe_input_format(&mut probe_data, 1);
+        };
+        Ok(())
     }
 
     pub fn guess_format<'a>(&'a self) -> Format {

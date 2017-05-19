@@ -47,6 +47,17 @@ describe! worker_tests {
     }
 }
 
+
+describe! mediafile_tests {
+    before_each {
+        let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    }
+
+    it "can be probed" {
+        file.probe_format();
+    }
+}
+
 fn get_tempdir() -> PathBuf {
     let mut dir = env::temp_dir();
     dir.push("vorleser-tests");
@@ -76,12 +87,6 @@ fn read_files_test() {
     for f in files {
         assert_eq!(f.get_chapters().len(), 0)
     }
-}
-
-#[test]
-fn guess_format() {
-    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-    file.guess_format();
 }
 
 #[test]
@@ -133,7 +138,10 @@ fn file_not_existing() {
         Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
         );
     match f {
-        Err(me) => assert!(me.description().starts_with("No such file")),
+        Err(me) => {
+            println!("{:?}", me.description());
+            assert!(me.description().starts_with("No such file"));
+        },
         Ok(_) => panic!("We expect a Media Error here.")
     }
 }
@@ -157,13 +165,6 @@ fn get_thumbnail_png() {
     let png_dims = png_decoder.dimensions().unwrap();
     assert_eq!((300, 300), png_dims);
 }
-
-// #[test]
-// fn create_audiobook() {
-//     use super::scanner;
-//     let pool = init_db_pool();
-//     
-// }
 
 #[test]
 fn checksum() {

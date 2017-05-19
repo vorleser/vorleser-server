@@ -28,6 +28,7 @@ error_chain! {
 
         MediaError(code: i32) {
             description(unsafe {
+                println!("Error Code: {}", code);
                 let mut buf: [c_char; 1024] = [0; 1024];
                 av_strerror(*code, &mut buf[0], 1024);
                 CStr::from_ptr(&buf[0]).to_str().unwrap()

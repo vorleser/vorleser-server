@@ -2,6 +2,9 @@
 #![plugin(rocket_codegen)]
 #![cfg_attr(test, plugin(stainless))]
 #![allow(dead_code, unused)]
+// We need the atomic mutex for locking ffmepg initialization
+// pass by value is handy for use in rocket routes
+#![cfg_attr(feature = "cargo-clippy", allow(mutex_atomic, needless_pass_by_value))]
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate error_chain;

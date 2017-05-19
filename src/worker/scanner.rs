@@ -241,7 +241,7 @@ impl Scanner {
         };
 
         let inserted = conn.transaction(||  -> Result<()> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
+            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {

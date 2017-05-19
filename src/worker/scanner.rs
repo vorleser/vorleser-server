@@ -26,6 +26,7 @@ use worker::muxer;
 use chrono::prelude::*;
 use std::os::unix::prelude::*;
 use diesel::BelongingToDsl;
+use worker::util;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -33,6 +34,11 @@ pub struct Scanner {
     pub pool: Pool
 }
 
+#[derive(Hash, Eq, PartialEq)]
+pub(super) struct Filetype {
+    pub extension: OsString,
+    pub mime_type: String
+}
 
 impl Scanner {
     pub fn new(conn_pool: Pool, library: Library) -> Self {
@@ -135,18 +141,15 @@ impl Scanner {
         let hash = checksum_file(path)?;
 
         let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
-            Update::Nothing => true,
-            Update::Path => true,
+            Update::Nothing | Update::Path => true,
             Update::NotFound => false
         };
         if done {
             return Ok(());
         };
 
-        let file = match MediaFile::read_file(&path.as_ref()) {
-            Ok(f) => f,
-            Err(e) => return Err(e.into())
-        };
+        let file = MediaFile::read_file(path.as_ref())?;
+        let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Not an audiofile"))?;
 
         let metadata = file.get_mediainfo();
         let default_book = NewAudiobook {
@@ -154,12 +157,13 @@ impl Scanner {
             length: metadata.length,
             location: relative_path.to_owned(),
             library_id: self.library.id,
-            hash: hash
+            hash: hash,
+            mime_type: mime
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
-            book.delete_all_chapters(&conn);
+            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
+            book.delete_all_chapters(conn);
             let chapters = file.get_chapters();
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 NewChapter {
@@ -203,15 +207,14 @@ impl Scanner {
         // It should just keep switching the paths around whenever a file creation time is
         // updated which is not to bad.
         let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
-            Update::Nothing => true,
-            Update::Path => true,
+            Update::Nothing | Update::Path => true,
             Update::NotFound => false
         };
         if done {
             return Ok(());
         };
 
-        let extension = match probable_audio_extension(&path) {
+        let filetype = match probable_audio_filetype(&path)? {
             Some(e) => e,
             None => return Err(ErrorKind::Other("No valid file extensions found.").into())
         };
@@ -233,21 +236,23 @@ impl Scanner {
             library_id: self.library.id,
             location: relative_path.clone(),
             title: title,
-            hash: hash
+            hash: hash,
+            mime_type: filetype.mime_type.clone()
         };
 
         let inserted = conn.transaction(||  -> Result<()> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, &conn)?;
-            book.delete_all_chapters(&conn);
+            book.delete_all_chapters(conn);
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {
                         if file.path().is_dir() { continue };
+                        // TODO: we could check the mimetype and not just the extension here
                         match file.path().extension() {
-                            Some(ext) => if ext != extension { continue },
+                            Some(ext) => if ext != filetype.extension { continue },
                             None => { continue }
                         };
-                        let media = match MediaFile::read_file(&file.path()) {
+                        let media = match MediaFile::read_file(file.path()) {
                             Ok(f) => {
                                 if i == 0 {
                                     if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
@@ -277,7 +282,9 @@ impl Scanner {
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
             muxer::merge_files(
-                &("data/".to_string() + &book.id.hyphenated().to_string() + &extension.to_string_lossy().into_owned()),
+                &("data/".to_string() +
+                  &book.id.hyphenated().to_string() +
+                  &filetype.extension.to_string_lossy().into_owned()),
                 &mediafiles
                 )?;
             Ok(())
@@ -328,11 +335,11 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
             match el {
                 Ok(f) => {
                     match f.metadata().map(|el| NaiveDateTime::from_timestamp(el.mtime(), el.mtime_nsec() as u32)) {
-                        Ok(modified) => return Ok(modified),
-                        Err(e) => return Err(e.into())
-                    };
+                        Ok(modified) => Ok(modified),
+                        Err(e) => Err(e.into())
+                    }
                 },
-                Err(e) => return Err(e.into())
+                Err(e) => Err(e.into())
             }
         })
     .collect();
@@ -341,24 +348,37 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
 
 
 /// Find the most common extension in a directory that might be an audio file.
-pub(super) fn probable_audio_extension(path: &AsRef<Path>) -> Option<OsString> {
-    // TODO: discard files that don't look like media files
-    let mut counts: HashMap<OsString, usize> = HashMap::new();
-    for el in WalkDir::new(path.as_ref())
+pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<Filetype>> {
+    let mut counts: HashMap<Filetype, usize> = HashMap::new();
+    let file_type_iterator = WalkDir::new(path.as_ref())
         .follow_links(true)
         .into_iter()
         .filter_map(|opt| {
-            match opt.map(|wd| wd.path().extension().map(|el| el.to_owned())) {
-                Ok(Some(o)) => Some(o),
+            match opt.map(|wd| (wd.path().to_owned(), wd.path().extension().map(|el| el.to_owned()))) {
+                Ok((path, Some(o))) => {
+                    let mime_type = match util::sniff_mime_type(&path) {
+                        Ok(Some(t)) => t,
+                        _ => return None
+                    };
+                    match mime_type.split('/').next() {
+                        Some("audio") => (),
+                        _ => return None
+                    };
+                    Some(Filetype {
+                        extension: o,
+                        mime_type: mime_type
+                    })
+                },
                 _ => None,
             }
-        }) {
+        });
+    for el in file_type_iterator {
         let mut count = counts.entry(el).or_insert(0);
         *count += 1;
     };
-    let mut extensions: Vec<(OsString, usize)> = counts.drain().collect();
-    extensions.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
-    extensions.pop().map(|el| el.0)
+    let mut filetypes: Vec<(Filetype, usize)> = counts.drain().collect();
+    filetypes.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
+    Ok(filetypes.pop().map(|el| el.0))
 }
 
 pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {

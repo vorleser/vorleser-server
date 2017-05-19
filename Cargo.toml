@@ -2,16 +2,18 @@
 authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
 name = "vorleser-rust"
 version = "0.1.0"
-
 [dependencies]
 argon2rs = "0.2"
 clap = "*"
 dotenv = "0.8.0"
-log = "*"
 env_logger = "*"
+error-chain = "0.10.0"
+humanesort = "0.1.0-alpha"
 image = "0.12.3"
 lazy_static = "0.2"
 libc = "0.2"
+log = "*"
+mime-sniffer = "0.1.1"
 r2d2 = "0.7.1"
 r2d2-diesel = "0.11"
 regex = "0.2.1"
@@ -24,11 +26,6 @@ serde_json = "0.9"
 validator = "0.4"
 validator_derive = "0.4"
 walkdir = "1"
-humanesort = "0.1.0-alpha"
-error-chain = "0.10.0"
-
-[dev-dependencies]
-stainless = "*"
 
 [dependencies.chrono]
 features = ["serde"]
@@ -55,3 +52,6 @@ version = "0.2.*"
 [dependencies.uuid]
 features = ["use_std", "serde", "v4"]
 version = "0.4"
+
+[dev-dependencies]
+stainless = "*"

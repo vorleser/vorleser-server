@@ -74,7 +74,8 @@ impl NewMediaFile {
 
 pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile> {
     // TODO: check in_files length
-    if in_files.len() == 0 { return Err(ErrorKind::Other("No Mediafiles").into()); };
+    // TODO: check that formats are actually compatible
+    if in_files.is_empty() { return Err(ErrorKind::Other("No Mediafiles").into()); };
     let mut out = {
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
         try!(NewMediaFile::from_stream(path.as_ref(), stream))
@@ -100,7 +101,7 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
                     // Todo: I am not sure if this is the proper way to do this
                     // maybe we need to keep a running value instead of letting ffmpeg guess
                     //println!("kek: pkt: {}, file: {} :kek", pkt.duration, this_file_duration);
-                    this_file_duration = this_file_duration + pkt.duration;
+                    this_file_duration += pkt.duration;
                     pkt.dts += previous_files_duration;
                     pkt.pts += previous_files_duration;
 
@@ -112,7 +113,7 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
                 None => break
             }
         }
-        previous_files_duration = previous_files_duration + this_file_duration;
+        previous_files_duration += this_file_duration;
     }
     info!("writing trailer");
     try!(out.write_trailer());

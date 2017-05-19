@@ -32,8 +32,7 @@ CREATE TABLE library_access (
 CREATE TABLE audiobooks (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     location TEXT NOT NULL, -- rename to source location
-    -- mime_type VARCHAR(255) NOT NULL,
-    -- hash
+    mime_type VARCHAR(255) NOT NULL,
     title VARCHAR(1024) NOT NULL,
     length DOUBLE PRECISION NOT NULL,
     library_id UUID REFERENCES libraries (id) NOT NULL,

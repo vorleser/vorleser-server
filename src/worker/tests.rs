@@ -13,6 +13,7 @@ use helpers;
 use helpers::db::init_db_pool;
 use diesel;
 use diesel::prelude::*;
+use ::worker::util;
 
 describe! worker_tests {
     before_each {
@@ -34,7 +35,10 @@ describe! worker_tests {
                 location: "test-data".to_owned(),
                 is_audiobook_regex: "^[^/]+$".to_owned()
             };
-            let library: Library = diesel::insert(&new_lib).into(libraries::table).get_result(&*conn).unwrap();
+            let library: Library = diesel::insert(&new_lib)
+                .into(libraries::table)
+                .get_result(&*conn)
+                .unwrap();
             let test_scanner = scanner::Scanner::new(init_db_pool(), library.clone());
         }
 
@@ -114,7 +118,12 @@ describe! mediafile_tests {
             muxer::merge_files(&tmp_dir, &files).unwrap();
         }
     }
+}
 
+describe! mimetype {
+    it "should find the mime type" {
+        assert_eq!(util::sniff_mime_type(&"test-data/1.mp3".to_owned()).unwrap().unwrap(), "audio/mpeg")
+    }
 }
 
 fn get_tempdir() -> PathBuf {
@@ -135,10 +144,9 @@ fn read_files() -> Vec<MediaFile> {
 
 #[test]
 fn common_extension() {
-    use worker::scanner::probable_audio_extension;
-    let extension = probable_audio_extension(&"test-data/all");
-    assert_eq!(extension.unwrap(), OsString::from("mp3"))
-}
+    use worker::scanner::probable_audio_filetype;
+    let ft = probable_audio_filetype(&"test-data/all");
+    assert_eq!(ft.unwrap().unwrap().extension, OsString::from("mp3")) }
 
 #[test]
 fn get_thumbnail_jpg() {

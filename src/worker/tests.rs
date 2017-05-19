@@ -56,6 +56,65 @@ describe! mediafile_tests {
     it "can be probed" {
         file.probe_format();
     }
+
+    it "handles non existing files" {
+        let invalid_file = MediaFile::read_file(
+            Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
+            );
+        match invalid_file {
+            Err(me) => {
+                println!("{:?}", me.description());
+                assert!(me.description().starts_with("No such file"));
+            },
+            Ok(_) => panic!("We expect a Media Error here.")
+        }
+    }
+
+    it "reads chapters" {
+        let chapters = file.get_chapters();
+        assert_eq!(chapters.len(), 4);
+        assert_eq!(chapters[2].clone().title.unwrap(), "3 - Otpluva lekii cheln...");
+        assert_eq!(chapters[2].clone().start.floor() as usize, 91);
+        println!("{:?}", chapters);
+    }
+
+    it "get's the length right" {
+        assert_eq!(file.get_mediainfo().length.floor() as usize,  165);
+    }
+
+    it "reads the title" {
+        let mi = file.get_mediainfo();
+        assert_eq!("[Bulgarian]Stihotvorenia", mi.title)
+    }
+
+    it "has metadata" {
+        let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+        assert_eq!(file.get_mediainfo().metadata.get("artist").unwrap(), "Mara Belcheva");
+    }
+
+    it "has defaults for file without metadata" {
+        let file = MediaFile::read_file(Path::new("test-data/no_metadata.mp3")).unwrap();
+        assert_eq!(file.get_mediainfo().title, "no_metadata.mp3");
+    }
+
+    describe! multi_files {
+        before_each {
+            let files = read_files();
+        }
+
+        it "doesn't see chapters where none are" {
+            for f in files {
+                assert_eq!(f.get_chapters().len(), 0)
+            }
+        }
+
+        it "can remux files" {
+            let mut tmp_dir = get_tempdir();
+            tmp_dir.push(Path::new("muxed.mp3"));
+            muxer::merge_files(&tmp_dir, &files).unwrap();
+        }
+    }
+
 }
 
 fn get_tempdir() -> PathBuf {
@@ -79,71 +138,6 @@ fn common_extension() {
     use worker::scanner::probable_audio_extension;
     let extension = probable_audio_extension(&"test-data/all");
     assert_eq!(extension.unwrap(), OsString::from("mp3"))
-}
-
-#[test]
-fn read_files_test() {
-    let files = read_files();
-    for f in files {
-        assert_eq!(f.get_chapters().len(), 0)
-    }
-}
-
-#[test]
-fn concat_files() {
-    let files = read_files();
-    let mut tmp_dir = get_tempdir();
-    tmp_dir.push(Path::new("muxed.mp3"));
-    muxer::merge_files(&tmp_dir, &files).unwrap();
-}
-
-#[test]
-fn list_chapters() {
-    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-    let chapters = file.get_chapters();
-    assert_eq!(chapters.len(), 4);
-    assert_eq!(chapters[2].clone().title.unwrap(), "3 - Otpluva lekii cheln...");
-    assert_eq!(chapters[2].clone().start.floor() as usize, 91);
-    println!("{:?}", chapters);
-}
-
-#[test]
-fn media_length() {
-    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-    assert_eq!(file.get_mediainfo().length.floor() as usize,  165);
-}
-
-#[test]
-fn media_title() {
-    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-    let mi = file.get_mediainfo();
-    assert_eq!("[Bulgarian]Stihotvorenia", mi.title)
-}
-
-#[test]
-fn media_metadata() {
-    let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-    assert_eq!(file.get_mediainfo().metadata.get("artist").unwrap(), "Mara Belcheva");
-}
-
-#[test]
-fn media_no_metadata() {
-    let file = MediaFile::read_file(Path::new("test-data/no_metadata.mp3")).unwrap();
-    assert_eq!(file.get_mediainfo().title, "no_metadata.mp3");
-}
-
-#[test]
-fn file_not_existing() {
-    let f = MediaFile::read_file(
-        Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
-        );
-    match f {
-        Err(me) => {
-            println!("{:?}", me.description());
-            assert!(me.description().starts_with("No such file"));
-        },
-        Ok(_) => panic!("We expect a Media Error here.")
-    }
 }
 
 #[test]

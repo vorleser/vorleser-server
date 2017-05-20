@@ -48,3 +48,9 @@ pub fn register(user: JSON<UserSerializer>, db: DB) -> APIResponse {
 
     created().message("User created.").data(json!(&user))
 }
+
+
+#[get("/whoami")]
+pub fn whoami(current_user: UserModel) -> APIResponse {
+    ok().data(json!(&current_user))
+}

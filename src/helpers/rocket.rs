@@ -13,6 +13,7 @@ pub fn factory(pool: super::db::Pool) -> Rocket {
         .mount("/api/auth/", routes![
                api::auth::login,
                api::auth::register,
+               api::auth::whoami,
         ])
         .catch(errors![
             handlers::bad_request_handler,

@@ -3,7 +3,7 @@ use std::slice;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::os::raw::c_char;
-use ffmpeg::{AVDictionaryEntry, AVRational, av_register_all};
+use ffmpeg::{AVDictionaryEntry, AVRational, av_register_all, av_log_set_level, AV_LOG_QUIET};
 use worker::error::*;
 use mime_sniffer::MimeTypeSniffer;
 use std::fs::File;
@@ -106,4 +106,10 @@ pub(super) fn sniff_mime_type(path: &AsRef<Path>) -> Result<Option<String>>{
     f.read_exact(&mut buf[..]);
     Ok((&buf[..]).sniff_mime_type().map(|s| s.to_owned()))
 
+}
+
+pub fn shut_up_ffmpeg() {
+    unsafe {
+        av_log_set_level(AV_LOG_QUIET);
+    }
 }

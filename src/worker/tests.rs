@@ -19,6 +19,7 @@ describe! worker_tests {
     before_each {
         let mut pool = init_db_pool();
         let conn = pool.get().unwrap();
+        util::shut_up_ffmpeg();
     }
 
     after_each {
@@ -54,6 +55,7 @@ describe! worker_tests {
 describe! mediafile_tests {
     before_each {
         let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+        util::shut_up_ffmpeg();
     }
 
     it "can be probed" {

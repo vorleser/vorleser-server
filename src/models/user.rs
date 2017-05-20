@@ -34,6 +34,7 @@ error_chain! {
 impl UserModel {
     pub fn make_password_hash(new_password: &AsRef<str>) -> String {
         // TODO: proper salting!!!
+        // consider using https://docs.rs/passwors/0.1.1/passwors/
         let password_hash = argon2i_simple(new_password.as_ref(), "loginsalt");
         String::from_utf8_lossy(&password_hash).into_owned()
     }
@@ -57,16 +58,15 @@ impl UserModel {
         self.password_hash == candidate_password_string
     }
 
-    pub fn generate_api_token(&self, db: DB) -> String {
+    pub fn generate_api_token(&self, db: DB) -> Result<ApiToken> {
         let new_token = NewApiToken {
             user_id: self.id
         };
         let token = diesel::insert(&new_token)
             .into(api_tokens::table)
-            .get_result::<ApiToken>(&*db)
-            .expect("Error saving new api token");
+            .get_result::<ApiToken>(&*db)?;
 
-        token.id.to_string()
+        Ok(token)
     }
 
     pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Result<Option<UserModel>> {
@@ -97,7 +97,7 @@ pub struct NewApiToken {
     pub user_id: Uuid,
 }
 
-#[derive(Debug, Queryable)]
+#[derive(Debug, Queryable, Serialize)]
 #[table_name="api_tokens"]
 pub struct ApiToken {
     pub id: Uuid,

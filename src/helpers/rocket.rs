@@ -15,12 +15,4 @@ pub fn factory(pool: super::db::Pool) -> Rocket {
                api::auth::register,
                api::auth::whoami,
         ])
-        .catch(errors![
-            handlers::bad_request_handler,
-            handlers::unauthorized_handler,
-            handlers::forbidden_handler,
-            handlers::not_found_handler,
-            handlers::internal_server_error_handler,
-            handlers::service_unavailable_handler
-        ])
 }

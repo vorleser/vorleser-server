@@ -7,8 +7,9 @@ use models::user::{UserModel, NewUser};
 use schema::users;
 use schema::users::dsl::*;
 use helpers::db::DB;
-use responses::{APIResponse, ok, created, conflict, unauthorized};
-
+use responses::{APIResponse, ok, created, conflict, unauthorized, internal_server_error};
+use rocket::Outcome;
+use rocket::http::Status;
 
 #[post("/login", data = "<user_in>", format = "application/json")]
 pub fn login(user_in: JSON<UserSerializer>, db: DB) -> APIResponse {
@@ -24,7 +25,12 @@ pub fn login(user_in: JSON<UserSerializer>, db: DB) -> APIResponse {
         return unauthorized().message("Username or password incorrect.");
     }
 
-    ok().data(json!(user.generate_api_token(db)))
+    let token = match user.generate_api_token(db) {
+        Ok(token) => token,
+        _ => return internal_server_error()
+    };
+
+    ok().data(json!(token))
 }
 
 #[post("/register", data = "<user>", format = "application/json")]

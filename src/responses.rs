@@ -77,7 +77,7 @@ pub fn bad_request() -> APIResponse {
     APIResponse {
         message: Some("Bad Request".to_string()),
         data: None,
-        status: Status::NoContent,
+        status: Status::BadRequest,
     }
 }
 

@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use uuid::{self, Uuid};
 use chrono::NaiveDateTime;
 use argon2rs::argon2i_simple;
 use diesel::pg::PgConnection;
@@ -24,6 +24,13 @@ struct UserLoginToken {
     user_id: Uuid,
 }
 
+error_chain! {
+    foreign_links {
+        Db(diesel::result::Error);
+        UuidParse(uuid::ParseError);
+    }
+}
+
 impl UserModel {
     pub fn make_password_hash(new_password: &AsRef<str>) -> String {
         // TODO: proper salting!!!
@@ -31,7 +38,7 @@ impl UserModel {
         String::from_utf8_lossy(&password_hash).into_owned()
     }
 
-    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel, diesel::result::Error> {
+    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {
         let new_password_hash = UserModel::make_password_hash(password);
         let new_user = NewUser {
             email: email.as_ref().to_owned(),
@@ -41,6 +48,7 @@ impl UserModel {
         diesel::insert(&new_user)
             .into(users::table)
             .get_result::<UserModel>(&*conn)
+            .map_err(|e| ErrorKind::Db(e).into())
     }
 
     pub fn verify_password(&self, candidate_password: &str) -> bool {
@@ -61,28 +69,18 @@ impl UserModel {
         token.id.to_string()
     }
 
-    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Option<UserModel> {
+    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Result<Option<UserModel>> {
         use schema;
         use schema::api_tokens::dsl::*;
 
         use schema::users::dsl::*;
 
-        let token_id = Uuid::parse_str(token_id_string);
-        if token_id.is_err() {
-            return None;
+        let token_id = Uuid::parse_str(token_id_string)?;
+        if let Some(token) = api_tokens.filter(schema::api_tokens::dsl::id.eq(token_id)).first::<ApiToken>(&*db).optional()? {
+            Ok(users.filter(schema::users::dsl::id.eq(token.user_id)).first::<UserModel>(&*db).optional()?)
+        } else {
+            Ok(None)
         }
-
-        let token = api_tokens.filter(schema::api_tokens::dsl::id.eq(token_id.unwrap())).first::<ApiToken>(&*db);
-        if token.is_err() {
-            return None;
-        }
-
-        let user = users.filter(schema::users::dsl::id.eq(token.unwrap().user_id)).first::<UserModel>(&*db);
-        if user.is_err() {
-            return None;
-        }
-
-        Some(user.unwrap())
     }
 }
 

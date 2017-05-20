@@ -1,2 +1,3 @@
 * No chapters for ATP, why?
 * pngs are added, why?
+* Don't use UUIDs as session secrets

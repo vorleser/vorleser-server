@@ -24,7 +24,7 @@ CREATE TABLE libraries (
     last_scan TIMESTAMP
 );
 
-CREATE TABLE library_access (
+CREATE TABLE library_permissions (
     library_id UUID REFERENCES libraries (id),
     user_id UUID REFERENCES users (id),
     PRIMARY KEY(library_id, user_id)

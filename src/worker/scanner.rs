@@ -90,29 +90,33 @@ impl Scanner {
                     walker.skip_current_dir();
                 }
             };
-            // TODO: we should just mark books deleted here, after all accidents where the
-            // filesystem is gone for a bit should not lead to you loosing all playback data
-            // we should also be able to recover from having the book set to deleted
-            let mut deleted = 0;
-            for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
-                if !Path::new(&(self.library.location.clone() + &book.location)).exists() {
-                    let del = diesel::delete(
-                            Audiobook::belonging_to(&self.library)
-                            .filter(audiobooks::dsl::id.eq(book.id))
-                        ).execute(&*conn)?;
-                    match del {
-                        0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
-                        1 => deleted += 1,
-                        x => {
-                            warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
-                            deleted += x;
-                        }
-                    }
-                }
-            };
-            info!("Deleted {} audiobooks because there files are no longer present.", deleted);
+
             ()
         };
+
+        // TODO: we should just mark books deleted here, after all accidents where the
+        // filesystem is gone for a bit should not lead to you loosing all playback data
+        // we should also be able to recover from having the book set to deleted
+        let mut deleted = 0;
+        for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
+            let path = Path::new(&self.library.location).join(Path::new(&book.location));
+            info!("checking wether audiobook at {:?} still exists", path);
+            if !path.exists() {
+                let del = diesel::delete(
+                        Audiobook::belonging_to(&self.library)
+                        .filter(audiobooks::dsl::id.eq(book.id))
+                    ).execute(&*conn)?;
+                match del {
+                    0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
+                    1 => deleted += 1,
+                    x => {
+                        warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
+                        deleted += x;
+                    }
+                }
+            }
+        };
+        info!("Deleted {} audiobooks because their files are no longer present.", deleted);
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
             .set(&self.library)
@@ -169,7 +173,7 @@ impl Scanner {
                 NewChapter {
                     audiobook_id: book.id,
                     start_time: chapter.start,
-                    title: chapter.title.clone().unwrap(),
+                    title: chapter.title.clone(),
                     number: i as i64
                 }
             }).collect();
@@ -262,7 +266,7 @@ impl Scanner {
                                 };
                                 let info = f.get_mediainfo();
                                 let new_chapter = NewChapter {
-                                    title: info.title,
+                                    title: Some(info.title),
                                     start_time: start_time,
                                     audiobook_id: book.id,
                                     number: i as i64

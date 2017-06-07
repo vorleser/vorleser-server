@@ -16,9 +16,9 @@ use models::permission::Permission;
 #[table_name="audiobooks"]
 #[derive(Insertable)]
 pub struct NewAudiobook {
-    pub title: String,
     pub location: String,
     pub mime_type: String,
+    pub title: String,
     pub length: f64,
     pub library_id: Uuid,
     pub hash: Vec<u8>,
@@ -30,10 +30,10 @@ pub struct NewAudiobook {
 #[belongs_to(Library)]
 pub struct Audiobook {
     pub id: Uuid,
-    pub title: String,
     #[serde(skip_serializing)]
     pub location: String,
     pub mime_type: String,
+    pub title: String,
     pub length: f64,
     pub library_id: Uuid,
     pub hash: Vec<u8>,
@@ -97,9 +97,9 @@ impl Audiobook {
 #[derive(Insertable, Queryable, AsChangeset, Serialize, Deserialize)]
 #[table_name="playstates"]
 pub struct Playstate {
-    pub position: f64,
-    pub completed: bool,
-    pub user_id: Uuid,
     pub audiobook_id: Uuid,
+    pub user_id: Uuid,
+    pub completed: bool,
+    pub position: f64,
     pub timestamp: NaiveDateTime,
 }

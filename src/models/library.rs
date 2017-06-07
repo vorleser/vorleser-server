@@ -13,19 +13,22 @@ pub struct NewLibrary {
 }
 
 #[table_name="libraries"]
-#[derive(Debug, Clone, Queryable, AsChangeset, Serialize, Associations, Identifiable)]
+#[derive(Debug, Clone, Queryable, AsChangeset, Associations, Identifiable, Serialize)]
 #[has_many(audiobooks, library_permissions)]
 pub struct Library {
     pub id: Uuid,
     pub content_change_date: NaiveDateTime,
+    #[serde(skip_serializing)]
     pub location: String,
+    #[serde(skip_serializing)]
     pub is_audiobook_regex: String,
+    #[serde(skip_serializing)]
     pub last_scan: Option<NaiveDateTime>
 }
 
 #[table_name="library_permissions"]
 #[primary_key(library_id, user_id)]
-#[derive(Debug, Clone, Queryable, AsChangeset, Serialize, Associations, Identifiable)]
+#[derive(Debug, Clone, Queryable, AsChangeset, Associations, Identifiable)]
 pub struct LibraryAccess {
     pub library_id: Uuid,
     pub user_id: Uuid,

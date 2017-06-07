@@ -13,7 +13,7 @@ pub struct NewChapter {
 }
 
 #[table_name="chapters"]
-#[derive(Debug, Queryable, Associations, Identifiable)]
+#[derive(Debug, Queryable, Associations, Identifiable, Serialize)]
 #[belongs_to(Audiobook)]
 pub struct Chapter {
     id: Uuid,

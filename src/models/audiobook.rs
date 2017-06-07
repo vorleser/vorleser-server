@@ -25,12 +25,13 @@ pub struct NewAudiobook {
 }
 
 #[table_name="audiobooks"]
-#[derive(Debug, Queryable, AsChangeset, Associations, Identifiable)]
+#[derive(Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize)]
 #[hasmany(chapters)]
 #[belongs_to(Library)]
 pub struct Audiobook {
     pub id: Uuid,
     pub title: String,
+    #[serde(skip_serializing)]
     pub location: String,
     pub mime_type: String,
     pub length: f64,
@@ -93,7 +94,7 @@ impl Audiobook {
     }
 }
 
-#[derive(Insertable, Queryable, AsChangeset, Deserialize)]
+#[derive(Insertable, Queryable, AsChangeset, Serialize, Deserialize)]
 #[table_name="playstates"]
 pub struct Playstate {
     pub position: f64,

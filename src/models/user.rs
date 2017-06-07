@@ -3,6 +3,8 @@ use chrono::NaiveDateTime;
 use argon2rs::argon2i_simple;
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
+use diesel::expression::exists;
+use models::audiobook::Audiobook;
 
 use schema::{users, api_tokens};
 use helpers::util;
@@ -38,6 +40,14 @@ impl UserModel {
         // consider using https://docs.rs/passwors/0.1.1/passwors/
         let password_hash = argon2i_simple(new_password.as_ref(), "loginsalt");
         String::from_utf8_lossy(&password_hash).into_owned()
+    }
+
+    pub fn acessible_audibooks(&self, conn: &PgConnection) -> Result<Vec<Audiobook>> {
+        use schema::audiobooks::dsl::audiobooks;
+
+        Ok(audiobooks.filter(
+            exists::exists(users::dsl::users.filter(users::dsl::id.eq(self.id)))
+        ).get_results(&*conn)?)
     }
 
     pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {

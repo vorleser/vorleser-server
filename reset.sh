@@ -1,4 +1,3 @@
 #!/bin/bash
 
-dropdb vorleser
-diesel setup
+dropdb vorleser && diesel setup

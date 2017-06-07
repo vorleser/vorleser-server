@@ -18,8 +18,3 @@ pub fn libraries(current_user: UserModel, db: DB) -> APIResponse {
 pub fn all_the_things(current_user: UserModel, db: DB) -> APIResponse {
     ok().data(json!({ "some": "thing" }))
 }
-
-#[put("/update_playstate/<book_id>", format = "application/json", data = "<playstate>")]
-pub fn update_playstate(current_user: UserModel, db: DB, book_id: &str, playstate: JSON<Playstate>) -> APIResponse {
-    ok().data(json!({ "up": "dated" }))
-}

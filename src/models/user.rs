@@ -10,6 +10,7 @@ use helpers::db::DB;
 use diesel;
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]
+#[hasmany(library_permissions)]
 pub struct UserModel {
     pub id: Uuid,
     pub created_at: NaiveDateTime,

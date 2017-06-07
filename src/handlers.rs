@@ -3,6 +3,7 @@ use rocket::http::Status;
 use rocket::request::{self, Request, FromRequest};
 
 use models::user::{self, UserModel};
+use models::library::Library;
 use helpers::db::DB;
 use responses::{APIResponse, bad_request, unauthorized, forbidden, not_found, internal_server_error,
                 service_unavailable};

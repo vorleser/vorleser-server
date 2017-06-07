@@ -3,11 +3,15 @@ use diesel;
 use diesel::prelude::*;
 use schema::audiobooks;
 use schema::playstates;
+use schema::library_permissions;
 use std::path::Path;
+use diesel::result::Error;
 use ::models::library::Library;
 use ::models::chapter::Chapter;
 use chrono::NaiveDateTime;
 use diesel::pg::PgConnection;
+use models::user::UserModel;
+use models::permission::Permission;
 
 #[table_name="audiobooks"]
 #[derive(Insertable)]
@@ -78,6 +82,14 @@ impl Audiobook {
                     diesel::insert(new_book).into(audiobooks::table).get_result::<Audiobook>(conn)
                 }
             }
+    }
+
+    pub fn accessible_by(&self, user: &UserModel) -> Result<Permission, diesel::result::Error> {
+        unimplemented!();
+        // match audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(self.id)).inner_join(library_permissions::table).first()?.optional() {
+        //     Some(x) => Ok(Permission::Read),
+        //     None => Ok(Permission::Denied)
+        // }
     }
 }
 

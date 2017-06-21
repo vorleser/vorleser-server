@@ -5,6 +5,7 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
 use models::audiobook::Audiobook;
+use models::library::Library;
 
 use schema::{users, api_tokens};
 use helpers::db::DB;
@@ -39,6 +40,20 @@ impl UserModel {
         // consider using https://docs.rs/passwors/0.1.1/passwors/
         let password_hash = argon2i_simple(new_password.as_ref(), "loginsalt");
         String::from_utf8_lossy(&password_hash).into_owned()
+    }
+
+    pub fn accessible_libraries(&self, db: &PgConnection) -> Result<Vec<Library>> {
+        use diesel::expression::sql_literal::*;
+        use diesel::types::*;
+        use schema::libraries::SqlType;
+
+        Ok(sql::<SqlType>("
+            select l.* from libraries l
+            where exists (
+                select * from library_permissions lp
+                where lp.user_id = $1 and lp.library_id = l.id
+            )
+        ").bind::<Uuid, _>(self.id).get_results::<Library>(&*db)?)
     }
 
     pub fn accessible_audiobooks(&self, conn: &PgConnection) -> Result<Vec<Audiobook>> {

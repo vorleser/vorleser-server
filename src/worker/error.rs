@@ -26,13 +26,20 @@ error_chain! {
             description(t)
         }
 
-        MediaError(code: i32) {
-            description(unsafe {
-                println!("Error Code: {}", code);
-                let mut buf: [c_char; 1024] = [0; 1024];
-                av_strerror(*code, &mut buf[0], 1024);
-                CStr::from_ptr(&buf[0]).to_str().unwrap()
-            })
+        MediaError(msg: String, code: i32) {
+            description(&msg)
         }
+
+    }
+}
+
+pub fn new_media_error(code: i32) -> ErrorKind {
+    unsafe {
+    let mut buf: [c_char; 1024] = [0; 1024];
+    av_strerror(code, &mut buf[0], 1024);
+    let cmsg = CStr::from_ptr(&buf[0]).to_str().unwrap();
+    let mut msg = String::new();
+    msg += cmsg;
+    ErrorKind::MediaError(msg, code)
     }
 }

@@ -154,7 +154,7 @@ impl MediaFile {
         unsafe {
             let mut pkt = mem::uninitialized::<AVPacket>();
             match check_av_result(av_read_frame(self.ctx, &mut pkt)) {
-                Err(Error(ErrorKind::MediaError(AVERROR_EOF), _)) => Ok(None),
+                Err(Error(ErrorKind::MediaError(_, AVERROR_EOF), _)) => Ok(None),
                 Err(e) => Err(e),
                 _ => Ok(Some(pkt))
             }

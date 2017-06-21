@@ -64,7 +64,7 @@ pub(super) fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
 
 pub(super) fn check_av_result(num: i32) -> Result<i32> {
     if num < 0 {
-        Err(ErrorKind::MediaError(num).into())
+        Err(new_media_error(num).into())
     }
     else {
         Ok(num)

@@ -28,7 +28,7 @@ pub struct Library {
 
 #[table_name="library_permissions"]
 #[primary_key(library_id, user_id)]
-#[derive(Debug, Clone, Queryable, AsChangeset, Associations, Identifiable)]
+#[derive(Debug, Clone, Queryable, Associations, Identifiable)]
 pub struct LibraryAccess {
     pub library_id: Uuid,
     pub user_id: Uuid,

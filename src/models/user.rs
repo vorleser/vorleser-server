@@ -7,7 +7,6 @@ use diesel::expression::exists;
 use models::audiobook::Audiobook;
 
 use schema::{users, api_tokens};
-use helpers::util;
 use helpers::db::DB;
 use diesel;
 
@@ -43,11 +42,16 @@ impl UserModel {
     }
 
     pub fn acessible_audibooks(&self, conn: &PgConnection) -> Result<Vec<Audiobook>> {
-        use schema::audiobooks::dsl::audiobooks;
-
-        Ok(audiobooks.filter(
-            exists::exists(users::dsl::users.filter(users::dsl::id.eq(self.id)))
-        ).get_results(&*conn)?)
+        use diesel::expression::sql_literal::*;
+        use diesel::types::*;
+        use schema::audiobooks::SqlType;
+        Ok(sql::<SqlType>("
+            select a.* from audiobooks a
+            where exists (
+                select * from library_permissions lp
+                where lp.user_id == ? and lp.library_id == a.library_id
+            )
+        ").bind::<Uuid, _>(self.id).get_results::<Audiobook>(&*conn)?)
     }
 
     pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {

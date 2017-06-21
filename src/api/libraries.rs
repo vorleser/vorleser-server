@@ -20,8 +20,8 @@ pub fn libraries(current_user: UserModel, db: DB) -> APIResponse {
 pub fn all_the_things(current_user: UserModel, db: DB) -> APIResponse {
     use schema;
     let libs = schema::libraries::dsl::libraries.load::<Library>(&*db).unwrap();
-    let books = schema::audiobooks::dsl::audiobooks.load::<Audiobook>(&*db).unwrap();
-    let chapters = schema::chapters::dsl::chapters.load::<Chapter>(&*db).unwrap();
+    let books = current_user.acessible_audibooks(&*db).unwrap();
+    let chapters: Vec<Chapter> = books.clone().into_iter().flat_map(|b| Chapter::belonging_to(&b).load::<Chapter>(&*db).unwrap()).collect();
     ok().data(json!({
         "libraries": libs,
         "books": books,

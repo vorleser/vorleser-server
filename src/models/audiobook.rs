@@ -25,7 +25,7 @@ pub struct NewAudiobook {
 }
 
 #[table_name="audiobooks"]
-#[derive(Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize)]
+#[derive(Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone)]
 #[hasmany(chapters)]
 #[belongs_to(Library)]
 pub struct Audiobook {

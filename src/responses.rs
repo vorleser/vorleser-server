@@ -1,5 +1,6 @@
 use std::io::Cursor;
 use rocket_contrib::{Value, JSON};
+use rocket::request::Request;
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
 
@@ -25,7 +26,7 @@ impl APIResponse {
 }
 
 impl<'r> Responder<'r> for APIResponse {
-    fn respond(self) -> Result<Response<'r>, Status> {
+    fn respond_to(self, request: &Request) -> Result<Response<'r>, Status> {
         let body = match (self.data, self.message) {
             (Some(data), _) => data,
             (_, Some(message)) => json!({ "message": message }),

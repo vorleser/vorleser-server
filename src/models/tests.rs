@@ -16,7 +16,7 @@ describe! user_tests {
         db.execute("TRUNCATE audiobooks, chapters, playstates RESTART IDENTITY CASCADE").unwrap();
     }
 
-    it "can access some audiobooks" {
+    it "can access only accessible books and libraries" {
         let user = diesel::insert(&NewUser {
             email: "some@example.com".to_string(),
             password_hash: "hash".to_string()
@@ -56,5 +56,7 @@ describe! user_tests {
         ]).into(schema::audiobooks::table).get_results::<Audiobook>(&*db).unwrap();
 
         assert_eq!(user.accessible_audiobooks(&*db).unwrap(), vec![books[0].clone()]);
+
+        assert_eq!(user.accessible_libraries(&*db).unwrap(), vec![accessible_lib]);
     }
 }

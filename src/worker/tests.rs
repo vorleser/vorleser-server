@@ -54,8 +54,8 @@ describe! worker_tests {
 
 describe! mediafile_tests {
     before_each {
-        let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
         util::shut_up_ffmpeg();
+        let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
     }
 
     it "can be probed" {

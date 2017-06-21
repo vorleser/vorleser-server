@@ -41,15 +41,16 @@ impl UserModel {
         String::from_utf8_lossy(&password_hash).into_owned()
     }
 
-    pub fn acessible_audibooks(&self, conn: &PgConnection) -> Result<Vec<Audiobook>> {
+    pub fn accessible_audiobooks(&self, conn: &PgConnection) -> Result<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
         use schema::audiobooks::SqlType;
+
         Ok(sql::<SqlType>("
             select a.* from audiobooks a
             where exists (
                 select * from library_permissions lp
-                where lp.user_id == ? and lp.library_id == a.library_id
+                where lp.user_id = $1 and lp.library_id = a.library_id
             )
         ").bind::<Uuid, _>(self.id).get_results::<Audiobook>(&*conn)?)
     }

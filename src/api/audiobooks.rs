@@ -5,7 +5,7 @@ use diesel::prelude::*;
 use serde_json;
 use helpers::db::DB;
 use models::library::Library;
-use models::audiobook::Playstate;
+use models::playstate::Playstate;
 use diesel::prelude;
 
 #[get("/audiobooks/<book_id>")]

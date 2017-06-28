@@ -7,7 +7,7 @@ use helpers::db::DB;
 use models::library::Library;
 use models::audiobook::Audiobook;
 use models::chapter::Chapter;
-use models::audiobook::Playstate;
+use models::playstate::Playstate;
 
 #[get("/libraries")]
 pub fn libraries(current_user: UserModel, db: DB) -> APIResponse {

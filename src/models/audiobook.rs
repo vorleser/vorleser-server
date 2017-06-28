@@ -93,13 +93,3 @@ impl Audiobook {
         // }
     }
 }
-
-#[derive(Insertable, Queryable, AsChangeset, Serialize, Deserialize)]
-#[table_name="playstates"]
-pub struct Playstate {
-    pub audiobook_id: Uuid,
-    pub user_id: Uuid,
-    pub completed: bool,
-    pub position: f64,
-    pub timestamp: NaiveDateTime,
-}

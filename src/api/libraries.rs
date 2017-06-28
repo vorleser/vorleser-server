@@ -21,7 +21,6 @@ pub fn all_the_things(current_user: UserModel, db: DB) -> APIResponse {
     use schema;
     let libs = current_user.accessible_libraries(&*db).unwrap();
     let books = current_user.accessible_audiobooks(&*db).unwrap();
-    let playstates = current_user.accessible_playstates(&*db).unwrap();
     let chapters: Vec<Chapter> = books.clone().into_iter().flat_map(|b| Chapter::belonging_to(&b).load::<Chapter>(&*db).unwrap()).collect();
     ok().data(json!({
         "libraries": libs,

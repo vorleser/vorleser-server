@@ -5,9 +5,10 @@ use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
 use models::audiobook::Audiobook;
-use models::library::Library;
+use models::library::{Library, LibraryAccess};
 
 use schema::{users, api_tokens};
+use schema;
 use helpers::db::DB;
 use diesel;
 
@@ -72,15 +73,20 @@ impl UserModel {
 
     pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {
         let new_password_hash = UserModel::make_password_hash(password);
-        let new_user = NewUser {
-            email: email.as_ref().to_owned(),
-            password_hash: new_password_hash,
-        };
-
-        diesel::insert(&new_user)
-            .into(users::table)
-            .get_result::<UserModel>(&*conn)
-            .map_err(|e| ErrorKind::Db(e).into())
+        conn.transaction(|| -> _ {
+            let u = diesel::insert(&NewUser {
+                email: email.as_ref().to_owned(),
+                password_hash: new_password_hash,
+            }).into(users::table).get_result::<UserModel>(&*conn)?;
+            let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
+            for l in libraries.iter() {
+                diesel::insert(&LibraryAccess {
+                    library_id: l.id,
+                    user_id: u.id
+                }).into(schema::library_permissions::table).execute(&*conn)?;
+            }
+            Ok(u)
+        }).map_err(|e| ErrorKind::Db(e).into())
     }
 
     pub fn verify_password(&self, candidate_password: &str) -> bool {

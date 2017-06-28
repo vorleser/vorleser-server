@@ -1,9 +1,13 @@
 use uuid::Uuid;
 use chrono::NaiveDateTime;
 use std::time::SystemTime;
+use diesel;
 use diesel::prelude::*;
 use schema::{libraries, audiobooks, library_permissions};
+use schema;
 use models::audiobook::Audiobook;
+use helpers::db;
+use models::user::UserModel;
 
 #[table_name="libraries"]
 #[derive(Insertable)]
@@ -32,4 +36,23 @@ pub struct Library {
 pub struct LibraryAccess {
     pub library_id: Uuid,
     pub user_id: Uuid,
+}
+
+impl Library {
+    pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
+        db.transaction(|| -> _ {
+            let lib = diesel::insert(&NewLibrary{
+                location: location,
+                is_audiobook_regex: audiobook_regex
+            }).into(libraries::table).get_result::<Library>(&*db)?;
+            let users: Vec<UserModel> = schema::users::table.load(&*db)?;
+            for u in users.iter() {
+                diesel::insert(&LibraryAccess {
+                    library_id: lib.id,
+                    user_id: u.id
+                }).into(library_permissions::table).execute(&*db)?;
+            }
+            Ok(lib)
+        })
+    }
 }

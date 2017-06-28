@@ -38,6 +38,15 @@ pub struct LibraryAccess {
     pub user_id: Uuid,
 }
 
+impl LibraryAccess {
+    pub fn permit(user: &UserModel, library: &Library, db: &db::Connection) -> Result<LibraryAccess, diesel::result::Error> {
+        diesel::insert(&LibraryAccess {
+            library_id: library.id,
+            user_id: user.id
+        }).into(library_permissions::table).get_result(&*db)
+    }
+}
+
 impl Library {
     pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
         db.transaction(|| -> _ {
@@ -47,10 +56,7 @@ impl Library {
             }).into(libraries::table).get_result::<Library>(&*db)?;
             let users: Vec<UserModel> = schema::users::table.load(&*db)?;
             for u in users.iter() {
-                diesel::insert(&LibraryAccess {
-                    library_id: lib.id,
-                    user_id: u.id
-                }).into(library_permissions::table).execute(&*db)?;
+                LibraryAccess::permit(&u, &lib, &*db)?;
             }
             Ok(lib)
         })

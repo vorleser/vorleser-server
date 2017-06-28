@@ -80,10 +80,7 @@ impl UserModel {
             }).into(users::table).get_result::<UserModel>(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
             for l in libraries.iter() {
-                diesel::insert(&LibraryAccess {
-                    library_id: l.id,
-                    user_id: u.id
-                }).into(schema::library_permissions::table).execute(&*conn)?;
+                LibraryAccess::permit(&u, &l, &*conn)?;
             }
             Ok(u)
         }).map_err(|e| ErrorKind::Db(e).into())

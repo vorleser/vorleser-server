@@ -89,7 +89,7 @@ fn main() {
                 .required(true)
             )
         )
-        .subcommand(SubCommand::with_name("new")
+        .subcommand(SubCommand::with_name("create_library")
             .about("Create a new Library")
             .arg(Arg::with_name("path")
                 .takes_value(true)
@@ -102,21 +102,17 @@ fn main() {
         )
         .get_matches();
 
-    if let Some(new_command) = matches.subcommand_matches("new") {
+    if let Some(new_command) = matches.subcommand_matches("create_library") {
         env_logger::init().unwrap();
         let conn = &*pool.get().unwrap();
         let path = new_command.value_of("path").expect("Please provide a valid utf-8 path.");
         let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
         match Regex::new(regex) {
             Ok(_) => {
-                match insert(
-                    &NewLibrary{
-                        location: path.to_owned(),
-                        is_audiobook_regex: regex.to_owned()
-                    }).into(libraries::table).execute(&*conn)
+                match Library::create(path.to_owned(), regex.to_owned(), &*conn)
                 {
-                    Ok(1) => info!("Successfully created library."),
-                    _ => error_log!("Library creation failed.")
+                    Ok(lib) => info!("Successfully created library."),
+                    Err(error) => error_log!("Library creation failed: {:?}", error.description())
                 }
             },
             Err(e) => error_log!("Invalid regex: {:?}", e)

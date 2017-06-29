@@ -7,7 +7,7 @@ use helpers::db::DB;
 use models::library::Library;
 use models::audiobook::Audiobook;
 use models::chapter::Chapter;
-use models::playstate::Playstate;
+use models::playstate::{Playstate, ApiPlaystate};
 
 #[get("/libraries")]
 pub fn libraries(current_user: UserModel, db: DB) -> APIResponse {
@@ -27,4 +27,10 @@ pub fn all_the_things(current_user: UserModel, db: DB) -> APIResponse {
         "books": books,
         "chapters": chapters,
     }))
+}
+
+#[post("/update_playstate", data = "<playstate>", format = "application/json")]
+pub fn update_playstate(playstate: JSON<ApiPlaystate>, current_user: UserModel, db: DB) -> APIResponse {
+    let state = playstate.into_inner().into_playstate(&current_user).upsert(&*db).unwrap().into_api_playstate();
+    ok().data(json!(state))
 }

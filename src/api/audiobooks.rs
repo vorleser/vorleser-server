@@ -15,8 +15,3 @@ pub fn audiobook(current_user: UserModel, db: DB, book_id: UUID) -> APIResponse 
     // let libs = audiobooks.load::<Library>(&*db).unwrap();
     ok()
 }
-
-#[put("/update_playstate/<book_id>", format = "application/json", data = "<playstate>")]
-pub fn update_playstate(current_user: UserModel, db: DB, book_id: UUID, playstate: JSON<Playstate>) -> APIResponse {
-    ok().data(json!({ "up": "dated" }))
-}

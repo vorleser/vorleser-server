@@ -52,7 +52,6 @@ table! {
     user_id) {
         audiobook_id -> Uuid,
         user_id -> Uuid,
-        completed -> Bool,
         position -> Float8,
         timestamp -> Timestamp,
     }

@@ -1,5 +1,5 @@
 use std::io::Cursor;
-use rocket_contrib::{Value, JSON};
+use rocket_contrib::{Value, Json};
 use rocket::request::Request;
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};

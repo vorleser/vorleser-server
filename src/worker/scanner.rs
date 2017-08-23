@@ -55,7 +55,7 @@ impl Scanner {
     pub fn scan_library(&mut self) -> Result<()> {
         info!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
-        self.library.last_scan = Some(UTC::now().naive_utc());
+        self.library.last_scan = Some(Utc::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 

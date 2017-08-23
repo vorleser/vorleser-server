@@ -1,4 +1,4 @@
-use rocket_contrib::JSON;
+use rocket_contrib::Json;
 use validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;
@@ -12,7 +12,7 @@ use rocket::Outcome;
 use rocket::http::Status;
 
 #[post("/login", data = "<user_in>", format = "application/json")]
-pub fn login(user_in: JSON<UserSerializer>, db: DB) -> APIResponse {
+pub fn login(user_in: Json<UserSerializer>, db: DB) -> APIResponse {
     let results = users.filter(email.eq(user_in.email.clone()))
         .first::<UserModel>(&*db);
 
@@ -34,7 +34,7 @@ pub fn login(user_in: JSON<UserSerializer>, db: DB) -> APIResponse {
 }
 
 #[post("/register", data = "<user>", format = "application/json")]
-pub fn register(user: JSON<UserSerializer>, db: DB) -> APIResponse {
+pub fn register(user: Json<UserSerializer>, db: DB) -> APIResponse {
     let results = users.filter(email.eq(user.email.clone()))
         .first::<UserModel>(&*db);
     if results.is_ok() {

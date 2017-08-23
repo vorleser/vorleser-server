@@ -17,7 +17,7 @@ pub struct NewLibrary {
 }
 
 #[table_name="libraries"]
-#[derive(PartialEq, Debug, Clone, Queryable, AsChangeset, Associations, Identifiable, Serialize)]
+#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Associations, Identifiable, Serialize)]
 #[has_many(audiobooks, library_permissions)]
 pub struct Library {
     pub id: Uuid,

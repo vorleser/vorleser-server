@@ -5,11 +5,11 @@ version = "0.1.0"
 
 [dependencies]
 argon2rs = "0.2"
-chrono = { version = "0.3", features = ["serde"] }
+chrono = { version = "0.4", features = ["serde"] }
 clap = "*"
-dotenv = "0.8.0"
-diesel = { version = "0.13", features = ["postgres", "uuid", "chrono", "serde_json"] }
-diesel_codegen = { version = "0.13", features = ["postgres"] }
+dotenv = "*"
+diesel = { version = "0.15", features = ["postgres", "uuid", "chrono", "serde_json"] }
+diesel_codegen = { version = "0.15", features = ["postgres"] }
 env_logger = "*"
 error-chain = "0.10.0"
 ffmpeg-sys = { version = "3.2.0", features = ["avformat"], default-features = false }
@@ -20,7 +20,7 @@ libc = "0.2"
 log = "*"
 mime-sniffer = "0.1.1"
 r2d2 = "0.7.1"
-r2d2-diesel = "0.13"
+r2d2-diesel = "0.15"
 regex = "0.2.1"
 ring = "0.11"
 rocket = { git = "https://github.com/SergioBenitez/Rocket.git"  }
@@ -35,4 +35,4 @@ validator_derive = "0.5"
 walkdir = "1"
 
 [dev-dependencies]
-stainless = "*"
+stainless = { git = "https://github.com/neverfox/stainless", branch="feature/ast-item-tokens" }

@@ -1,6 +1,6 @@
 use models::user::UserModel;
 use responses::{APIResponse, ok};
-use rocket_contrib::{JSON, UUID};
+use rocket_contrib::{Json, UUID};
 use diesel::prelude::*;
 use serde_json;
 use helpers::db::DB;

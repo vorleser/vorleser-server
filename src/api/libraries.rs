@@ -1,6 +1,6 @@
 use models::user::UserModel;
 use responses::{APIResponse, ok};
-use rocket_contrib::JSON;
+use rocket_contrib::Json;
 use diesel::prelude::*;
 use serde_json;
 use helpers::db::DB;
@@ -30,7 +30,7 @@ pub fn all_the_things(current_user: UserModel, db: DB) -> APIResponse {
 }
 
 #[post("/update_playstate", data = "<playstate>", format = "application/json")]
-pub fn update_playstate(playstate: JSON<ApiPlaystate>, current_user: UserModel, db: DB) -> APIResponse {
+pub fn update_playstate(playstate: Json<ApiPlaystate>, current_user: UserModel, db: DB) -> APIResponse {
     let state = playstate.into_inner().into_playstate(&current_user).upsert(&*db).unwrap().into_api_playstate();
     ok().data(json!(state))
 }

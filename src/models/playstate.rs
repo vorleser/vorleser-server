@@ -8,6 +8,7 @@ use chrono::NaiveDateTime;
 
 #[derive(Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug)]
 #[table_name="playstates"]
+#[changeset_for(playstates, treat_none_as_null="true")]
 pub struct Playstate {
     pub audiobook_id: Uuid,
     pub user_id: Uuid,
@@ -31,6 +32,7 @@ impl Playstate {
         ApiPlaystate {
             audiobook_id: self.audiobook_id,
             position: self.position,
+            // TODO: don't unwrap here
             timestamp: self.timestamp,
         }
     }

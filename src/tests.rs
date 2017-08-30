@@ -36,7 +36,6 @@ describe! api_tests {
 
         let data: Value = serde_json::from_str(&res.body_string().expect("no body string")).expect("JSON failed");
         let secret = &data.get("id").expect("no auth token").as_str().expect("not valid utf8");
-        // uncommenting this line will crash the compiler
         let res2 = get(&client, "/api/auth/whoami");
         assert_eq!(res2.status(), Status::Ok);
     }

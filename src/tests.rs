@@ -41,6 +41,10 @@ describe! api_tests {
         let rocket = helpers::rocket::factory(pool);
         let client = Client::new(rocket).unwrap();
         let user = UserModel::create(&"test@test.com", &"lol", conn).expect("Error saving user");
+        let login_data = json!({"email": "test@test.com", "password": "lol"});
+        let mut auth_response = post(&client, "/api/auth/login", &login_data, None);
+        let auth_data: Value = serde_json::from_str(&auth_response.body_string().expect("no body string")).expect("JSON failed");
+        let auth_token = &auth_data.get("id").expect("no auth token").as_str().expect("not valid utf8");
     }
 
     it "should let you login" {
@@ -68,5 +72,10 @@ describe! api_tests {
         let res = get(&client, "/api/auth/whoami", Some("secret"));
         assert_eq!(res.status(), Status::BadRequest);
         // TODO: test with valid uuid, result should then be unauthorized
+    }
+
+    it "should show libraries" {
+        let res = get(&client, "/api/libraries", Some(auth_token));
+        assert_eq!(res.status(), Status::Ok);
     }
 }

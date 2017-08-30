@@ -18,18 +18,6 @@ fn get<'a>(client: &'a Client, url: &'a str) -> LocalResponse<'a> {
     client.get(url).dispatch()
 }
 
-#[test]
-fn lol() {
-    let mut pool = init_db_pool();
-    let conn = &*pool.get().unwrap();
-    conn.execute("TRUNCATE audiobooks, chapters, playstates, users RESTART IDENTITY CASCADE").unwrap();
-    let rocket = helpers::rocket::factory(pool);
-    let client = Client::new(rocket).unwrap();
-    let user = UserModel::create(&"test@test.com", &"lol", conn).expect("Error saving user");
-
-    let result = get(&client, "/api/auth/whoami");
-}
-
 describe! api_tests {
     before_each {
         let mut pool = init_db_pool();
@@ -49,6 +37,7 @@ describe! api_tests {
         let data: Value = serde_json::from_str(&res.body_string().expect("no body string")).expect("JSON failed");
         let secret = &data.get("id").expect("no auth token").as_str().expect("not valid utf8");
         // uncommenting this line will crash the compiler
-        let lololol = get(&client, "/api/auth/whoami")
+        let res2 = get(&client, "/api/auth/whoami");
+        assert_eq!(res2.status(), Status::Ok);
     }
 }

@@ -37,7 +37,7 @@ describe! api_tests {
     before_each {
         let mut pool = init_db_pool();
         let conn = &*pool.get().unwrap();
-        conn.execute("TRUNCATE audiobooks, chapters, playstates, users RESTART IDENTITY CASCADE").unwrap();
+        conn.execute("TRUNCATE api_tokens, library_permissions, audiobooks, chapters, playstates, users RESTART IDENTITY CASCADE").unwrap();
         let rocket = helpers::rocket::factory(pool);
         let client = Client::new(rocket).unwrap();
         let user = UserModel::create(&"test@test.com", &"lol", conn).expect("Error saving user");

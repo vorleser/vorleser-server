@@ -6,6 +6,9 @@ use rocket::local::{Client, LocalResponse};
 use rocket::Response;
 use rocket::http::{Status, Method, Header, ContentType};
 use serde_json::{self, Value};
+use worker::scanner::Scanner;
+use models::library::{Library, NewLibrary};
+use regex::Regex;
 
 fn post<'a>(client: &'a Client, url: &'a str, data: &Value, auth: Option<&str>) -> LocalResponse<'a> {
     if let Some(token) = auth {
@@ -38,7 +41,7 @@ describe! api_tests {
         let mut pool = init_db_pool();
         let conn = &*pool.get().unwrap();
         conn.execute("TRUNCATE audiobooks, chapters, playstates, users RESTART IDENTITY CASCADE").unwrap();
-        let rocket = helpers::rocket::factory(pool);
+        let rocket = helpers::rocket::factory(pool.clone());
         let client = Client::new(rocket).unwrap();
         let user = UserModel::create(&"test@test.com", &"lol", conn).expect("Error saving user");
         let login_data = json!({"email": "test@test.com", "password": "lol"});
@@ -78,4 +81,24 @@ describe! api_tests {
         let res = get(&client, "/api/libraries", Some(auth_token));
         assert_eq!(res.status(), Status::Ok);
     }
+
+    describe! Libraries {
+        before_each {
+            let path = "data";
+            let regex = "^[^/]+$";
+            let mut library = Library::create(path.to_owned(), regex.to_owned(), &*conn).unwrap();
+            let mut scanner = Scanner {
+                regex: Regex::new(regex).unwrap(),
+                library: library,
+                pool: pool.clone(),
+            };
+            scanner.scan_library();
+        }
+
+        it "get some books" {
+            let res = get(&client, "/api/libraries", Some(auth_token));
+            assert_eq!(res.status(), Status::Ok);
+        }
+    }
+
 }

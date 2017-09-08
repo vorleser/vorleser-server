@@ -34,7 +34,7 @@ pub struct Scanner {
     pub pool: Pool
 }
 
-#[derive(Hash, Eq, PartialEq)]
+#[derive(Hash, Eq, PartialEq, Debug)]
 pub(super) struct Filetype {
     pub extension: OsString,
     pub mime_type: String
@@ -222,6 +222,7 @@ impl Scanner {
             Some(e) => e,
             None => return Err(ErrorKind::Other("No valid file extensions found.").into())
         };
+        debug!("decided on file type {:?}", filetype);
         let walker = WalkDir::new(&path.as_ref())
             .follow_links(true)
             .sort_by(
@@ -285,10 +286,12 @@ impl Scanner {
             };
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
+            let target_path = "data/".to_string() +
+              &book.id.hyphenated().to_string() + "." +
+              &filetype.extension.to_string_lossy().into_owned();
+            debug!("muxing files into {:?}", target_path);
             muxer::merge_files(
-                &("data/".to_string() +
-                  &book.id.hyphenated().to_string() +
-                  &filetype.extension.to_string_lossy().into_owned()),
+                &target_path,
                 &mediafiles
                 )?;
             Ok(())

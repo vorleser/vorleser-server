@@ -4,9 +4,9 @@ use std::io;
 use std::ops::{Deref, DerefMut};
 
 use rocket::request::Request;
-use rocket::response::{Response, Responder};
+use rocket::response::{Response, Responder, Body};
 use rocket::http::{Status, ContentType};
-use rocket::http::hyper::header::{Range, ByteRangeSpec, AcceptRanges, RangeUnit};
+use rocket::http::hyper::header::{Range, ByteRangeSpec, AcceptRanges, RangeUnit, ContentLength};
 use rocket::http::hyper::header::Range::Bytes;
 use rocket::http::hyper::header::ByteRangeSpec::*;
 use std::fs::metadata;
@@ -97,34 +97,38 @@ impl Responder<'static> for RangedFile {
         // hard-coded for testing, rocket doesn't have an mp3 content-type
         response.set_header(ContentType::new("audio", "mpeg"));
 
+        let meta = metadata(self.path()).unwrap();
         response.set_header(AcceptRanges(vec![RangeUnit::Bytes]));
 
         if let Some(range) = req.headers().get_one("Range") {
             let r: Range = range.parse().unwrap();
+            println!("{:?}", r);
             match r {
                 Bytes(vec) => {
                     let spec = &vec[0];
-                    let meta = metadata(self.path()).unwrap();
                     let mut f = self.take_file();
-                    match spec {
+                    let sized_body = match spec {
                         &FromTo(from, to) => {
                             f.seek(SeekFrom::Start(from));
-                            response.set_streamed_body(f.take(to - from));
+                            let body = Body::Sized(f.take(to - from), to - from);
+                            response.set_raw_body(body);
                         }
                         &AllFrom(from) => {
                             f.seek(SeekFrom::Start(from));
-                            response.set_streamed_body(f);
+                            let body = Body::Sized(f, meta.len() - from);
+                            response.set_raw_body(body);
                         }
                         &Last(n) => {
                             f.seek(SeekFrom::End(-(n as i64)));
-                            response.set_streamed_body(f);
+                            let body = Body::Sized(f, n);
+                            response.set_raw_body(body);
                         }
-                    }
+                    };
                 }
                 _ => unreachable!("can't deal with non-byte ranges")
             }
         } else {
-            response.set_streamed_body(self.take_file());
+            response.set_sized_body(self.take_file());
         }
 
         Ok(response)

@@ -6,7 +6,7 @@ use std::ops::{Deref, DerefMut};
 use rocket::request::Request;
 use rocket::response::{Response, Responder, Body};
 use rocket::http::{Status, ContentType};
-use rocket::http::hyper::header::{Range, ByteRangeSpec, AcceptRanges, RangeUnit, ContentLength};
+use rocket::http::hyper::header::{Range, ByteRangeSpec, AcceptRanges, RangeUnit, ContentLength, ContentRange, ContentRangeSpec};
 use rocket::http::hyper::header::Range::Bytes;
 use rocket::http::hyper::header::ByteRangeSpec::*;
 use std::fs::metadata;
@@ -98,6 +98,7 @@ impl Responder<'static> for RangedFile {
         response.set_header(ContentType::new("audio", "mpeg"));
 
         let meta = metadata(self.path()).unwrap();
+        let size = meta.len();
         response.set_header(AcceptRanges(vec![RangeUnit::Bytes]));
 
         if let Some(range) = req.headers().get_one("Range") {
@@ -111,19 +112,35 @@ impl Responder<'static> for RangedFile {
                         &FromTo(from, to) => {
                             f.seek(SeekFrom::Start(from));
                             let body = Body::Sized(f.take(to - from), to - from);
+                            let result_spec = ContentRangeSpec::Bytes{
+                                range: Some((from, to)),
+                                instance_length: Some(size)
+                            };
+                            response.set_header(ContentRange(result_spec));
                             response.set_raw_body(body);
                         }
                         &AllFrom(from) => {
                             f.seek(SeekFrom::Start(from));
                             let body = Body::Sized(f, meta.len() - from);
+                            let result_spec = ContentRangeSpec::Bytes{
+                                range: Some((from, size)),
+                                instance_length: Some(size)
+                            };
+                            response.set_header(ContentRange(result_spec));
                             response.set_raw_body(body);
                         }
                         &Last(n) => {
                             f.seek(SeekFrom::End(-(n as i64)));
                             let body = Body::Sized(f, n);
+                            let result_spec = ContentRangeSpec::Bytes{
+                                range: Some((size - n, size)),
+                                instance_length: Some(size)
+                            };
+                            response.set_header(ContentRange(result_spec));
                             response.set_raw_body(body);
                         }
                     };
+                    response.set_status(Status::PartialContent);
                 }
                 _ => unreachable!("can't deal with non-byte ranges")
             }

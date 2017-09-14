@@ -44,6 +44,7 @@ describe! user_tests {
                 length: 1234.5,
                 library_id: accessible_lib.id,
                 hash: vec![1, 2, 3],
+                file_extension: ".mp3".to_owned(),
             },
             NewAudiobook {
                 location: "loc2".to_string(),
@@ -52,6 +53,7 @@ describe! user_tests {
                 length: 1232.1,
                 library_id: inaccessible_lib.id,
                 hash: vec![3, 4, 5],
+                file_extension: ".mp3".to_owned(),
             },
         ]).into(schema::audiobooks::table).get_results::<Audiobook>(&*db).unwrap();
 

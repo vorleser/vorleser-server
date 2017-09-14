@@ -110,8 +110,9 @@ impl Responder<'static> for RangedFile {
                     let mut f = self.take_file();
                     let sized_body = match spec {
                         &FromTo(from, to) => {
+                            let first_byte_not_sent = to + 1;
                             f.seek(SeekFrom::Start(from));
-                            let body = Body::Sized(f.take(to - from), to - from);
+                            let body = Body::Sized(f.take(first_byte_not_sent - from), first_byte_not_sent - from);
                             let result_spec = ContentRangeSpec::Bytes{
                                 range: Some((from, to)),
                                 instance_length: Some(size)
@@ -123,7 +124,7 @@ impl Responder<'static> for RangedFile {
                             f.seek(SeekFrom::Start(from));
                             let body = Body::Sized(f, meta.len() - from);
                             let result_spec = ContentRangeSpec::Bytes{
-                                range: Some((from, size)),
+                                range: Some((from, size - 1)),
                                 instance_length: Some(size)
                             };
                             response.set_header(ContentRange(result_spec));
@@ -133,7 +134,7 @@ impl Responder<'static> for RangedFile {
                             f.seek(SeekFrom::End(-(n as i64)));
                             let body = Body::Sized(f, n);
                             let result_spec = ContentRangeSpec::Bytes{
-                                range: Some((size - n, size)),
+                                range: Some((size - n, size - 1)),
                                 instance_length: Some(size)
                             };
                             response.set_header(ContentRange(result_spec));

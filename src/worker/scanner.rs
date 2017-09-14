@@ -406,15 +406,15 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
         .follow_links(true)
         .sort_by(
             |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
-            );
+        );
     let mut ctx = digest::Context::new(&digest::SHA256);
     for entry in walker {
         if let Ok(e) = entry {
-                let p = e.path();
-                if e.file_type().is_file() {
-                    update_hash_from_file(&mut ctx, &p)?;
-                }
-                ctx.update(p.to_string_lossy().as_bytes());
+            let p = e.path();
+            if e.file_type().is_file() {
+                update_hash_from_file(&mut ctx, &p)?;
+            }
+            ctx.update(p.to_string_lossy().as_bytes());
         }
     }
     let mut res = Vec::new();

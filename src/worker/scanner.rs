@@ -24,7 +24,9 @@ use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
 use chrono::prelude::*;
+use std::env;
 use std::os::unix::prelude::*;
+use std::os::unix::fs;
 use diesel::BelongingToDsl;
 use worker::util;
 
@@ -154,6 +156,7 @@ impl Scanner {
 
         let file = MediaFile::read_file(path.as_ref())?;
         let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Not an audiofile"))?;
+        let file_type = path.as_ref().extension();
 
         let metadata = file.get_mediainfo();
         let default_book = NewAudiobook {
@@ -168,6 +171,13 @@ impl Scanner {
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
+            let filename = String::new();
+            let target_path = "data/".to_string() +
+              &book.id.hyphenated().to_string();
+            let mut absolute = env::current_dir()?;
+            absolute.push(path.clone());
+            println!("{:?}", absolute);
+            fs::symlink(absolute, target_path);
             let chapters = file.get_chapters();
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 NewChapter {

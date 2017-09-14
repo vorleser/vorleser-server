@@ -37,7 +37,8 @@ CREATE TABLE audiobooks (
     title VARCHAR(1024) NOT NULL,
     length DOUBLE PRECISION NOT NULL,
     library_id UUID REFERENCES libraries (id) NOT NULL,
-    hash BYTEA NOT NULL
+    hash BYTEA NOT NULL,
+    file_extension VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE chapters (

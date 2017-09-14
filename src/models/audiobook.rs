@@ -22,6 +22,7 @@ pub struct NewAudiobook {
     pub length: f64,
     pub library_id: Uuid,
     pub hash: Vec<u8>,
+    pub file_extension: String,
 }
 
 #[table_name="audiobooks"]
@@ -37,6 +38,7 @@ pub struct Audiobook {
     pub length: f64,
     pub library_id: Uuid,
     pub hash: Vec<u8>,
+    pub file_extension: String,
 }
 
 pub enum Update {

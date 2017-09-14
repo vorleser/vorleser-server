@@ -1,4 +1,3 @@
-//infer_schema!("dotenv:DATABASE_URL");
 table! {
     api_tokens (id) {
         id -> Uuid,
@@ -16,6 +15,7 @@ table! {
         length -> Float8,
         library_id -> Uuid,
         hash -> Bytea,
+        file_extension -> Varchar,
     }
 }
 
@@ -40,16 +40,14 @@ table! {
 }
 
 table! {
-    library_permissions (library_id,
-    user_id) {
+    library_permissions (library_id, user_id) {
         library_id -> Uuid,
         user_id -> Uuid,
     }
 }
 
 table! {
-    playstates (audiobook_id,
-    user_id) {
+    playstates (audiobook_id, user_id) {
         audiobook_id -> Uuid,
         user_id -> Uuid,
         position -> Float8,

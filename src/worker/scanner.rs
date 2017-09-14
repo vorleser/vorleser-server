@@ -156,7 +156,9 @@ impl Scanner {
 
         let file = MediaFile::read_file(path.as_ref())?;
         let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Not an audiofile"))?;
-        let file_type = path.as_ref().extension();
+        let file_extension = path.as_ref().extension().map(|s| {
+            s.to_string_lossy().into_owned()
+        });
 
         let metadata = file.get_mediainfo();
         let default_book = NewAudiobook {
@@ -165,7 +167,8 @@ impl Scanner {
             location: relative_path.to_owned(),
             library_id: self.library.id,
             hash: hash,
-            mime_type: mime
+            mime_type: mime,
+            file_extension: file_extension.unwrap_or("".to_owned())
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
@@ -176,7 +179,6 @@ impl Scanner {
               &book.id.hyphenated().to_string();
             let mut absolute = env::current_dir()?;
             absolute.push(path.clone());
-            println!("{:?}", absolute);
             fs::symlink(absolute, target_path);
             let chapters = file.get_chapters();
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
@@ -252,7 +254,8 @@ impl Scanner {
             location: relative_path.clone(),
             title: title,
             hash: hash,
-            mime_type: filetype.mime_type.clone()
+            mime_type: filetype.mime_type.clone(),
+            file_extension: filetype.extension.to_string_lossy().into_owned()
         };
 
         let inserted = conn.transaction(||  -> Result<()> {

@@ -7,13 +7,14 @@ use diesel::expression::exists;
 use models::audiobook::Audiobook;
 use models::library::{Library, LibraryAccess};
 use std::result::Result as StdResult;
+use diesel;
+use diesel::result::QueryResult;
+use base64;
+use ring::rand::{SystemRandom, SecureRandom};
 
 use schema::{users, api_tokens};
 use schema;
 use helpers::db::DB;
-use diesel;
-use diesel::result::QueryResult;
-use base64;
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]
 #[hasmany(library_permissions)]
@@ -47,12 +48,12 @@ error_chain! {
 
 impl UserModel {
     pub fn make_password_hash(new_password: &AsRef<str>) -> String {
-        // TODO: proper salting!!!
-        // consider using https://docs.rs/passwors/0.1.1/passwors/
-        let salt = "loginsaltasdf";
+        let rand = SystemRandom::new();
+        let mut salt: [u8; 10] = [0; 10];
+        rand.fill(&mut salt[..]);
         let session = verifier::Encoded::default2i(
             &new_password.as_ref().as_bytes(),
-            &salt.as_bytes(),
+            &salt,
             &[],
             &[]
         );

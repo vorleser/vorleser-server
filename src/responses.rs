@@ -54,7 +54,8 @@ impl From<uuid::ParseError> for APIResponse {
 impl From<UserModelError> for APIResponse {
     fn from(error: UserModelError) -> Self {
         match error.kind() {
-            &UserModelErrorKind::UserExists(_) => conflict().message("User already exists."),
+            &UserModelErrorKind::UserExists(ref user_name) =>
+                conflict().message(&format!("{}", error)),
             _ => bad_request()
         }
     }

@@ -74,7 +74,7 @@ impl UserModel {
         ").bind::<Uuid, _>(self.id).get_results::<Library>(&*db)?)
     }
 
-    pub fn accessible_audiobooks(&self, conn: &PgConnection) 
+    pub fn accessible_audiobooks(&self, conn: &PgConnection)
                 -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
@@ -142,6 +142,23 @@ impl UserModel {
         } else {
             Ok(None)
         }
+    }
+
+    pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &PgConnection) -> QueryResult<Option<Audiobook>> {
+        use diesel::expression::sql_literal::*;
+        use diesel::types::*;
+        use schema::audiobooks::SqlType;
+
+        Ok(sql::<SqlType>("
+            select a.* from audiobooks a
+            where a.id = book.id
+            where exists (
+                select * from library_permissions lp
+                where lp.user_id = $1 and lp.library_id = a.library_id
+            )
+        ").bind::<Uuid, _>(self.id)
+           .bind::<Uuid, _>(book_id)
+           .get_result::<Audiobook>(&*conn).optional()?)
     }
 }
 

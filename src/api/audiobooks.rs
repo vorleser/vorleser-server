@@ -15,7 +15,11 @@ use schema::audiobooks::dsl::{audiobooks, self};
 use responses::{APIResponse, self, ok, internal_server_error};
 
 #[get("/data/<book_id>")]
-pub fn data_file(db: DB, book_id: UUID) -> Result<RangedFile, APIResponse> {
+pub fn data_file(current_user: UserModel, db: DB, book_id: UUID) -> Result<RangedFile, APIResponse> {
+    match current_user.get_book_if_accessible(&book_id, &*db)? {
+        Some(_) => (),
+        None => return Err(responses::not_found())
+    };
     let idstr = book_id.hyphenated().to_string();
     let id = Uuid::parse_str(&idstr)?;
     let book = audiobooks.filter(dsl::id.eq(id)).first::<Audiobook>(&*db)?;
@@ -39,11 +43,11 @@ pub fn get_audiobooks(current_user: UserModel, db: DB) -> Result<APIResponse, AP
 }
 
 #[get("/audiobooks/<book_id>")]
-pub fn audiobook(current_user: UserModel, db: DB, book_id: UUID) -> APIResponse {
+pub fn audiobook(current_user: UserModel, db: DB, book_id: UUID) -> Result<APIResponse, APIResponse> {
     use schema::libraries::dsl::*;
-    let user_books = current_user.accessible_audiobooks(&*db);
-    println!("{:?}", user_books);
-    // Audiobook::acessible_by(current_user).load(&*DB);
-    // let libs = audiobooks.load::<Library>(&*db).unwrap();
-    ok()
+    let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
+        Some(a) => a,
+        None => return Ok(responses::not_found())
+    };
+    Ok(ok().data(json!(book)))
 }

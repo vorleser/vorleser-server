@@ -86,12 +86,4 @@ impl Audiobook {
                 }
             }
     }
-
-    pub fn accessible_by(&self, user: &UserModel) -> Result<Permission, diesel::result::Error> {
-        unimplemented!();
-        // match audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(self.id)).inner_join(library_permissions::table).first()?.optional() {
-        //     Some(x) => Ok(Permission::Read),
-        //     None => Ok(Permission::Denied)
-        // }
-    }
 }

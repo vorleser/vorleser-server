@@ -5,6 +5,8 @@ use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
 use diesel;
 use uuid;
+use models::user::Error as UserModelError;
+use models::user::ErrorKind as UserModelErrorKind;
 
 #[derive(Debug)]
 pub struct APIResponse {
@@ -46,6 +48,15 @@ impl<'r> Responder<'r> for APIResponse {
 impl From<uuid::ParseError> for APIResponse {
     fn from(error: uuid::ParseError) -> Self {
         bad_request()
+    }
+}
+
+impl From<UserModelError> for APIResponse {
+    fn from(error: UserModelError) -> Self {
+        match error.kind() {
+            &UserModelErrorKind::UserExists(_) => conflict().message("User already exists."),
+            _ => bad_request()
+        }
     }
 }
 

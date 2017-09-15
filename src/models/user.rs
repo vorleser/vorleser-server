@@ -12,6 +12,7 @@ use schema::{users, api_tokens};
 use schema;
 use helpers::db::DB;
 use diesel;
+use diesel::result::QueryResult;
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]
 #[hasmany(library_permissions)]
@@ -33,6 +34,13 @@ error_chain! {
     foreign_links {
         Db(diesel::result::Error);
         UuidParse(uuid::ParseError);
+    }
+
+    errors {
+        UserExists(user: String) {
+            description("User already exists."),
+            display("User {} already exists", user)
+        }
     }
 }
 
@@ -59,7 +67,7 @@ impl UserModel {
     }
 
     pub fn accessible_audiobooks(&self, conn: &PgConnection) 
-                -> diesel::result::QueryResult<Vec<Audiobook>> {
+                -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
         use schema::audiobooks::SqlType;
@@ -74,7 +82,14 @@ impl UserModel {
     }
 
     pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {
+        use schema::users;
+        use schema::users::dsl;
         let new_password_hash = UserModel::make_password_hash(password);
+        let results = dsl::users.filter(dsl::email.eq(email.as_ref().clone()))
+            .first::<UserModel>(&*conn);
+        if results.is_ok() {
+            return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
+        }
         conn.transaction(|| -> _ {
             let u = diesel::insert(&NewUser {
                 email: email.as_ref().to_owned(),

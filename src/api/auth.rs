@@ -35,23 +35,9 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> APIResponse {
 
 #[post("/register", data = "<user>", format = "application/json")]
 pub fn register(user: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIResponse> {
-    let results = users.filter(email.eq(user.email.clone()))
-        .first::<UserModel>(&*db);
-    if results.is_ok() {
-        return Ok(conflict().message("User already exists."));
-    }
+    let new_user = UserModel::create(&user.email, &user.password, &*db)?;
 
-    let new_password_hash = UserModel::make_password_hash(&user.password.as_str());
-    let new_user = NewUser {
-        email: user.email.clone(),
-        password_hash: new_password_hash,
-    };
-
-    let user = diesel::insert(&new_user)
-        .into(users::table)
-        .get_result::<UserModel>(&*db)?;
-
-    Ok(created().message("User created.").data(json!(&user)))
+    Ok(created().message("User created.").data(json!(&new_user)))
 }
 
 

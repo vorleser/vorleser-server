@@ -20,6 +20,7 @@ macro_rules! error_log {
     )
 }
 
+extern crate base64;
 extern crate mime_sniffer;
 extern crate env_logger;
 extern crate ring;

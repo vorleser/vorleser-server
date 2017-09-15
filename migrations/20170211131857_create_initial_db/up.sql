@@ -6,7 +6,7 @@ CREATE TABLE users (
     created_at TIMESTAMP DEFAULT current_timestamp NOT NULL,
     updated_at TIMESTAMP DEFAULT current_timestamp NOT NULL,
     email VARCHAR(120) UNIQUE NOT NULL,
-    password_hash VARCHAR(120) NOT NULL
+    password_hash VARCHAR(240) NOT NULL
 );
 SELECT diesel_manage_updated_at('users');
 

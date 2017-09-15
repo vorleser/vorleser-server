@@ -1,6 +1,6 @@
 use uuid::{self, Uuid};
 use chrono::NaiveDateTime;
-use argon2rs::argon2i_simple;
+use argon2rs::{verifier, Argon2};
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
@@ -13,6 +13,7 @@ use schema;
 use helpers::db::DB;
 use diesel;
 use diesel::result::QueryResult;
+use base64;
 
 #[derive(Debug, Serialize, Deserialize, Queryable)]
 #[hasmany(library_permissions)]
@@ -48,8 +49,14 @@ impl UserModel {
     pub fn make_password_hash(new_password: &AsRef<str>) -> String {
         // TODO: proper salting!!!
         // consider using https://docs.rs/passwors/0.1.1/passwors/
-        let password_hash = argon2i_simple(new_password.as_ref(), "loginsalt");
-        String::from_utf8_lossy(&password_hash).into_owned()
+        let salt = "loginsaltasdf";
+        let session = verifier::Encoded::default2i(
+            &new_password.as_ref().as_bytes(),
+            &salt.as_bytes(),
+            &[],
+            &[]
+        );
+        base64::encode(&session.to_u8())
     }
 
     pub fn accessible_libraries(&self, db: &PgConnection) -> Result<Vec<Library>> {
@@ -104,9 +111,11 @@ impl UserModel {
     }
 
     pub fn verify_password(&self, candidate_password: &str) -> bool {
-        let candidate_password = argon2i_simple(candidate_password, "loginsalt");
-        let candidate_password_string = String::from_utf8_lossy(&candidate_password);
-        self.password_hash == candidate_password_string
+        let data = base64::decode(&self.password_hash).expect("Malformed hash");
+        let session = verifier::Encoded::from_u8(
+            &data
+        ).expect("Cant load hashing setting.");
+        session.verify(candidate_password.as_bytes())
     }
 
     pub fn generate_api_token(&self, db: DB) -> Result<ApiToken> {

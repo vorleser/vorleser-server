@@ -5,6 +5,7 @@ version = "0.1.0"
 
 [dependencies]
 argon2rs = "0.2"
+base64 = "~0.6.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = "*"
 dotenv = "*"

@@ -3,6 +3,7 @@ name = "vorleser-rust"
 version = "0.1.0"
 dependencies = [
  "argon2rs 0.2.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "base64 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.26.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",

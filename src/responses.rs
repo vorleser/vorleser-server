@@ -3,6 +3,8 @@ use rocket_contrib::{Value, Json};
 use rocket::request::Request;
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
+use diesel;
+use uuid;
 
 #[derive(Debug)]
 pub struct APIResponse {
@@ -38,6 +40,22 @@ impl<'r> Responder<'r> for APIResponse {
             .sized_body(Cursor::new(body.to_string()))
             .header(ContentType::JSON)
             .ok()
+    }
+}
+
+impl From<uuid::ParseError> for APIResponse {
+    fn from(error: uuid::ParseError) -> Self {
+        bad_request()
+    }
+}
+
+impl From<diesel::result::Error> for APIResponse {
+    fn from(error: diesel::result::Error) -> Self {
+        use diesel::result::Error;
+        match error {
+            Error::NotFound => not_found(),
+            _ => internal_server_error()
+        }
     }
 }
 

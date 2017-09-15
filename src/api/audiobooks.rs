@@ -1,26 +1,34 @@
 use models::user::UserModel;
-use responses::{APIResponse, ok};
 use rocket_contrib::{Json, UUID};
 use diesel::prelude::*;
 use serde_json;
 use helpers::db::DB;
+use uuid::Uuid;
 use models::library::Library;
 use models::playstate::Playstate;
+use models::audiobook::Audiobook;
 use diesel::prelude;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use api::ranged_file::RangedFile;
 use std::fs;
+use schema::audiobooks::dsl::{audiobooks, self};
+use responses::{APIResponse, self, ok, internal_server_error};
 
 #[get("/data/<book_id>")]
-pub fn data_file(db: DB, book_id: UUID) -> RangedFile {
+pub fn data_file(db: DB, book_id: UUID) -> Result<RangedFile, APIResponse> {
     let idstr = book_id.hyphenated().to_string();
-    for p in fs::read_dir("data/").unwrap() {
-        let entry = p.unwrap();
-        if entry.file_name().to_str().unwrap().starts_with(&idstr) {
-            return RangedFile::open(entry.path()).unwrap()
+    let id = Uuid::parse_str(&idstr)?;
+    let book = audiobooks.filter(dsl::id.eq(id)).first::<Audiobook>(&*db)?;
+    let mut path = PathBuf::from("data/");
+    path.push(book.id.hyphenated().to_string());
+    path.set_extension(book.file_extension);
+    match RangedFile::open(path.clone()) {
+        Ok(f) => Ok(f),
+        Err(_) => {
+            println!("Audiobook file not found in data directory: {:?}", path);
+            Err(internal_server_error())
         }
     }
-    unreachable!()
 }
 
 #[get("/audiobooks/<book_id>")]

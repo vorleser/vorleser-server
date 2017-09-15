@@ -3,7 +3,7 @@ use std::io;
 use std::io::Read;
 use std::fs::File;
 use std::ffi::{OsString, OsStr};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::collections::HashMap;
 
 use walkdir::{WalkDir, WalkDirIterator};
@@ -175,10 +175,13 @@ impl Scanner {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
             let filename = String::new();
-            let target_path = "data/".to_string() +
-              &book.id.hyphenated().to_string();
+            let mut target_path = PathBuf::from("data");
+            target_path.push(&book.id.hyphenated().to_string());
+            if let Some(ext) = path.as_ref().extension() {
+                target_path.set_extension(ext);
+            }
             let mut absolute = env::current_dir()?;
-            absolute.push(path.clone());
+            absolute.push(&path);
             fs::symlink(absolute, target_path);
             let chapters = file.get_chapters();
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {

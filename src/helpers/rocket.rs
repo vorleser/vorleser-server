@@ -11,6 +11,7 @@ pub fn factory(pool: super::db::Pool) -> Rocket {
             api::libraries::all_the_things,
             api::libraries::update_playstate,
             api::audiobooks::audiobook,
+            api::audiobooks::get_audiobooks,
         ])
         .mount("/api/auth/", routes![
                api::auth::login,

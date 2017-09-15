@@ -6,6 +6,7 @@ use diesel::prelude::*;
 use diesel::expression::exists;
 use models::audiobook::Audiobook;
 use models::library::{Library, LibraryAccess};
+use std::result::Result as StdResult;
 
 use schema::{users, api_tokens};
 use schema;
@@ -57,7 +58,8 @@ impl UserModel {
         ").bind::<Uuid, _>(self.id).get_results::<Library>(&*db)?)
     }
 
-    pub fn accessible_audiobooks(&self, conn: &PgConnection) -> Result<Vec<Audiobook>> {
+    pub fn accessible_audiobooks(&self, conn: &PgConnection) 
+                -> diesel::result::QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
         use schema::audiobooks::SqlType;

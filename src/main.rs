@@ -56,6 +56,7 @@ mod worker;
 mod tests;
 
 use std::error::Error;
+use std::path::PathBuf;
 use worker::scanner::Scanner;
 use regex::Regex;
 use schema::libraries;
@@ -104,11 +105,16 @@ fn main() {
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         env_logger::init().unwrap();
         let conn = &*pool.get().unwrap();
-        let path = new_command.value_of("path").expect("Please provide a valid utf-8 path.");
+        let input_path = PathBuf::from(new_command.value_of("path").expect("Please provide a valid utf-8 path."));
         let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
+        let path = if input_path.is_absolute() {
+            input_path
+        } else {
+            std::env::current_dir().expect("No working directory.").join(input_path)
+        };
         match Regex::new(regex) {
             Ok(_) => {
-                match Library::create(path.to_owned(), regex.to_owned(), &*conn)
+                match Library::create(path.to_string_lossy().into_owned(), regex.to_owned(), &*conn)
                 {
                     Ok(lib) => info!("Successfully created library."),
                     Err(error) => error_log!("Library creation failed: {:?}", error.description())

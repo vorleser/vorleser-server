@@ -18,7 +18,7 @@ use responses::{APIResponse, self, ok, internal_server_error};
 pub fn data_file(current_user: UserModel, db: DB, book_id: UUID) -> Result<RangedFile, APIResponse> {
     match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(_) => (),
-        None => return Err(responses::not_found())
+        None => return Err(responses::forbidden())
     };
     let idstr = book_id.hyphenated().to_string();
     let id = Uuid::parse_str(&idstr)?;

@@ -151,10 +151,9 @@ impl UserModel {
 
         Ok(sql::<SqlType>("
             select a.* from audiobooks a
-            where a.id = book.id
             where exists (
                 select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id
+                where lp.user_id = $1 and lp.library_id = a.library_id and a.id = $2
             )
         ").bind::<Uuid, _>(self.id)
            .bind::<Uuid, _>(book_id)

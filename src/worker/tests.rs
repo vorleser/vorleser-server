@@ -152,7 +152,7 @@ fn common_extension() {
 #[test]
 fn get_thumbnail_jpg() {
     let j = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
-    let jpeg_image = j.get_cover_art().unwrap().unwrap();
+    let jpeg_image = j.get_coverart().unwrap().unwrap();
     assert_eq!(jpeg_image.image_type, ImageType::JPG);
     let mut jpeg_decoder = JPEGDecoder::new(Cursor::new(jpeg_image.data));
     let jpeg_dims = jpeg_decoder.dimensions().unwrap();
@@ -162,11 +162,17 @@ fn get_thumbnail_jpg() {
 #[test]
 fn get_thumbnail_png() {
     let f = MediaFile::read_file(Path::new("test-data/2.mp3")).unwrap();
-    let png_image = f.get_cover_art().unwrap().unwrap();
+    let png_image = f.get_coverart().unwrap().unwrap();
     assert_eq!(png_image.image_type, ImageType::PNG);
     let mut png_decoder = PNGDecoder::new(Cursor::new(png_image.data));
     let png_dims = png_decoder.dimensions().unwrap();
     assert_eq!((300, 300), png_dims);
+}
+
+#[test]
+fn get_thumbnail_none() {
+    let f = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+    assert!(f.get_coverart().unwrap().is_none());
 }
 
 #[test]

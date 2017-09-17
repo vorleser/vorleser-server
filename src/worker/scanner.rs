@@ -28,6 +28,7 @@ use std::os::unix::prelude::*;
 use std::os::unix::fs;
 use diesel::BelongingToDsl;
 use worker::util;
+use worker::mediafile::Image;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -151,6 +152,10 @@ impl Scanner {
         Ok(())
     }
 
+    fn save_coverart(&self, book: &Audiobook, image: &Image) {
+        image.save(&"data/lol.jpg");
+    }
+
     pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
         let relative_path = self.relative_path_str(path)?;
         let hash = checksum_file(path)?;
@@ -170,6 +175,7 @@ impl Scanner {
         });
 
         let metadata = file.get_mediainfo();
+        let cover_file = MediaFile::read_file(path.as_ref())?;
         let default_book = NewAudiobook {
             title: metadata.title,
             length: metadata.length,
@@ -185,6 +191,9 @@ impl Scanner {
             book.delete_all_chapters(conn);
             let filename = String::new();
             let chapters = file.get_chapters();
+            if let Some(image) = cover_file.get_coverart()? {
+                self.save_coverart(&book, &image);
+            }
             self.link_audiobook(&book)?;
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 NewChapter {

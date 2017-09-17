@@ -13,6 +13,8 @@ use worker::error::*;
 use std::fmt;
 use std::error;
 use std::result;
+use std::fs::File;
+use std::io::Write;
 
 #[derive(PartialEq, Eq, Debug)]
 pub enum ImageType {
@@ -38,6 +40,14 @@ pub struct Chapter {
     pub title: Option<String>,
     pub metadata: HashMap<String, String>,
     pub start: f64,
+}
+
+impl Image {
+    pub fn save(&self, path: &AsRef<Path>) -> Result<()> {
+        let mut file = File::create(path)?;
+        file.write_all(&self.data[..])?;
+        Ok(())
+    }
 }
 
 impl Chapter {
@@ -161,7 +171,7 @@ impl MediaFile {
         }
     }
 
-    pub fn get_cover_art(self) -> Result<Option<Image>> {
+    pub fn get_coverart(self) -> Result<Option<Image>> {
         unsafe {
             let best_image = try!(self.get_best_stream(AVMEDIA_TYPE_VIDEO));
             let codec = (*best_image.codecpar).codec_id;

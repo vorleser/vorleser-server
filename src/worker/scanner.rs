@@ -26,6 +26,7 @@ use chrono::prelude::*;
 use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
+use std::fs::create_dir;
 use diesel::BelongingToDsl;
 use worker::util;
 use worker::mediafile::Image;
@@ -148,13 +149,21 @@ impl Scanner {
         dest.set_extension(&book.file_extension);
         let mut src = PathBuf::from(&self.library.location);
         src.push(&book.location);
-        println!("src: {:?}, dest: {:?}", src, dest);
         fs::symlink(src, dest);
         Ok(())
     }
 
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
-        image.save(&"data/")?;
+        match create_dir("data/img") {
+            Err(e) => match e.kind() {
+                io::ErrorKind::AlreadyExists => (),
+                _ => Err(e)?
+            },
+            Ok(_) => ()
+        };
+        let mut dest = PathBuf::from("data/img");
+        dest.push(&book.id.hyphenated().to_string());
+        image.save(&dest)?;
         Ok(())
     }
 

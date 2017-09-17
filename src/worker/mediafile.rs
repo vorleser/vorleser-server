@@ -173,7 +173,10 @@ impl MediaFile {
 
     pub fn get_coverart(self) -> Result<Option<Image>> {
         unsafe {
-            let best_image = try!(self.get_best_stream(AVMEDIA_TYPE_VIDEO));
+            let best_image = match self.get_best_stream(AVMEDIA_TYPE_VIDEO) {
+                Err(_) => return Ok(None),
+                Ok(stream) => stream
+            };
             let codec = (*best_image.codecpar).codec_id;
             loop {
                 match try!(self.read_packet()) {

@@ -143,17 +143,19 @@ impl Scanner {
     }
 
     fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
-        let mut target_path = PathBuf::from("data");
-        target_path.push(&book.id.hyphenated().to_string());
-        target_path.set_extension(&book.file_extension);
-        let mut absolute = PathBuf::from(&self.library.location);
-        absolute.push(&book.location);
-        fs::symlink(absolute, target_path);
+        let mut dest = PathBuf::from("data");
+        dest.push(&book.id.hyphenated().to_string());
+        dest.set_extension(&book.file_extension);
+        let mut src = PathBuf::from(&self.library.location);
+        src.push(&book.location);
+        println!("src: {:?}, dest: {:?}", src, dest);
+        fs::symlink(src, dest);
         Ok(())
     }
 
-    fn save_coverart(&self, book: &Audiobook, image: &Image) {
-        image.save(&"data/lol.jpg");
+    fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
+        image.save(&"data/")?;
+        Ok(())
     }
 
     pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
@@ -191,7 +193,7 @@ impl Scanner {
             book.delete_all_chapters(conn);
             let filename = String::new();
             let chapters = file.get_chapters();
-            if let Some(image) = cover_file.get_coverart()? {
+            if let Some(image) = file.get_coverart()? {
                 self.save_coverart(&book, &image);
             }
             self.link_audiobook(&book)?;

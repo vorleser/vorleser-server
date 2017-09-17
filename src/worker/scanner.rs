@@ -266,6 +266,9 @@ impl Scanner {
         let inserted = conn.transaction(||  -> Result<()> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
+            
+            let mut chapter_index = 0;
+            
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {
@@ -288,8 +291,9 @@ impl Scanner {
                                     title: Some(info.title),
                                     start_time: start_time,
                                     audiobook_id: book.id,
-                                    number: i as i64
+                                    number: chapter_index
                                 };
+                                chapter_index += 1;
                                 diesel::insert(&new_chapter).into(chapters::table).execute(conn)?;
                                 start_time += info.length;
                                 all_chapters.push(new_chapter);

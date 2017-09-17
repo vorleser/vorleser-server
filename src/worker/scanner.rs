@@ -8,8 +8,7 @@ use std::collections::HashMap;
 
 use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;
-use regex::Regex;
-use diesel::prelude::*;
+use regex::Regex; use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ring::digest;
@@ -142,6 +141,16 @@ impl Scanner {
         }
     }
 
+    fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
+        let mut target_path = PathBuf::from("data");
+        target_path.push(&book.id.hyphenated().to_string());
+        target_path.set_extension(&book.file_extension);
+        let mut absolute = PathBuf::from(&self.library.location);
+        absolute.push(&book.location);
+        fs::symlink(absolute, target_path);
+        Ok(())
+    }
+
     pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
         let relative_path = self.relative_path_str(path)?;
         let hash = checksum_file(path)?;
@@ -175,15 +184,8 @@ impl Scanner {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
             let filename = String::new();
-            let mut target_path = PathBuf::from("data");
-            target_path.push(&book.id.hyphenated().to_string());
-            if let Some(ext) = path.as_ref().extension() {
-                target_path.set_extension(ext);
-            }
-            let mut absolute = env::current_dir()?;
-            absolute.push(&path);
-            fs::symlink(absolute, target_path);
             let chapters = file.get_chapters();
+            self.link_audiobook(&book)?;
             let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 NewChapter {
                     audiobook_id: book.id,

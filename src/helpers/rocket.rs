@@ -10,6 +10,7 @@ pub fn factory(pool: super::db::Pool) -> Rocket {
             api::libraries::libraries,
             api::libraries::all_the_things,
             api::libraries::update_playstate,
+            api::audiobooks::get_coverart,
             api::audiobooks::audiobook,
             api::audiobooks::get_audiobooks,
         ])

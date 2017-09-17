@@ -11,8 +11,10 @@ use diesel::prelude;
 use std::path::{Path, PathBuf};
 use api::ranged_file::RangedFile;
 use std::fs;
+use std::io;
 use schema::audiobooks::dsl::{audiobooks, self};
 use responses::{APIResponse, self, ok, internal_server_error};
+use rocket::response::NamedFile;
 
 #[get("/data/<book_id>")]
 pub fn data_file(current_user: UserModel, db: DB, book_id: UUID) -> Result<RangedFile, APIResponse> {
@@ -31,6 +33,24 @@ pub fn data_file(current_user: UserModel, db: DB, book_id: UUID) -> Result<Range
         Err(_) => {
             println!("Audiobook file not found in data directory: {:?}", path);
             Err(internal_server_error())
+        }
+    }
+}
+
+#[get("/coverart/<book_id>")]
+pub fn get_coverart(current_user: UserModel, db: DB, book_id: UUID) -> Result<NamedFile, APIResponse> {
+    use schema::libraries::dsl::*;
+    let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
+        Some(a) => a,
+        None => return Err(responses::not_found().message("No book found or not accessible."))
+    };
+    let mut path = PathBuf::from("data/img");
+    path.push(book_id.hyphenated().to_string());
+    match NamedFile::open(path) {
+        Ok(f) => Ok(f),
+        Err(e) => match e.kind() {
+            io::ErrorKind::NotFound => Err(responses::not_found().message("No cover art found.")),
+            _ => Err(responses::internal_server_error())
         }
     }
 }

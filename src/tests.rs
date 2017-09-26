@@ -47,7 +47,7 @@ describe! api_tests {
         let login_data = json!({"email": "test@test.com", "password": "lol"});
         let mut auth_response = post(&client, "/api/auth/login", &login_data, None);
         let auth_data: Value = serde_json::from_str(&auth_response.body_string().expect("no body string")).expect("JSON failed");
-        let auth_token = &auth_data.get("id").expect("no auth token").as_str().expect("not valid utf8");
+        let auth_token = &auth_data.get("secret").expect("no auth token").as_str().expect("not valid utf8");
     }
 
     it "should let you login" {
@@ -57,7 +57,7 @@ describe! api_tests {
         assert_eq!(res.status(), Status::Ok);
 
         let data: Value = serde_json::from_str(&res.body_string().expect("no body string")).expect("JSON failed");
-        let secret = &data.get("id").expect("no auth token").as_str().expect("not valid utf8");
+        let secret = &data.get("secret").expect("no auth token").as_str().expect("not valid utf8");
         let res2 = get(&client, "/api/auth/whoami", Some(secret));
         assert_eq!(res2.status(), Status::Ok);
     }

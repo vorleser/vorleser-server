@@ -56,16 +56,23 @@ impl From<UserModelError> for APIResponse {
         match error.kind() {
             &UserModelErrorKind::UserExists(ref user_name) =>
                 conflict().message(&format!("{}", error)),
-            _ => bad_request()
+            &UserModelErrorKind::Db(ref db_error) => APIResponse::from(db_error),
+            _ => bad_request().message("Something is wrong with the auth token or login details you provided.")
         }
     }
 }
 
 impl From<diesel::result::Error> for APIResponse {
     fn from(error: diesel::result::Error) -> Self {
+        APIResponse::from(&error)
+    }
+}
+
+impl<'a> From<&'a diesel::result::Error> for APIResponse {
+    fn from(error: &diesel::result::Error) -> Self {
         use diesel::result::Error;
         match error {
-            Error::NotFound => not_found(),
+            &Error::NotFound => not_found(),
             _ => internal_server_error()
         }
     }

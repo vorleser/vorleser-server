@@ -18,13 +18,13 @@ pub struct APIResponse {
 
 impl APIResponse {
     /// Change the message of the `Response`.
-    pub fn message(mut self, message: &str) -> APIResponse {
+    pub fn message(mut self, message: &str) -> Self {
         self.message = Some(message.to_string());
         self
     }
 
     /// Change the data to the `Response`.
-    pub fn data(mut self, data: JsonValue) -> APIResponse {
+    pub fn data(mut self, data: JsonValue) -> Self {
         self.data = Some(data);
         self
     }

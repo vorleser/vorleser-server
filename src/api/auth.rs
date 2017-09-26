@@ -10,6 +10,7 @@ use helpers::db::DB;
 use responses::{APIResponse, ok, created, conflict, unauthorized, internal_server_error};
 use rocket::Outcome;
 use rocket::http::Status;
+use validation::token::TokenSerializer;
 
 #[post("/login", data = "<user_in>", format = "application/json")]
 pub fn login(user_in: Json<UserSerializer>, db: DB) -> APIResponse {
@@ -30,7 +31,9 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> APIResponse {
         _ => return internal_server_error()
     };
 
-    ok().data(json!(token))
+    ok().data(json!(
+        TokenSerializer::from(token)
+    ))
 }
 
 #[post("/register", data = "<user>", format = "application/json")]

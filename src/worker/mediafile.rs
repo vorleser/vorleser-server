@@ -1,4 +1,5 @@
 use ffmpeg::*;
+use ffmpeg::AVMediaType::AVMEDIA_TYPE_VIDEO;
 
 use std::mem;
 use std::ffi::{CStr, CString};
@@ -117,7 +118,7 @@ impl MediaFile {
             new.averror = try!(check_av_result(avformat_open_input(
                 &mut new.ctx,
                 c_file_name.as_ptr(),
-                ptr::null(),
+                ptr::null_mut(),
                 ptr::null_mut()
             )));
             try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));

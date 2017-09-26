@@ -23,7 +23,7 @@ mime-sniffer = "0.1.1"
 r2d2 = "0.7.1"
 r2d2-diesel = "0.15"
 regex = "0.2.1"
-ring = "0.11"
+ring = "0.12"
 rocket = { git = "https://github.com/SergioBenitez/Rocket.git"  }
 rocket_codegen = { git = "https://github.com/SergioBenitez/Rocket.git" }
 rocket_contrib = { git = "https://github.com/SergioBenitez/Rocket.git", features = ["json", "uuid"], default-features = false }

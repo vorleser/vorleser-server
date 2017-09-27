@@ -6,7 +6,7 @@ dependencies = [
  "base64 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.26.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "diesel 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "diesel 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel_codegen 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "dotenv 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -19,7 +19,7 @@ dependencies = [
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "mime-sniffer 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "r2d2 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "r2d2-diesel 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "r2d2-diesel 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "regex 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rocket 0.4.0-dev (git+https://github.com/SergioBenitez/Rocket.git)",
@@ -295,6 +295,16 @@ name = "diesel"
 version = "0.15.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
+ "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "pq-sys 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "diesel"
+version = "0.16.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bitflags 0.9.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "byteorder 1.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "pq-sys 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -738,10 +748,10 @@ dependencies = [
 
 [[package]]
 name = "r2d2-diesel"
-version = "0.15.0"
+version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "diesel 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "diesel 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "r2d2 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1260,6 +1270,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum deflate 0.7.17 (registry+https://github.com/rust-lang/crates.io-index)" = "4dddda59aaab719767ab11d3efd9a714e95b610c4445d4435765021e9d52dfb1"
 "checksum derive-error-chain 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "3c9ca9ade651388daad7c993f005d0d20c4f6fe78c1cdc93e95f161c6f5ede4a"
 "checksum diesel 0.15.2 (registry+https://github.com/rust-lang/crates.io-index)" = "67f5b7408ddb7a834c0f191fb49b4398ccae19b226afafeeff5cb1eaac768b89"
+"checksum diesel 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "304226fa7a3982b0405f6bb95dd9c10c3e2000709f194038a60ec2c277150951"
 "checksum diesel_codegen 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)" = "044abc50a0ee67e195b0ae95c9ffe6903748434294636dd67808301b7df1902f"
 "checksum diesel_infer_schema 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cf0e5b3d40abfc2eadba06df2c1b93b61be579390f4dba620f08e8172cce30c4"
 "checksum dotenv 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)" = "d6f0e2bb24d163428d8031d3ebd2d2bd903ad933205a97d0f18c7c1aade380f3"
@@ -1315,7 +1326,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum quasi_codegen 0.32.0 (registry+https://github.com/rust-lang/crates.io-index)" = "51b9e25fa23c044c1803f43ca59c98dac608976dd04ce799411edd58ece776d4"
 "checksum quote 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "7a6e920b65c65f10b2ae65c831a81a073a89edd28c7cce89475bff467ab4167a"
 "checksum r2d2 0.7.4 (registry+https://github.com/rust-lang/crates.io-index)" = "2c8284508b38df440f8f3527395e23c4780b22f74226b270daf58fee38e4bcce"
-"checksum r2d2-diesel 0.15.0 (registry+https://github.com/rust-lang/crates.io-index)" = "0ca2d40462e2ddaf9d448f1aa0251ac37310ff0adf6da2eba36a49dd7fd6f034"
+"checksum r2d2-diesel 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "f6b921696a6c45991296d21b52ed973b9fb56f6c47524fda1f99458c2d6c0478"
 "checksum rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)" = "eb250fd207a4729c976794d03db689c9be1d634ab5a1c9da9492a13d8fecbcdf"
 "checksum rayon 0.8.2 (registry+https://github.com/rust-lang/crates.io-index)" = "b614fe08b6665cb9a231d07ac1364b0ef3cb3698f1239ee0c4c3a88a524f54c8"
 "checksum rayon-core 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7febc28567082c345f10cddc3612c6ea020fc3297a1977d472cf9fdb73e6e493"

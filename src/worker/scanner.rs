@@ -24,6 +24,7 @@ use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
 use chrono::prelude::*;
+use chrono::NaiveDateTime;
 use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
@@ -74,20 +75,7 @@ impl Scanner {
             let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
             if relative_path.components().count() == 0 { continue };
             if is_audiobook(relative_path, &self.regex) {
-                let should_scan = match most_recent_change(&path) {
-                    Err(e) => return Err(e),
-                    Ok(Some(time)) => if let Some(last_scan_time) = last_scan {
-                        time >= last_scan_time
-                    } else {
-                        // if there was no scan before we should scan now
-                        true
-                    },
-                    Ok(None) => {
-                        info!("No change data for files available, will hash everything.");
-                        true
-                    }
-                };
-                if should_scan {
+                if should_scan(&path, last_scan)? {
                     self.process_audiobook(&path, conn);
                 }
                 // If it is an audiobook we don't continue searching deeper in the dir tree here
@@ -110,7 +98,7 @@ impl Scanner {
             }
     }
 
-    fn process_audiobook(&self, path: &AsRef<Path>, conn: &diesel::pg::PgConnection) {
+    fn process_audiobook(&self, path: &AsRef<Path>, conn: &PgConnection) {
         if path.as_ref().is_dir() {
             match self.create_multifile_audiobook(conn, path) {
                 Ok(_) => (),
@@ -124,8 +112,8 @@ impl Scanner {
         }
     }
 
-    /// Delete all those books from the database that are not present in the filesystem.
-    fn delete_not_in_fs(&self, conn: &diesel::pg::PgConnection) -> Result<usize> {
+    /// Delete all those books from the database that are not present in the file system.
+    fn delete_not_in_fs(&self, conn: &PgConnection) -> Result<usize> {
         // TODO: we should just mark books deleted here, after all accidents where the
         // filesystem is gone for a bit should not lead to you loosing all playback data
         // we should also be able to recover from having the book set to deleted
@@ -161,6 +149,8 @@ impl Scanner {
         Ok(())
     }
 
+
+    /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
         match create_dir("data/img") {
             Err(e) => match e.kind() {
@@ -418,3 +408,20 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<Filet
     filetypes.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
     Ok(filetypes.pop().map(|el| el.0))
 }
+
+/// Determines whether a scan of a path is necessary based on file change data
+fn should_scan(path: &Path, last_scan: Option<NaiveDateTime>) -> Result<bool> {
+    match most_recent_change(&path)? {
+        Some(time) => if let Some(last_scan_time) = last_scan {
+            Ok(time >= last_scan_time)
+        } else {
+            // if there was no scan before we should scan now
+            Ok(true)
+        },
+        None => {
+            info!("No change data for files available, will hash everything.");
+            Ok(true)
+        }
+    }
+}
+

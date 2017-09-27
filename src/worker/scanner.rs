@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;
-use regex::Regex; use diesel::prelude::*;
+use regex::Regex;
+use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ring::digest;
@@ -30,6 +31,7 @@ use std::fs::create_dir;
 use diesel::BelongingToDsl;
 use worker::util;
 use worker::mediafile::Image;
+use super::hashing;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -169,7 +171,7 @@ impl Scanner {
 
     pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
         let relative_path = self.relative_path_str(path)?;
-        let hash = checksum_file(path)?;
+        let hash = hashing::checksum_file(path)?;
 
         let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
             Update::Nothing | Update::Path => true,
@@ -237,7 +239,7 @@ impl Scanner {
         // This might lead to inconsistent data as we hash before iterating over the files,
         // not better way to go about this seems possible to me
         // TODO: think about this
-        let hash = checksum_dir(path)?;
+        let hash = hashing::checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
         info!("Scanning multi-file audiobook at {:?}", path.as_ref());
 
@@ -286,9 +288,9 @@ impl Scanner {
         let inserted = conn.transaction(||  -> Result<()> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
-            
+
             let mut chapter_index = 0;
-            
+
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {
@@ -352,25 +354,6 @@ fn is_audiobook(path: &Path, regex: &Regex) -> bool {
     regex.is_match(path.to_str().unwrap())
 }
 
-pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>> {
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    update_hash_from_file(&mut ctx, path)?;
-    let mut res = Vec::new();
-    res.extend_from_slice(ctx.finish().as_ref());
-    Ok(res)
-}
-
-fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<()> {
-    let mut file = File::open(path.as_ref())?;
-    let mut buf: [u8; 1024] = [0; 1024];
-    loop {
-        let count = file.read(&mut buf[..])?;
-        ctx.update(&buf[0..count]);
-        if count == 0 { break }
-    }
-    Ok(())
-}
-
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
@@ -428,25 +411,4 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<Filet
     let mut filetypes: Vec<(Filetype, usize)> = counts.drain().collect();
     filetypes.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
     Ok(filetypes.pop().map(|el| el.0))
-}
-
-pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
-    let walker = WalkDir::new(path.as_ref())
-        .follow_links(true)
-        .sort_by(
-            |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
-        );
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    for entry in walker {
-        if let Ok(e) = entry {
-            let p = e.path();
-            if e.file_type().is_file() {
-                update_hash_from_file(&mut ctx, &p)?;
-            }
-            ctx.update(p.to_string_lossy().as_bytes());
-        }
-    }
-    let mut res = Vec::new();
-    res.extend_from_slice(ctx.finish().as_ref());
-    Ok(res)
 }

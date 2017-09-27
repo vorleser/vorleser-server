@@ -99,28 +99,7 @@ impl Scanner {
             ()
         };
 
-        // TODO: we should just mark books deleted here, after all accidents where the
-        // filesystem is gone for a bit should not lead to you loosing all playback data
-        // we should also be able to recover from having the book set to deleted
-        let mut deleted = 0;
-        for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
-            let path = Path::new(&self.library.location).join(Path::new(&book.location));
-            info!("checking wether audiobook at {:?} still exists", path);
-            if !path.exists() {
-                let del = diesel::delete(
-                        Audiobook::belonging_to(&self.library)
-                        .filter(audiobooks::dsl::id.eq(book.id))
-                    ).execute(&*conn)?;
-                match del {
-                    0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
-                    1 => deleted += 1,
-                    x => {
-                        warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
-                        deleted += x;
-                    }
-                }
-            }
-        };
+        let deleted = self.delete_not_in_fs(&conn)?;
         info!("Deleted {} audiobooks because their files are no longer present.", deleted);
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
@@ -143,6 +122,33 @@ impl Scanner {
                 Err(e) => error_log!("Error: {}", e.description())
             };
         }
+    }
+
+    /// Delete all those books from the database that are not present in the filesystem.
+    fn delete_not_in_fs(&self, conn: &diesel::pg::PgConnection) -> Result<usize> {
+        // TODO: we should just mark books deleted here, after all accidents where the
+        // filesystem is gone for a bit should not lead to you loosing all playback data
+        // we should also be able to recover from having the book set to deleted
+        let mut deleted = 0;
+        for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
+            let path = Path::new(&self.library.location).join(Path::new(&book.location));
+            info!("checking wether audiobook at {:?} still exists", path);
+            if !path.exists() {
+                let del = diesel::delete(
+                        Audiobook::belonging_to(&self.library)
+                        .filter(audiobooks::dsl::id.eq(book.id))
+                    ).execute(&*conn)?;
+                match del {
+                    0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
+                    1 => deleted += 1,
+                    x => {
+                        warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
+                        deleted += x;
+                    }
+                }
+            }
+        };
+        Ok(deleted)
     }
 
     fn link_audiobook(&self, book: &Audiobook) -> Result<()> {

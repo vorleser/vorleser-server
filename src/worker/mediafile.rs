@@ -1,5 +1,24 @@
-use ffmpeg::*;
-use ffmpeg::AVMediaType::AVMEDIA_TYPE_VIDEO;
+use ffmpeg::{
+    AVFormatContext,
+    AVMediaType,
+    AVStream,
+    AVCodecID,
+    AVChapter,
+    avformat_alloc_context,
+    avformat_free_context,
+    AVPacket,
+    avformat_open_input,
+    avformat_close_input,
+    av_free_packet,
+    av_find_best_stream,
+    avformat_find_stream_info,
+    AVPROBE_PADDING_SIZE,
+    AVProbeData,
+    av_probe_input_format,
+    av_read_frame,
+    AV_TIME_BASE_Q,
+    AVERROR_EOF,
+};
 
 use std::mem;
 use std::ffi::{CStr, CString};
@@ -174,7 +193,7 @@ impl MediaFile {
 
     pub fn get_coverart(self) -> Result<Option<Image>> {
         unsafe {
-            let best_image = match self.get_best_stream(AVMEDIA_TYPE_VIDEO) {
+            let best_image = match self.get_best_stream(AVMediaType::AVMEDIA_TYPE_VIDEO) {
                 Err(_) => return Ok(None),
                 Ok(stream) => stream
             };
@@ -183,8 +202,8 @@ impl MediaFile {
                 match try!(self.read_packet()) {
                     Some(ref pkt) => {
                         let image_type = match codec {
-                            AV_CODEC_ID_PNG => ImageType::PNG,
-                            AV_CODEC_ID_MJPEG => ImageType::JPG,
+                            AVCodecID::AV_CODEC_ID_PNG => ImageType::PNG,
+                            AVCodecID::AV_CODEC_ID_MJPEG => ImageType::JPG,
                             _ => return Ok(None)
                         };
                         if pkt.stream_index == best_image.index {

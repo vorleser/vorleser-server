@@ -13,27 +13,24 @@ use rocket::http::Status;
 use validation::token::TokenSerializer;
 
 #[post("/login", data = "<user_in>", format = "application/json")]
-pub fn login(user_in: Json<UserSerializer>, db: DB) -> APIResponse {
+pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIResponse>  {
     let results = users.filter(email.eq(user_in.email.clone()))
         .first::<UserModel>(&*db);
 
     if results.is_err() {
-        return unauthorized().message("Username or password incorrect.");
+        return Ok(unauthorized().message("Username or password incorrect."));
     }
 
     let user = results.unwrap();
     if !user.verify_password(user_in.password.as_str()) {
-        return unauthorized().message("Username or password incorrect.");
+        return Ok(unauthorized().message("Username or password incorrect."));
     }
 
-    let token = match user.generate_api_token(db) {
-        Ok(token) => token,
-        _ => return internal_server_error()
-    };
+    let token = user.generate_api_token(db)?;
 
-    ok().data(json!(
+    Ok(ok().data(json!(
         TokenSerializer::from(token)
-    ))
+    )))
 }
 
 #[post("/register", data = "<user>", format = "application/json")]

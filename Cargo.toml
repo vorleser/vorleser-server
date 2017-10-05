@@ -36,4 +36,4 @@ validator_derive = "0.5"
 walkdir = "1"
 
 [dev-dependencies]
-stainless = { git = "https://github.com/neverfox/stainless", branch="feature/ast-item-tokens" }
+stainless = { git = "https://github.com/reem/stainless" }

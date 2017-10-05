@@ -28,7 +28,7 @@ dependencies = [
  "serde 1.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_derive 1.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "stainless 0.1.11 (git+https://github.com/neverfox/stainless?branch=feature/ast-item-tokens)",
+ "stainless 0.1.11 (git+https://github.com/reem/stainless)",
  "uuid 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "validator 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "validator_derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -942,7 +942,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "stainless"
 version = "0.1.11"
-source = "git+https://github.com/neverfox/stainless?branch=feature/ast-item-tokens#4b90f209ac0cf2af946f11b1f7011c5b76984ce0"
+source = "git+https://github.com/reem/stainless#ead339eb5cce8e8378c0558bb38aaeef26d6ec03"
 
 [[package]]
 name = "state"
@@ -1338,7 +1338,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 "checksum serde_derive_internals 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)" = "bd381f6d01a6616cdba8530492d453b7761b456ba974e98768a18cad2cd76f58"
 "checksum serde_json 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "d243424e06f9f9c39e3cd36147470fd340db785825e367625f79298a6ac6b7ac"
 "checksum smallvec 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)" = "ee4f357e8cd37bf8822e1b964e96fd39e2cb5a0424f8aaa284ccaccc2162411c"
-"checksum stainless 0.1.11 (git+https://github.com/neverfox/stainless?branch=feature/ast-item-tokens)" = "<none>"
+"checksum stainless 0.1.11 (git+https://github.com/reem/stainless)" = "<none>"
 "checksum state 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "acc74e29126a281afcfd8dfa0ae83f1720a1adf5fc99524898e45ca440a73919"
 "checksum strsim 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "b4d15c810519a91cf877e7e36e63fe068815c678181439f2f29e2562147c3694"
 "checksum syn 0.11.11 (registry+https://github.com/rust-lang/crates.io-index)" = "d3b891b9015c88c576343b9b3e41c2c11a51c219ef067b264bd9c8aa9b441dad"

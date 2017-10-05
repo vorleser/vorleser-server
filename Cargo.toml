@@ -9,11 +9,11 @@ base64 = "~0.6.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = "*"
 dotenv = "*"
-diesel = { version = "0.15", features = ["postgres", "uuid", "chrono", "serde_json"] }
+diesel = { version = "0.16", features = ["postgres", "uuid", "chrono", "serde_json"] }
 diesel_codegen = { version = "0.15", features = ["postgres"] }
 env_logger = "*"
 error-chain = "0.11.0"
-ffmpeg-sys = { version = "3.2.0", features = ["avformat"], default-features = false }
+ffmpeg-sys = { version = "3.3.3", features = ["avformat"], default-features = false }
 humanesort = "0.1.0-alpha"
 image = "0.12.3"
 lazy_static = "0.2"
@@ -21,7 +21,7 @@ libc = "0.2"
 log = "*"
 mime-sniffer = "0.1.1"
 r2d2 = "0.7.1"
-r2d2-diesel = "0.15"
+r2d2-diesel = "0.16"
 regex = "0.2.1"
 ring = "0.12"
 rocket = { git = "https://github.com/SergioBenitez/Rocket.git"  }

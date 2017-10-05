@@ -177,15 +177,15 @@ fn get_thumbnail_none() {
 
 #[test]
 fn checksum() {
-    use super::scanner;
-    let checksum = scanner::checksum_file(&Path::new("test-data/all.m4b"));
+    use super::hashing;
+    let checksum = hashing::checksum_file(&Path::new("test-data/all.m4b"));
     assert_slice_starts_with(&checksum.unwrap(), &[0x48, 0xab, 0x4a])
 }
 
 #[test]
 fn checksum_dir() {
-    use super::scanner;
-    let checksum = scanner::checksum_dir(&Path::new("test-data/all"));
+    use super::hashing;
+    let checksum = hashing::checksum_dir(&Path::new("test-data/all"));
     checksum.unwrap();
 }
 

@@ -8,7 +8,8 @@ use std::collections::HashMap;
 
 use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;
-use regex::Regex; use diesel::prelude::*;
+use regex::Regex;
+use diesel::prelude::*;
 use worker::mediafile::MediaFile;
 use worker::error::*;
 use ring::digest;
@@ -23,6 +24,7 @@ use ::schema::chapters;
 use ::schema::libraries;
 use worker::muxer;
 use chrono::prelude::*;
+use chrono::NaiveDateTime;
 use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
@@ -30,6 +32,7 @@ use std::fs::create_dir;
 use diesel::BelongingToDsl;
 use worker::util;
 use worker::mediafile::Image;
+use super::hashing;
 
 pub struct Scanner {
     pub regex: Regex,
@@ -72,20 +75,7 @@ impl Scanner {
             let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
             if relative_path.components().count() == 0 { continue };
             if is_audiobook(relative_path, &self.regex) {
-                let should_scan = match most_recent_change(&path) {
-                    Err(e) => return Err(e),
-                    Ok(Some(time)) => if let Some(last_scan_time) = last_scan {
-                        time >= last_scan_time
-                    } else {
-                        // if there was no scan before we should scan now
-                        true
-                    },
-                    Ok(None) => {
-                        info!("No change data for files available, will hash everything.");
-                        true
-                    }
-                };
-                if should_scan {
+                if should_scan(&path, last_scan)? {
                     self.process_audiobook(&path, conn);
                 }
                 // If it is an audiobook we don't continue searching deeper in the dir tree here
@@ -97,6 +87,33 @@ impl Scanner {
             ()
         };
 
+        let deleted = self.delete_not_in_fs(&conn)?;
+        info!("Deleted {} audiobooks because their files are no longer present.", deleted);
+
+        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
+            .set(&self.library)
+            .execute(conn) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into())
+            }
+    }
+
+    fn process_audiobook(&self, path: &AsRef<Path>, conn: &PgConnection) {
+        if path.as_ref().is_dir() {
+            match self.create_multifile_audiobook(conn, path) {
+                Ok(_) => (),
+                Err(e) => error_log!("Error: {}", e.description())
+            };
+        } else {
+            match self.create_audiobook(conn, path) {
+                Ok(_) => (),
+                Err(e) => error_log!("Error: {}", e.description())
+            };
+        }
+    }
+
+    /// Delete all those books from the database that are not present in the file system.
+    fn delete_not_in_fs(&self, conn: &PgConnection) -> Result<usize> {
         // TODO: we should just mark books deleted here, after all accidents where the
         // filesystem is gone for a bit should not lead to you loosing all playback data
         // we should also be able to recover from having the book set to deleted
@@ -119,28 +136,7 @@ impl Scanner {
                 }
             }
         };
-        info!("Deleted {} audiobooks because their files are no longer present.", deleted);
-
-        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
-            .set(&self.library)
-            .execute(conn) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e.into())
-            }
-    }
-
-    fn process_audiobook(&self, path: &AsRef<Path>, conn: &diesel::pg::PgConnection) {
-        if path.as_ref().is_dir() {
-            match self.create_multifile_audiobook(conn, path) {
-                Ok(_) => (),
-                Err(e) => error_log!("Error: {}", e.description())
-            };
-        } else {
-            match self.create_audiobook(conn, path) {
-                Ok(_) => (),
-                Err(e) => error_log!("Error: {}", e.description())
-            };
-        }
+        Ok(deleted)
     }
 
     fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
@@ -153,6 +149,8 @@ impl Scanner {
         Ok(())
     }
 
+
+    /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
         match create_dir("data/img") {
             Err(e) => match e.kind() {
@@ -169,7 +167,7 @@ impl Scanner {
 
     pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
         let relative_path = self.relative_path_str(path)?;
-        let hash = checksum_file(path)?;
+        let hash = hashing::checksum_file(path)?;
 
         let done = match Audiobook::update_path(&hash, &relative_path, conn)? {
             Update::Nothing | Update::Path => true,
@@ -237,7 +235,7 @@ impl Scanner {
         // This might lead to inconsistent data as we hash before iterating over the files,
         // not better way to go about this seems possible to me
         // TODO: think about this
-        let hash = checksum_dir(path)?;
+        let hash = hashing::checksum_dir(path)?;
         let relative_path = self.relative_path_str(path)?.to_owned();
         info!("Scanning multi-file audiobook at {:?}", path.as_ref());
 
@@ -286,9 +284,9 @@ impl Scanner {
         let inserted = conn.transaction(||  -> Result<()> {
             let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
-            
+
             let mut chapter_index = 0;
-            
+
             for (i, entry) in walker.into_iter().enumerate() {
                 match entry {
                     Ok(file) => {
@@ -352,25 +350,6 @@ fn is_audiobook(path: &Path, regex: &Regex) -> bool {
     regex.is_match(path.to_str().unwrap())
 }
 
-pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>> {
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    update_hash_from_file(&mut ctx, path)?;
-    let mut res = Vec::new();
-    res.extend_from_slice(ctx.finish().as_ref());
-    Ok(res)
-}
-
-fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<()> {
-    let mut file = File::open(path.as_ref())?;
-    let mut buf: [u8; 1024] = [0; 1024];
-    loop {
-        let count = file.read(&mut buf[..])?;
-        ctx.update(&buf[0..count]);
-        if count == 0 { break }
-    }
-    Ok(())
-}
-
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
@@ -430,23 +409,19 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<Filet
     Ok(filetypes.pop().map(|el| el.0))
 }
 
-pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
-    let walker = WalkDir::new(path.as_ref())
-        .follow_links(true)
-        .sort_by(
-            |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
-        );
-    let mut ctx = digest::Context::new(&digest::SHA256);
-    for entry in walker {
-        if let Ok(e) = entry {
-            let p = e.path();
-            if e.file_type().is_file() {
-                update_hash_from_file(&mut ctx, &p)?;
-            }
-            ctx.update(p.to_string_lossy().as_bytes());
+/// Determines whether a scan of a path is necessary based on file change data
+fn should_scan(path: &Path, last_scan: Option<NaiveDateTime>) -> Result<bool> {
+    match most_recent_change(&path)? {
+        Some(time) => if let Some(last_scan_time) = last_scan {
+            Ok(time >= last_scan_time)
+        } else {
+            // if there was no scan before we should scan now
+            Ok(true)
+        },
+        None => {
+            info!("No change data for files available, will hash everything.");
+            Ok(true)
         }
     }
-    let mut res = Vec::new();
-    res.extend_from_slice(ctx.finish().as_ref());
-    Ok(res)
 }
+

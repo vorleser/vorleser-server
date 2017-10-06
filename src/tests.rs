@@ -1,4 +1,4 @@
-use helpers::db::init_db_pool;
+use helpers::db::get_test_db_pool;
 use helpers;
 use diesel::prelude::*;
 use models::user::UserModel;
@@ -38,12 +38,16 @@ fn get<'a>(client: &'a Client, url: &'a str, auth: Option<&str>) -> LocalRespons
 
 describe! api_tests {
     before_each {
-        let mut pool = init_db_pool();
-        let conn = &*pool.get().unwrap();
-        conn.execute("TRUNCATE api_tokens, libraries, library_permissions, audiobooks, chapters, playstates, users RESTART IDENTITY CASCADE").unwrap();
+        let mut pool = get_test_db_pool();
+        {
+            let conn = pool.get().unwrap();
+            let user = UserModel::create(&"test@test.com", &"lol", &*conn).expect("Error saving user");
+        }
+        println!("Before each {:?}", pool.state());
+
         let rocket = helpers::rocket::factory(pool.clone());
         let client = Client::new(rocket).unwrap();
-        let user = UserModel::create(&"test@test.com", &"lol", conn).expect("Error saving user");
+
         let login_data = json!({"email": "test@test.com", "password": "lol"});
         let mut auth_response = post(&client, "/api/auth/login", &login_data, None);
         let auth_data: Value = serde_json::from_str(&auth_response.body_string().expect("no body string")).expect("JSON failed");
@@ -86,7 +90,7 @@ describe! api_tests {
         before_each {
             let path = "data";
             let regex = "^[^/]+$";
-            let mut library = Library::create(path.to_owned(), regex.to_owned(), &*conn).unwrap();
+            let mut library = Library::create(path.to_owned(), regex.to_owned(), &*pool.get().unwrap()).unwrap();
             let mut scanner = Scanner {
                 regex: Regex::new(regex).unwrap(),
                 library: library,

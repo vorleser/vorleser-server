@@ -4,7 +4,7 @@ use diesel::prelude::*;
 use diesel::pg::PgConnection;
 use schema::playstates;
 use schema::library_permissions;
-use chrono::NaiveDateTime;
+use chrono::prelude::*;
 
 #[derive(Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug)]
 #[table_name="playstates"]
@@ -32,8 +32,7 @@ impl Playstate {
         ApiPlaystate {
             audiobook_id: self.audiobook_id,
             position: self.position,
-            // TODO: don't unwrap here
-            timestamp: self.timestamp,
+            timestamp: DateTime::<Utc>::from_utc(self.timestamp, Utc),
         }
     }
 }
@@ -42,7 +41,7 @@ impl Playstate {
 pub struct ApiPlaystate {
     pub audiobook_id: Uuid,
     pub position: f64,
-    pub timestamp: NaiveDateTime,
+    pub timestamp: DateTime<Utc>,
 }
 
 use models::user::UserModel;
@@ -53,7 +52,7 @@ impl ApiPlaystate {
             audiobook_id: self.audiobook_id,
             user_id: user.id,
             position: self.position,
-            timestamp: self.timestamp,
+            timestamp: self.timestamp.naive_utc(),
         }
     }
 }

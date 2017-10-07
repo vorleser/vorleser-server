@@ -18,7 +18,17 @@ impl<'a, 'r> FromRequest<'a, 'r> for UserModel {
         let mut tokens = request.headers().get("Authorization");
         let token = match tokens.next() {
             Some(t) => t,
-            None => return Outcome::Failure((Status::Unauthorized, ()))
+            None => {
+                match request.uri().query().and_then(|q| {
+                    q.split("&")
+                     .filter(|s| s.starts_with("auth="))
+                     .map(|s| s.split_at(5).1)
+                     .next()
+                }) {
+                    Some(t) => t,
+                    None => return Outcome::Failure((Status::Unauthorized, ()))
+                }
+            }
         };
 
         match UserModel::get_user_from_api_token(token, &*db) {

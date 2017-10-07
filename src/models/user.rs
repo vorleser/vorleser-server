@@ -16,7 +16,8 @@ use schema::{users, api_tokens};
 use schema;
 use helpers::db::DB;
 
-#[derive(Debug, Serialize, Deserialize, Queryable)]
+#[derive(Identifiable, Debug, Serialize, Deserialize, Queryable)]
+#[table_name="users"]
 #[hasmany(library_permissions)]
 pub struct UserModel {
     pub id: Uuid,

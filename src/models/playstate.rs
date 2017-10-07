@@ -6,9 +6,11 @@ use schema::playstates;
 use schema::library_permissions;
 use chrono::prelude::*;
 
-#[derive(Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug)]
+#[derive(Identifiable, Associations, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug)]
+#[primary_key(audiobook_id, user_id)]
 #[table_name="playstates"]
 #[changeset_for(playstates, treat_none_as_null="true")]
+#[belongs_to(UserModel, foreign_key="user_id")]
 pub struct Playstate {
     pub audiobook_id: Uuid,
     pub user_id: Uuid,

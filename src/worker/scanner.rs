@@ -287,7 +287,7 @@ impl Scanner {
 
             let mut chapter_index = 0;
 
-            for (i, entry) in walker.into_iter().enumerate() {
+            for entry in walker.into_iter() {
                 match entry {
                     Ok(file) => {
                         if file.path().is_dir() { continue };
@@ -298,13 +298,14 @@ impl Scanner {
                         };
                         let media = match MediaFile::read_file(file.path()) {
                             Ok(f) => {
-                                if i == 0 {
-                                    if let Some(new_title) = f.get_mediainfo().metadata.get("album") {
-                                        diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(book.id)))
-                                            .set(audiobooks::dsl::title.eq(new_title)).execute(conn)?;
+                                let info = f.get_mediainfo();
+                                if chapter_index == 0 {
+                                    use self::audiobooks::dsl::*;
+                                    if let Some(new_title) = info.metadata.get("album") {
+                                        diesel::update(audiobooks.filter(id.eq(book.id)))
+                                            .set(title.eq(new_title)).execute(conn)?;
                                     }
                                 };
-                                let info = f.get_mediainfo();
                                 let new_chapter = NewChapter {
                                     title: Some(info.title),
                                     start_time: start_time,

@@ -187,6 +187,7 @@ impl Scanner {
         let cover_file = MediaFile::read_file(path.as_ref())?;
         let default_book = NewAudiobook {
             title: metadata.title,
+            artist: metadata.metadata.get("artist").cloned(),
             length: metadata.length,
             location: relative_path.to_owned(),
             library_id: self.library.id,
@@ -276,6 +277,7 @@ impl Scanner {
             library_id: self.library.id,
             location: relative_path.clone(),
             title: title,
+            artist: None,
             hash: hash,
             mime_type: filetype.mime_type.clone(),
             file_extension: filetype.extension.to_string_lossy().into_owned()
@@ -304,6 +306,10 @@ impl Scanner {
                                     if let Some(new_title) = info.metadata.get("album") {
                                         diesel::update(audiobooks.filter(id.eq(book.id)))
                                             .set(title.eq(new_title)).execute(conn)?;
+                                    }
+                                    if let Some(new_artist) = info.metadata.get("artist") {
+                                        diesel::update(audiobooks.filter(id.eq(book.id)))
+                                            .set(artist.eq(new_artist)).execute(conn)?;
                                     }
                                 };
                                 let new_chapter = NewChapter {
@@ -425,4 +431,3 @@ fn should_scan(path: &Path, last_scan: Option<NaiveDateTime>) -> Result<bool> {
         }
     }
 }
-

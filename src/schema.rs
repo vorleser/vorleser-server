@@ -12,6 +12,7 @@ table! {
         location -> Text,
         mime_type -> Varchar,
         title -> Varchar,
+        artist -> Nullable<Varchar>,
         length -> Float8,
         library_id -> Uuid,
         hash -> Bytea,
@@ -64,3 +65,11 @@ table! {
         password_hash -> Varchar,
     }
 }
+
+joinable!(api_tokens -> users (user_id));
+joinable!(library_permissions -> libraries (library_id));
+joinable!(library_permissions -> users (user_id));
+joinable!(audiobooks -> libraries (library_id));
+joinable!(chapters -> audiobooks (audiobook_id));
+joinable!(playstates -> audiobooks (audiobook_id));
+joinable!(playstates -> users (user_id));

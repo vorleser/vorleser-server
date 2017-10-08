@@ -311,6 +311,10 @@ impl Scanner {
                                         diesel::update(audiobooks.filter(id.eq(book.id)))
                                             .set(artist.eq(new_artist)).execute(conn)?;
                                     }
+                                    let m = MediaFile::read_file(file.path()).unwrap();
+                                    if let Some(image) = m.get_coverart()? {
+                                        self.save_coverart(&book, &image);
+                                    }
                                 };
                                 let new_chapter = NewChapter {
                                     title: Some(info.title),

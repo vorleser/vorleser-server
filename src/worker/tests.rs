@@ -10,14 +10,14 @@ use image::png::PNGDecoder;
 use image::ImageDecoder;
 use std::ffi::OsString;
 use helpers;
-use helpers::db::get_test_db_pool;
+use helpers::db::init_test_db_pool;
 use diesel;
 use diesel::prelude::*;
 use ::worker::util;
 
 describe! worker_tests {
     before_each {
-        let mut pool = get_test_db_pool();
+        let mut pool = init_test_db_pool();
         let conn = pool.get().unwrap();
         util::shut_up_ffmpeg();
     }

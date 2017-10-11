@@ -1,4 +1,4 @@
-use helpers::db::get_test_db_pool;
+use helpers::db::init_test_db_pool;
 use helpers;
 use diesel::prelude::*;
 use models::user::UserModel;
@@ -38,7 +38,7 @@ fn get<'a>(client: &'a Client, url: &'a str, auth: Option<&str>) -> LocalRespons
 
 describe! api_tests {
     before_each {
-        let mut pool = get_test_db_pool();
+        let mut pool = init_test_db_pool();
         {
             let conn = pool.get().unwrap();
             let user = UserModel::create(&"test@test.com", &"lol", &*conn).expect("Error saving user");

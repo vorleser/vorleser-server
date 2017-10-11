@@ -1,14 +1,14 @@
 use schema;
 use diesel;
 use diesel::prelude::*;
-use helpers::db::init_db_pool;
+use helpers::db::init_test_db_pool;
 use ::*;
 use models::library::LibraryAccess;
 use models::audiobook::{Audiobook, NewAudiobook};
 
 describe! user_tests {
     before_each {
-        let mut pool = init_db_pool();
+        let mut pool = init_test_db_pool();
         let db = pool.get().unwrap();
     }
 

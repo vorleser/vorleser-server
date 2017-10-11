@@ -69,6 +69,7 @@ use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
 use diesel::insert;
+use helpers::db::Pool;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 

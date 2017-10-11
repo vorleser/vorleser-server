@@ -10,14 +10,14 @@ use image::png::PNGDecoder;
 use image::ImageDecoder;
 use std::ffi::OsString;
 use helpers;
-use helpers::db::init_db_pool;
+use helpers::db::init_test_db_pool;
 use diesel;
 use diesel::prelude::*;
 use ::worker::util;
 
 describe! worker_tests {
     before_each {
-        let mut pool = init_db_pool();
+        let mut pool = init_test_db_pool();
         let conn = pool.get().unwrap();
         util::shut_up_ffmpeg();
     }
@@ -39,7 +39,7 @@ describe! worker_tests {
                 .into(libraries::table)
                 .get_result(&*conn)
                 .unwrap();
-            let test_scanner = scanner::Scanner::new(init_db_pool(), library.clone());
+            let test_scanner = scanner::Scanner::new(pool.clone(), library.clone());
         }
 
         it "Can create single file audiobooks" {

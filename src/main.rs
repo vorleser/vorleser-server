@@ -1,4 +1,4 @@
-#![feature(custom_attribute, plugin)]
+#![feature(custom_attribute, plugin, non_ascii_idents)]
 #![plugin(rocket_codegen)]
 #![cfg_attr(test, plugin(stainless))]
 #![allow(dead_code, unused)]
@@ -137,7 +137,7 @@ fn main() {
                 library: l,
                 pool: pool.clone(),
             };
-            if let Err(error) = scanner.scan_library() {
+            if let Err(error) = scanner.scan_incremental() {
                 error_log!("Scan failed with error: {:?}", error.description());
             } else {
                 info!("Scan succeeded!");

@@ -46,6 +46,13 @@ pub(super) struct Filetype {
     pub mime_type: String
 }
 
+enum Scan {
+    Incremental,
+    Full
+}
+
+/// Scanner object for scanning a library.
+/// Construct this from a library object, then scan the library's directory using `scan_incremental`.
 impl Scanner {
     pub fn new(conn_pool: Pool, library: Library) -> Self {
         Self {
@@ -55,14 +62,30 @@ impl Scanner {
         }
     }
 
+    /// Perform an incremental scan, this takes file change dates into account.
+    /// As a result not all files are actually hashed. This should be the default behavior as it
+    /// is much faster than hashing all files. If inconsistent situations arise a full scan might
+    /// be able to fix the state, depending on what broke.
+    pub fn scan_incremental(&mut self) -> Result<()> {
+        self.scan_library(Scan::Incremental)
+    }
+
+    /// A full scan actually hashes each file that looks like an audiobook. This should only be run
+    /// very sparingly. Maybe on specific user request or on a very long interval. This can easily
+    /// keep the filesystem busy for a while if the library is sufficiently large.
+    pub fn full_scan(&mut self) -> Result<()> {
+        self.scan_library(Scan::Full)
+    }
+
     // for all existing audiobooks
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
-    pub fn scan_library(&mut self) -> Result<()> {
+    fn scan_library(&mut self, scan_type: Scan) -> Result<()> {
         info!("Scanning library: {}", self.library.location);
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(Utc::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
+        self.recover_deleted(&conn);
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
         loop {
@@ -75,10 +98,15 @@ impl Scanner {
             let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
             if relative_path.components().count() == 0 { continue };
             if is_audiobook(relative_path, &self.regex) {
-                if should_scan(&path, last_scan)? {
-                    self.process_audiobook(&path, conn);
+                match scan_type {
+                    Scan::Incremental => {
+                        if should_scan(&path, last_scan)? {
+                            self.process_audiobook(&path, conn);
+                        }
+                    },
+                    Scan::Full => self.process_audiobook(&path, conn)
                 }
-                // If it is an audiobook we don't continue searching deeper in the dir tree here
+                // Since we are in an audiobook we don't continue searching deeper in the dir tree from here
                 if path.is_dir() {
                     walker.skip_current_dir();
                 }
@@ -110,6 +138,13 @@ impl Scanner {
                 Err(e) => error_log!("Error: {}", e.description())
             };
         }
+    }
+
+
+    /// Try to recover those books that were marked as deleted.
+    /// Checks the file paths of books in the database and recovers them if hashes match
+    fn recover_deleted(&self, conn: &PgConnection) {
+        ()
     }
 
     /// Delete all those books from the database that are not present in the file system.

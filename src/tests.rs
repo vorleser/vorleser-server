@@ -96,7 +96,7 @@ describe! api_tests {
                 library: library,
                 pool: pool.clone(),
             };
-            scanner.scan_incremental();
+            scanner.incremental_scan();
         }
 
         it "get can some books" {

@@ -137,7 +137,7 @@ fn main() {
                 library: l,
                 pool: pool.clone(),
             };
-            if let Err(error) = scanner.scan_incremental() {
+            if let Err(error) = scanner.incremental_scan() {
                 error_log!("Scan failed with error: {:?}", error.description());
             } else {
                 info!("Scan succeeded!");

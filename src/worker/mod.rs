@@ -6,3 +6,5 @@ pub mod util;
 pub mod hashing;
 #[cfg(test)]
 pub mod tests;
+#[cfg(test)]
+pub mod scanning_tests;

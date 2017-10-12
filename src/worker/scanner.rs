@@ -66,7 +66,7 @@ impl Scanner {
     /// As a result not all files are actually hashed. This should be the default behavior as it
     /// is much faster than hashing all files. If inconsistent situations arise a full scan might
     /// be able to fix the state, depending on what broke.
-    pub fn scan_incremental(&mut self) -> Result<()> {
+    pub fn incremental_scan(&mut self) -> Result<()> {
         self.scan_library(Scan::Incremental)
     }
 

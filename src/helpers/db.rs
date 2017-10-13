@@ -20,6 +20,18 @@ pub fn init_db_pool() -> Pool {
     r2d2::Pool::new(config, manager).expect("Failed to create pool.")
 }
 
+#[cfg(test)]
+pub fn init_test_db_pool() -> Pool {
+    use diesel::Connection;
+    let config = r2d2::Config::builder().pool_size(1).build();
+    dotenv().unwrap();
+    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
+    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    let pool = r2d2::Pool::new(config, manager).expect("Failed to create pool.");
+    (*pool.get().unwrap()).begin_test_transaction();
+    pool
+}
+
 pub struct DB(PooledConnection);
 
 impl Deref for DB {

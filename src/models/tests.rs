@@ -1,14 +1,14 @@
 use schema;
 use diesel;
 use diesel::prelude::*;
-use helpers::db::init_db_pool;
+use helpers::db::init_test_db_pool;
 use ::*;
 use models::library::LibraryAccess;
 use models::audiobook::{Audiobook, NewAudiobook};
 
 describe! user_tests {
     before_each {
-        let mut pool = init_db_pool();
+        let mut pool = init_test_db_pool();
         let db = pool.get().unwrap();
     }
 
@@ -41,6 +41,7 @@ describe! user_tests {
                 location: "loc1".to_string(),
                 mime_type: "mime".to_string(),
                 title: "book 1".to_string(),
+                artist: Some("artist 1".to_string()),
                 length: 1234.5,
                 library_id: accessible_lib.id,
                 hash: vec![1, 2, 3],
@@ -50,6 +51,7 @@ describe! user_tests {
                 location: "loc2".to_string(),
                 mime_type: "mime".to_string(),
                 title: "book 2".to_string(),
+                artist: None,
                 length: 1232.1,
                 library_id: inaccessible_lib.id,
                 hash: vec![3, 4, 5],

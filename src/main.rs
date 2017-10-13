@@ -1,4 +1,4 @@
-#![feature(custom_attribute, plugin)]
+#![feature(custom_attribute, plugin, non_ascii_idents)]
 #![plugin(rocket_codegen)]
 #![cfg_attr(test, plugin(stainless))]
 #![allow(dead_code, unused)]
@@ -69,6 +69,7 @@ use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
 use diesel::insert;
+use helpers::db::Pool;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 
@@ -136,7 +137,7 @@ fn main() {
                 library: l,
                 pool: pool.clone(),
             };
-            if let Err(error) = scanner.scan_library() {
+            if let Err(error) = scanner.scan_incremental() {
                 error_log!("Scan failed with error: {:?}", error.description());
             } else {
                 info!("Scan succeeded!");

@@ -20,7 +20,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for UserModel {
             Some(t) => t,
             None => {
                 match request.uri().query().and_then(|q| {
-                    q.split("&")
+                    q.split('&')
                      .filter(|s| s.starts_with("auth="))
                      .map(|s| s.split_at(5).1)
                      .next()

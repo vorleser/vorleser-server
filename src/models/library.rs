@@ -55,7 +55,7 @@ impl Library {
                 is_audiobook_regex: audiobook_regex
             }).into(libraries::table).get_result::<Library>(&*db)?;
             let users: Vec<UserModel> = schema::users::table.load(&*db)?;
-            for u in users.iter() {
+            for u in users {
                 LibraryAccess::permit(&u, &lib, &*db)?;
             }
             Ok(lib)

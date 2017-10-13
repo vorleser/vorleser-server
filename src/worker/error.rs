@@ -27,7 +27,7 @@ error_chain! {
         }
 
         MediaError(msg: String, code: i32) {
-            description(&msg)
+            description(msg)
         }
 
     }

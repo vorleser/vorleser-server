@@ -85,7 +85,7 @@ impl Scanner {
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(Utc::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
-        self.recover_deleted(&conn);
+        self.recover_deleted(conn);
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
         loop {
@@ -100,7 +100,7 @@ impl Scanner {
             if is_audiobook(relative_path, &self.regex) {
                 match scan_type {
                     Scan::Incremental => {
-                        if should_scan(&path, last_scan)? {
+                        if should_scan(path, last_scan)? {
                             self.process_audiobook(&path, conn);
                         }
                     },
@@ -115,7 +115,7 @@ impl Scanner {
             ()
         };
 
-        let deleted = self.delete_not_in_fs(&conn)?;
+        let deleted = self.delete_not_in_fs(conn)?;
         info!("Deleted {} audiobooks because their files are no longer present.", deleted);
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
@@ -324,7 +324,7 @@ impl Scanner {
 
             let mut chapter_index = 0;
 
-            for entry in walker.into_iter() {
+            for entry in walker {
                 match entry {
                     Ok(file) => {
                         if file.path().is_dir() { continue };

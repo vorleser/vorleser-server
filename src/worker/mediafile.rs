@@ -146,7 +146,7 @@ impl MediaFile {
     }
 
     pub fn probe_format(&self) -> Result<()> {
-        let probesize = 5000000;
+        let probesize = 5_000_000;
         let mut buf: Vec<u8> = Vec::with_capacity((probesize + AVPROBE_PADDING_SIZE) as usize);
         for x in 0..(probesize + AVPROBE_PADDING_SIZE) {
             buf.push(0)

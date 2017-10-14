@@ -21,8 +21,8 @@ impl Fairing for CORS {
     fn on_response(&self, request: &Request, response: &mut Response) {
         if request.method() == Method::Options || response.content_type() == Some(ContentType::JSON) {
             response.set_header(Header::new("Access-Control-Allow-Origin", "http://localhost:9901"));
-            response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PUT"));
-            response.set_header(Header::new("Access-Control-Allow-Headers", "Content-Type"));
+            response.set_header(Header::new("Access-Control-Allow-Methods", "POST, GET, PUT, GET, DELETE"));
+            response.set_header(Header::new("Access-Control-Allow-Headers", "Content-Type, Authorization"));
             // response.set_header(Header::new("Access-Control-Allow-Credentials", "true"));
         }
 
@@ -37,8 +37,8 @@ impl Fairing for CORS {
 fn options_handler<'a>(path: PathBuf) -> Response<'a> {
     Response::build()
         .raw_header("Access-Control-Allow-Origin", "http://localhost:9901")
-        .raw_header("Access-Control-Allow-Methods", "OPTIONS, POST, PUT")
-        .raw_header("Access-Control-Allow-Headers", "Content-Type")
+        .raw_header("Access-Control-Allow-Methods", "OPTIONS, POST, PUT, GET, DELETE")
+        .raw_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         .finalize()
 }
 

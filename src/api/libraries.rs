@@ -33,8 +33,10 @@ pub fn all_the_things(current_user: UserModel, db: DB) -> APIResponse {
     }))
 }
 
-#[post("/update_playstate", data = "<playstate>", format = "application/json")]
-pub fn update_playstate(playstate: Json<ApiPlaystate>, current_user: UserModel, db: DB) -> APIResponse {
-    let state = playstate.into_inner().into_playstate(&current_user).upsert(&*db).unwrap().into_api_playstate();
-    ok().data(json!(state))
+#[post("/update_playstates", data = "<playstate>", format = "application/json")]
+pub fn update_playstates(playstate: Json<Vec<ApiPlaystate>>, current_user: UserModel, db: DB) -> APIResponse {
+    for state in playstate.into_inner() {
+        state.into_playstate(&current_user).upsert(&*db).unwrap().into_api_playstate();
+    }
+    ok().data(json!({}))
 }

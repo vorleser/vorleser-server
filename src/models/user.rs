@@ -86,7 +86,7 @@ impl UserModel {
             where exists (
                 select * from library_permissions lp
                 where lp.user_id = $1 and lp.library_id = a.library_id
-            )
+            ) order by a.location
         ").bind::<Uuid, _>(self.id).get_results::<Audiobook>(&*conn)?)
     }
 

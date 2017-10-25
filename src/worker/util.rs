@@ -21,8 +21,7 @@ pub struct Dictionary {
     pub elems: *mut AVDictionaryEntry
 }
 
-
-fn string_from_ptr(ptr: *const c_char) -> Result<Option<String>> {
+pub(super) fn string_from_ptr(ptr: *const c_char) -> Result<Option<String>> {
     if ptr.is_null() {
         Ok(None)
     } else {

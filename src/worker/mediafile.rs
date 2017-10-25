@@ -30,6 +30,7 @@ use std::collections::HashMap;
 use std::fmt::{Formatter, Debug};
 use std::str::Split;
 use worker::error::*;
+use worker::util::string_from_ptr;
 use std::fmt;
 use std::error;
 use std::result;
@@ -92,11 +93,11 @@ impl Chapter {
 }
 
 pub struct Format<'a> {
-    pub name: Option<&'a str>,
-    pub mime_type: Option<&'a str>,
-    pub extensions: Option<Split<'a, char>>,
+    pub name: Option<String>,
+    pub mime_type: Option<String>,
+    pub extensions: Option<String>,
     flags: i32,
-    codec: &'a Codec
+    codec: Option<&'a Codec>,
 }
 
 #[repr(C)]
@@ -167,20 +168,16 @@ impl MediaFile {
         Ok(())
     }
 
-    pub fn guess_format<'a>(&'a self) -> Format {
+    pub fn guess_format<'a>(&'a self) -> Result<Format> {
         unsafe{
             let iformat = (*(*self.ctx).iformat);
-            Format {
-                name: if !iformat.name.is_null() {
-                    None
-                } else {
-                    Some(CStr::from_ptr(iformat.name).to_str().unwrap())
-                },
+            Ok(Format {
+                name: string_from_ptr(iformat.name)?,
                 flags: iformat.flags,
-                extensions: None,
-                mime_type: None,
-                codec: &*(*iformat.codec_tag as *const Codec),
-            }
+                extensions: string_from_ptr(iformat.extensions)?,
+                mime_type: string_from_ptr(iformat.mime_type)?,
+                codec: (iformat.codec_tag as *const Codec).as_ref(),
+            })
         }
     }
 

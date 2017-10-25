@@ -69,8 +69,9 @@ describe! mediafile_tests {
     }
 
     it "can guess the format" {
-        let format = file.guess_format();
+        let format = file.guess_format().unwrap();
         println!("{:?}", format.name);
+        println!("{:?}", format.mime_type);
     }
 
     it "handles non existing files" {

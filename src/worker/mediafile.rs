@@ -170,7 +170,7 @@ impl MediaFile {
 
     pub fn guess_format<'a>(&'a self) -> Result<Format> {
         unsafe{
-            let iformat = (*(*self.ctx).iformat);
+            let iformat = *(*self.ctx).iformat;
             Ok(Format {
                 name: string_from_ptr(iformat.name)?,
                 flags: iformat.flags,

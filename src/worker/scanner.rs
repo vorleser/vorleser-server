@@ -43,7 +43,7 @@ pub struct Scanner {
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub(super) struct Filetype {
     pub extension: OsString,
-    pub mime_type: String
+    pub format: String
 }
 
 enum Scan {
@@ -319,8 +319,8 @@ impl Scanner {
             title: title,
             artist: None,
             hash: hash,
-            mime_type: filetype.mime_type.clone(),
-            file_extension: filetype.extension.to_string_lossy().into_owned()
+            mime_type: filetype.to_owned().into_string().unwrap(),
+            file_extension: filetype.to_owned().into_string().unwrap(),
         };
 
         let inserted = conn.transaction(||  -> Result<()> {
@@ -335,7 +335,7 @@ impl Scanner {
                         if file.path().is_dir() { continue };
                         // TODO: we could check the mimetype and not just the extension here
                         match file.path().extension() {
-                            Some(ext) => if ext != filetype.extension { continue },
+                            Some(ext) => if ext != filetype { continue },
                             None => { continue }
                         };
                         let media = match MediaFile::read_file(file.path()) {
@@ -379,7 +379,7 @@ impl Scanner {
                 .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
             let target_path = "data/".to_string() +
               &book.id.hyphenated().to_string() + "." +
-              &filetype.extension.to_string_lossy().into_owned();
+              &filetype.to_string_lossy().into_owned();
             debug!("muxing files into {:?}", target_path);
             muxer::merge_files(
                 &target_path,
@@ -427,35 +427,22 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
 
 
 /// Find the most common extension in a directory that might be an audio file.
-pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<Filetype>> {
-    let mut counts: HashMap<Filetype, usize> = HashMap::new();
+pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<OsString>> {
+    let mut counts: HashMap<OsString, usize> = HashMap::new();
     let file_type_iterator = WalkDir::new(path.as_ref())
         .follow_links(true)
         .into_iter()
         .filter_map(|opt| {
-            match opt.map(|wd| (wd.path().to_owned(), wd.path().extension().map(|el| el.to_owned()))) {
-                Ok((path, Some(o))) => {
-                    let mime_type = match util::sniff_mime_type(&path) {
-                        Ok(Some(t)) => t,
-                        _ => return None
-                    };
-                    match mime_type.split('/').next() {
-                        Some("audio") => (),
-                        _ => return None
-                    };
-                    Some(Filetype {
-                        extension: o,
-                        mime_type: mime_type
-                    })
-                },
-                _ => None,
+            match opt.map(|wd| wd.path().extension().map(|el| el.to_owned())) {
+                Ok(Some(ext)) => Some(ext),
+                _ => None
             }
         });
     for el in file_type_iterator {
         let mut count = counts.entry(el).or_insert(0);
         *count += 1;
     };
-    let mut filetypes: Vec<(Filetype, usize)> = counts.drain().collect();
+    let mut filetypes: Vec<(OsString, usize)> = counts.drain().collect();
     filetypes.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
     Ok(filetypes.pop().map(|el| el.0))
 }

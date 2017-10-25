@@ -47,7 +47,7 @@ describe! worker_tests {
             test_scanner.create_audiobook(&*conn, &Path::new("test-data/all.m4b")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }
-        
+
         it "Can create multi file m4b audiobooks" {
             use ::models::audiobook::{Audiobook, NewAudiobook, Update};
             test_scanner.create_multifile_audiobook(&*conn, &Path::new("test-data/m4bmulti")).unwrap();
@@ -159,7 +159,7 @@ fn read_files() -> Vec<MediaFile> {
 fn common_extension() {
     use worker::scanner::probable_audio_filetype;
     let ft = probable_audio_filetype(&"test-data/all");
-    assert_eq!(ft.unwrap().unwrap().extension, OsString::from("mp3")) }
+    assert_eq!(ft.unwrap().unwrap(), OsString::from("mp3")) }
 
 #[test]
 fn get_thumbnail_jpg() {

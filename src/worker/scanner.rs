@@ -215,7 +215,10 @@ impl Scanner {
         };
 
         let file = MediaFile::read_file(path.as_ref())?;
-        let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Not an audiofile"))?;
+        if !file.has_audio_track() {
+            return Err(ErrorKind::Other("Not an audio file!").into())
+        }
+        let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Cant read mime data"))?;
         let file_extension = path.as_ref().extension().map(|s| {
             s.to_string_lossy().into_owned()
         });

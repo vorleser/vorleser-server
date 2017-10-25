@@ -191,6 +191,13 @@ impl MediaFile {
         }
     }
 
+    pub fn has_audio_track(&self) -> bool {
+        match self.get_best_stream(AVMediaType::AVMEDIA_TYPE_AUDIO) {
+            Err(_) => false,
+            Ok(stream) => true
+        }
+    }
+
     pub fn get_coverart(self) -> Result<Option<Image>> {
         unsafe {
             let best_image = match self.get_best_stream(AVMediaType::AVMEDIA_TYPE_VIDEO) {

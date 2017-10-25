@@ -114,7 +114,6 @@ impl Scanner {
 
             ()
         };
-
         let deleted = self.delete_not_in_fs(conn)?;
         info!("Deleted {} audiobooks because their files are no longer present.", deleted);
 
@@ -155,7 +154,7 @@ impl Scanner {
         let mut deleted = 0;
         for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
-            info!("checking wether audiobook at {:?} still exists", path);
+            info!("checking weather audiobook at {:?} still exists", path);
             if !path.exists() {
                 let del = diesel::delete(
                         Audiobook::belonging_to(&self.library)
@@ -174,6 +173,9 @@ impl Scanner {
         Ok(deleted)
     }
 
+
+    /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
+    /// source of data.
     fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
         let mut dest = PathBuf::from("data");
         dest.push(&book.id.hyphenated().to_string());

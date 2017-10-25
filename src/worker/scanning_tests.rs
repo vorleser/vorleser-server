@@ -80,6 +80,14 @@ describe! scanner_integratoin_tests {
         assert_eq!(0, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
     }
 
+    it "ignore_other_files" {
+        // Time step 01:
+        let base = String::from("integration-tests/ignore_other_files/01");
+        scanner.library.location = base.clone();
+        scanner.incremental_scan();
+        assert_eq!(0, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
+    }
+
     // it "recovers_deleted_same_timestamp" {
     //     // Time step 01:
     //     let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");

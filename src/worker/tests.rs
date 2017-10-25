@@ -47,6 +47,12 @@ describe! worker_tests {
             test_scanner.create_audiobook(&*conn, &Path::new("test-data/all.m4b")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }
+        
+        it "Can create multi file m4b audiobooks" {
+            use ::models::audiobook::{Audiobook, NewAudiobook, Update};
+            test_scanner.create_multifile_audiobook(&*conn, &Path::new("test-data/m4bmulti")).unwrap();
+            assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
+        }
 
     }
 }
@@ -60,6 +66,11 @@ describe! mediafile_tests {
 
     it "can be probed" {
         file.probe_format();
+    }
+
+    it "can guess the format" {
+        let format = file.guess_format();
+        println!("{:?}", format.name);
     }
 
     it "handles non existing files" {

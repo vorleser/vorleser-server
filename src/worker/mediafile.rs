@@ -92,9 +92,9 @@ impl Chapter {
 }
 
 pub struct Format<'a> {
-    name: &'a str,
-    mime_type: &'a str,
-    extensions: Split<'a, char>,
+    pub name: Option<&'a str>,
+    pub mime_type: Option<&'a str>,
+    pub extensions: Option<Split<'a, char>>,
     flags: i32,
     codec: &'a Codec
 }
@@ -169,12 +169,16 @@ impl MediaFile {
 
     pub fn guess_format<'a>(&'a self) -> Format {
         unsafe{
-            let iformat = &(*(*self.ctx).iformat);
+            let iformat = (*(*self.ctx).iformat);
             Format {
-                name: CStr::from_ptr(iformat.name).to_str().unwrap(),
+                name: if !iformat.name.is_null() {
+                    None
+                } else {
+                    Some(CStr::from_ptr(iformat.name).to_str().unwrap())
+                },
                 flags: iformat.flags,
-                extensions: CStr::from_ptr(iformat.name).to_str().unwrap().split(','),
-                mime_type: CStr::from_ptr(iformat.mime_type).to_str().unwrap(),
+                extensions: None,
+                mime_type: None,
                 codec: &*(*iformat.codec_tag as *const Codec),
             }
         }

@@ -35,7 +35,7 @@ fn set_times(times: Vec<(String, NaiveDate)>) {
 // directory.
 //
 // To ensure this please name each test EXACTLY like the directory.
-describe! scanner_integratoin_tests {
+describe! scanner_integrationn_tests {
     before_each {
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
@@ -72,7 +72,7 @@ describe! scanner_integratoin_tests {
         set_time(&base, &NaiveDate::from_ymd(1990, 1, 1));
         scanner.incremental_scan().unwrap();
         assert_eq!(1, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
-        println!("============Step 2!============"); 
+        println!("============Step 2!============");
         // Time step 02:
         base = String::from("integration-tests/simple_deletion/02");
         scanner.library.location = base.clone();

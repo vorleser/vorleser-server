@@ -39,7 +39,6 @@ describe! user_tests {
         let books = diesel::insert(&vec![
             NewAudiobook {
                 location: "loc1".to_string(),
-                mime_type: "mime".to_string(),
                 title: "book 1".to_string(),
                 artist: Some("artist 1".to_string()),
                 length: 1234.5,
@@ -49,7 +48,6 @@ describe! user_tests {
             },
             NewAudiobook {
                 location: "loc2".to_string(),
-                mime_type: "mime".to_string(),
                 title: "book 2".to_string(),
                 artist: None,
                 length: 1232.1,

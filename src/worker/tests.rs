@@ -129,12 +129,6 @@ describe! mediafile_tests {
     }
 }
 
-describe! mimetype {
-    it "should find the mime type" {
-        assert_eq!(util::sniff_mime_type(&"test-data/1.mp3".to_owned()).unwrap().unwrap(), "audio/mpeg")
-    }
-}
-
 fn get_tempdir() -> PathBuf {
     let mut dir = env::temp_dir();
     dir.push("vorleser-tests");

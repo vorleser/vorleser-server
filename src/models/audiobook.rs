@@ -17,7 +17,6 @@ use models::permission::Permission;
 #[derive(Insertable)]
 pub struct NewAudiobook {
     pub location: String,
-    pub mime_type: String,
     pub title: String,
     pub artist: Option<String>,
     pub length: f64,
@@ -32,9 +31,7 @@ pub struct NewAudiobook {
 #[belongs_to(Library)]
 pub struct Audiobook {
     pub id: Uuid,
-    #[serde(skip_serializing)]
     pub location: String,
-    pub mime_type: String,
     pub title: String,
     pub artist: Option<String>,
     pub length: f64,

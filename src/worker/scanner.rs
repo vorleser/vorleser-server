@@ -218,7 +218,6 @@ impl Scanner {
         if !file.has_audio_track() {
             return Err(ErrorKind::Other("Not an audio file!").into())
         }
-        let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Cant read mime data"))?;
         let file_extension = path.as_ref().extension().map(|s| {
             s.to_string_lossy().into_owned()
         });
@@ -232,7 +231,6 @@ impl Scanner {
             location: relative_path.to_owned(),
             library_id: self.library.id,
             hash: hash,
-            mime_type: mime,
             file_extension: file_extension.unwrap_or("".to_owned())
         };
 
@@ -319,7 +317,6 @@ impl Scanner {
             title: title,
             artist: None,
             hash: hash,
-            mime_type: filetype.to_owned().into_string().unwrap(),
             file_extension: filetype.to_owned().into_string().unwrap(),
         };
 
@@ -333,7 +330,6 @@ impl Scanner {
                 match entry {
                     Ok(file) => {
                         if file.path().is_dir() { continue };
-                        // TODO: we could check the mimetype and not just the extension here
                         match file.path().extension() {
                             Some(ext) => if ext != filetype { continue },
                             None => { continue }

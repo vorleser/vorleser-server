@@ -22,10 +22,6 @@ describe! worker_tests {
         util::shut_up_ffmpeg();
     }
 
-    after_each {
-        conn.execute("TRUNCATE audiobooks, chapters, playstates RESTART IDENTITY CASCADE").unwrap();
-    }
-
     describe! scanner_tests {
         before_each {
             use models::library::{NewLibrary, Library};
@@ -42,13 +38,13 @@ describe! worker_tests {
             let test_scanner = scanner::Scanner::new(pool.clone(), library.clone());
         }
 
-        it "Can create single file audiobooks" {
+        it "can create single file audiobooks" {
             use ::models::audiobook::{Audiobook, NewAudiobook, Update};
             test_scanner.create_audiobook(&*conn, &Path::new("test-data/all.m4b")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }
 
-        it "Can create multi file m4b audiobooks" {
+        it "can create multi file m4b audiobooks" {
             use ::models::audiobook::{Audiobook, NewAudiobook, Update};
             test_scanner.create_multifile_audiobook(&*conn, &Path::new("test-data/m4bmulti")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());

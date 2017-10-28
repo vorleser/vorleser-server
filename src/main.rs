@@ -80,7 +80,12 @@ fn main() {
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .version(env!("CARGO_PKG_VERSION"))
         .subcommand(SubCommand::with_name("serve"))
-        .subcommand(SubCommand::with_name("scan"))
+        .subcommand(SubCommand::with_name("scan")
+            .arg(Arg::with_name("full")
+                 .long("full")
+                 .help("Perform a full scan, not an incremental one")
+            )
+        )
         .subcommand(SubCommand::with_name("create_user")
             .arg(Arg::with_name("email")
                 .takes_value(true)
@@ -127,7 +132,7 @@ fn main() {
         std::process::exit(0);
     };
 
-    if let Some(_) = matches.subcommand_matches("scan") {
+    if let Some(scan) = matches.subcommand_matches("scan") {
         env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
@@ -137,7 +142,14 @@ fn main() {
                 library: l,
                 pool: pool.clone(),
             };
-            if let Err(error) = scanner.incremental_scan() {
+
+            let scan_result = if scan.is_present("full") {
+                scanner.full_scan()
+            } else {
+                scanner.incremental_scan()
+            };
+
+            if let Err(error) = scan_result {
                 error_log!("Scan failed with error: {:?}", error.description());
             } else {
                 info!("Scan succeeded!");

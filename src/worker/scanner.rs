@@ -151,26 +151,31 @@ impl Scanner {
         // TODO: we should just mark books deleted here, after all accidents where the
         // filesystem is gone for a bit should not lead to you loosing all playback data
         // we should also be able to recover from having the book set to deleted
-        let mut deleted = 0;
+        let mut deleted_count = 0;
         for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
             info!("checking weather audiobook at {:?} still exists", path);
+            println!("checking weather audiobook at {:?} still exists", path);
             if !path.exists() {
-                let del = diesel::delete(
+                use schema::audiobooks::dsl::*;
+                let del = diesel::update(
                         Audiobook::belonging_to(&self.library)
-                        .filter(audiobooks::dsl::id.eq(book.id))
-                    ).execute(&*conn)?;
+                        .filter(id.eq(book.id))
+                    )
+                    .set(deleted.eq(true))
+                    .execute(&*conn)?;
+                println!("deleted: {}", del);
                 match del {
                     0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
-                    1 => deleted += 1,
+                    1 => deleted_count += 1,
                     x => {
                         warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
-                        deleted += x;
+                        deleted_count += x;
                     }
                 }
             }
         };
-        Ok(deleted)
+        Ok(deleted_count)
     }
 
 

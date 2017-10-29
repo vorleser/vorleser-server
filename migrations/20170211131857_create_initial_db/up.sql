@@ -39,7 +39,7 @@ CREATE TABLE audiobooks (
     library_id UUID REFERENCES libraries (id) NOT NULL,
     hash BYTEA NOT NULL,
     file_extension VARCHAR(255) NOT NULL,
-    deleted BOOLEAN NOT NULL DEFAULT TRUE
+    deleted BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE chapters (

@@ -77,7 +77,8 @@ describe! scanner_integrationn_tests {
         base = String::from("integration-tests/simple_deletion/02");
         scanner.library.location = base.clone();
         scanner.incremental_scan().unwrap();
-        assert_eq!(0, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
+        use schema::audiobooks::dsl::deleted;
+        assert_eq!(0, Audiobook::belonging_to(&scanner.library).filter(deleted.eq(false)).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
     }
 
     it "ignore_other_files" {

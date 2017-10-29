@@ -85,7 +85,7 @@ impl Scanner {
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(Utc::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
-        self.recover_deleted(conn);
+        self.recover_deleted(conn)?;
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
         loop {
@@ -142,8 +142,24 @@ impl Scanner {
 
     /// Try to recover those books that were marked as deleted.
     /// Checks the file paths of books in the database and recovers them if hashes match
-    fn recover_deleted(&self, conn: &PgConnection) {
-        ()
+    fn recover_deleted(&self, conn: &PgConnection) -> Result<usize> {
+        use schema::audiobooks::dsl::*;
+        let mut recovered = 0;
+        for book in Audiobook::belonging_to(&self.library).filter(deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
+            let path = Path::new(&self.library.location).join(Path::new(&book.location));
+            info!("Recovering previously deleted book: {:?}", path);
+            if path.exists() {
+                use schema::audiobooks::dsl::*;
+                diesel::update(
+                        Audiobook::belonging_to(&self.library)
+                        .filter(id.eq(book.id))
+                    )
+                    .set(deleted.eq(false))
+                    .execute(&*conn)?;
+                recovered += 1;
+            }
+        }
+        Ok(recovered)
     }
 
     /// Delete all those books from the database that are not present in the file system.
@@ -155,7 +171,6 @@ impl Scanner {
         for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
             info!("checking weather audiobook at {:?} still exists", path);
-            println!("checking weather audiobook at {:?} still exists", path);
             if !path.exists() {
                 use schema::audiobooks::dsl::*;
                 let del = diesel::update(

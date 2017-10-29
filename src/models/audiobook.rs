@@ -14,7 +14,7 @@ use models::user::UserModel;
 use models::permission::Permission;
 
 #[table_name="audiobooks"]
-#[derive(Insertable)]
+#[derive(Insertable, AsChangeset)]
 pub struct NewAudiobook {
     pub location: String,
     pub title: String,
@@ -71,7 +71,7 @@ impl Audiobook {
         diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
     }
 
-    pub fn ensure_exsits_in(relative_path: &AsRef<str>, library: &Library,
+    pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
                             new_book: &NewAudiobook, conn: &PgConnection)
         -> Result<Audiobook, diesel::result::Error> {
         match Self::belonging_to(library)
@@ -79,6 +79,7 @@ impl Audiobook {
             .first(&*conn)
             .optional()? {
                 Some(b) => {
+                    diesel::update(audiobooks::table).set(new_book).get_result::<Audiobook>(conn)?;
                     Ok(b)
                 },
                 None => {

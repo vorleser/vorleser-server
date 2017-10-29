@@ -259,7 +259,7 @@ impl Scanner {
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
+            let book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
             let filename = String::new();
             let chapters = file.get_chapters();
@@ -345,7 +345,7 @@ impl Scanner {
         };
 
         let inserted = conn.transaction(||  -> Result<()> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
+            let book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
 
             let mut chapter_index = 0;

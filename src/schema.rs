@@ -16,6 +16,7 @@ table! {
         library_id -> Uuid,
         hash -> Bytea,
         file_extension -> Varchar,
+        deleted -> Bool,
     }
 }
 

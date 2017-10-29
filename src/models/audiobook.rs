@@ -38,6 +38,7 @@ pub struct Audiobook {
     pub library_id: Uuid,
     pub hash: Vec<u8>,
     pub file_extension: String,
+    pub deleted: bool
 }
 
 pub enum Update {

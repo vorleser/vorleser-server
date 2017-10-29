@@ -85,7 +85,7 @@ impl UserModel {
             select a.* from audiobooks a
             where exists (
                 select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id
+                where lp.user_id = $1 and lp.library_id = a.library_id and a.deleted = false
             ) order by a.location
         ").bind::<Uuid, _>(self.id).get_results::<Audiobook>(&*conn)?)
     }
@@ -149,12 +149,14 @@ impl UserModel {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
         use schema::audiobooks::SqlType;
-
+        use schema::users;
+        use schema::libraries;
+        use schema::library_permissions;
         Ok(sql::<SqlType>("
             select a.* from audiobooks a
             where exists (
                 select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id and a.id = $2
+                where lp.user_id = $1 and lp.library_id = a.library_id and a.id = $2 and a.deleted = false
             )
         ").bind::<Uuid, _>(self.id)
            .bind::<Uuid, _>(book_id)

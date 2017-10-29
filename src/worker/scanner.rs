@@ -143,18 +143,22 @@ impl Scanner {
     /// Try to recover those books that were marked as deleted.
     /// Checks the file paths of books in the database and recovers them if hashes match
     fn recover_deleted(&self, conn: &PgConnection) -> Result<usize> {
-        use schema::audiobooks::dsl::*;
+        use schema::audiobooks::dsl as dsl;
         let mut recovered = 0;
-        for book in Audiobook::belonging_to(&self.library).filter(deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
+        for book in Audiobook::belonging_to(&self.library).filter(dsl::deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
             info!("Recovering previously deleted book: {:?}", path);
-            if path.exists() {
+            let hash = match path.is_dir() {
+                true => hashing::checksum_dir(&path)?,
+                false => hashing::checksum_file(&path)?
+            };
+            if path.exists() && hash == book.hash {
                 use schema::audiobooks::dsl::*;
                 diesel::update(
                         Audiobook::belonging_to(&self.library)
-                        .filter(id.eq(book.id))
+                        .filter(dsl::id.eq(book.id))
                     )
-                    .set(deleted.eq(false))
+                    .set(dsl::deleted.eq(false))
                     .execute(&*conn)?;
                 recovered += 1;
             }

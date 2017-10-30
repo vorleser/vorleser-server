@@ -8,3 +8,6 @@ script:
   - docker-compose up -d
   - sleep 5
   - docker-compose run app bash -c "diesel setup && cargo test"
+cache:
+  directories:
+    - target

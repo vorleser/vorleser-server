@@ -1,7 +1,7 @@
 version: '2'
 services:
   app:
-    image: vorleser-server
+    image: hatzel/vorleser-test
     volumes:
         - .:/code
     working_dir: /code

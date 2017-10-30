@@ -2,7 +2,7 @@ services:
   - docker
 before_install:
   - echo DATABASE_URL=postgres://vorleser@postgres/vorleser > .env
-  - docker build -t vorleser-server .
+  - docker pull hatzel/vorleser-test
   - docker pull postgres:latest
 script:
   - docker-compose up -d

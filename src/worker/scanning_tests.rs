@@ -11,7 +11,7 @@ use helpers::db::Pool;
 use models::library::Library;
 use worker::scanner::Scanner;
 
-fn set_time(file: &str, date: &NaiveDate) {
+fn set_date(file: &str, date: &NaiveDate) {
     let time = date.format("%y%m%d0000").to_string();
     for entry in WalkDir::new(file) {
         let e = entry.unwrap();
@@ -25,6 +25,12 @@ fn set_time(file: &str, date: &NaiveDate) {
     }
 }
 
+fn set_dates(times: Vec<(String, NaiveDate)>) {
+    for (ref path, ref date) in times {
+        set_date(path, date);
+    }
+}
+
 fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
     use models::audiobook::Audiobook;
     use schema::audiobooks::dsl::deleted;
@@ -32,13 +38,6 @@ fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
                .filter(deleted.eq(false))
                .count()
                .first::<i64>(&*(pool.get().unwrap())).unwrap()
-}
-
-
-fn set_times(times: Vec<(String, NaiveDate)>) {
-    for (ref path, ref date) in times {
-        set_time(path, date);
-    }
 }
 
 // IMPORTANT:
@@ -71,7 +70,7 @@ describe! scanner_integrationn_tests {
         // Time step 01:
         let base = String::from("integration-tests/simple/01");
         scanner.library.location = base.clone();
-        set_time(&(base + "/book.mp3"), &NaiveDate::from_ymd(1990, 1, 1));
+        set_date(&(base + "/book.mp3"), &NaiveDate::from_ymd(1990, 1, 1));
         scanner.incremental_scan();
         assert_eq!(1, count_books(&scanner, &pool));
     }
@@ -81,9 +80,10 @@ describe! scanner_integrationn_tests {
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/simple_deletion/01");
         scanner.library.location = base.clone();
-        set_time(&base, &NaiveDate::from_ymd(1990, 1, 1));
+        set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
         scanner.incremental_scan().unwrap();
         assert_eq!(1, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
+
         println!("============Step 2!============");
         // Time step 02:
         base = String::from("integration-tests/simple_deletion/02");
@@ -106,7 +106,7 @@ describe! scanner_integrationn_tests {
         // Time step 01:
         let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");
         scanner.library.location = base.clone();
-        set_time(&base, &NaiveDate::from_ymd(1990, 1, 1));
+        set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
         scanner.incremental_scan();
         let book_1 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
@@ -121,7 +121,7 @@ describe! scanner_integrationn_tests {
 
         // Time step 03:
         base = String::from("integration-tests/recovers_deleted_same_timestamp/03");
-        set_time(&base, &NaiveDate::from_ymd(1990, 1, 1));
+        set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
         scanner.library.location = base.clone();
         scanner.incremental_scan();
         let book_2 = Audiobook::belonging_to(&scanner.library)
@@ -141,6 +141,7 @@ describe! scanner_integrationn_tests {
         println!("============Step 2!============");
         let mut base = String::from("integration-tests/works_with_moved_files/02");
         scanner.library.location = base.clone();
+        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
         scanner.incremental_scan();
         assert_eq!(1, count_books(&scanner, &pool));
     }

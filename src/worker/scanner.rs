@@ -470,14 +470,19 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<OsStr
 /// Determines whether a scan of a path is necessary based on file change data
 fn should_scan(path: &Path, last_scan: Option<NaiveDateTime>) -> Result<bool> {
     match most_recent_change(&path)? {
-        Some(time) => if let Some(last_scan_time) = last_scan {
-            Ok(time >= last_scan_time)
+        Some(recent_change_time) => if let Some(last_scan_time) = last_scan {
+            debug!("Should scan based on time stamps is: {:?} >= {:?} meaning: {}",
+                  recent_change_time,
+                  last_scan_time,
+                  recent_change_time >= last_scan_time);
+            Ok(recent_change_time >= last_scan_time)
         } else {
+            debug!("First scan ever, scanning!");
             // if there was no scan before we should scan now
             Ok(true)
         },
         None => {
-            info!("No change data for files available, will hash everything.");
+            debug!("No change data for files available, will hash everything.");
             Ok(true)
         }
     }

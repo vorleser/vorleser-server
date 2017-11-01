@@ -133,17 +133,25 @@ describe! scanner_integrationn_tests {
     }
 
     it "works_with_moved_files" {
+        use schema::audiobooks::dsl::deleted;
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/works_with_moved_files/01");
         scanner.library.location = base.clone();
         scanner.incremental_scan();
+        let book = Audiobook::belonging_to(&scanner.library)
+            .filter(deleted.eq(false))
+            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
         assert_eq!(1, count_books(&scanner, &pool));
 
         println!("============Step 2!============");
         let mut base = String::from("integration-tests/works_with_moved_files/02");
         scanner.library.location = base.clone();
+        let book2 = Audiobook::belonging_to(&scanner.library)
+            .filter(deleted.eq(false))
+            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
         scanner.incremental_scan();
         assert_eq!(1, count_books(&scanner, &pool));
+        assert_eq!(book.id, book2.id);
     }
 }

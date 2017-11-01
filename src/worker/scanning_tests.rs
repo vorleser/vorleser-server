@@ -25,12 +25,6 @@ fn set_date(file: &str, date: &NaiveDate) {
     }
 }
 
-fn set_dates(times: Vec<(String, NaiveDate)>) {
-    for (ref path, ref date) in times {
-        set_date(path, date);
-    }
-}
-
 fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
     use models::audiobook::Audiobook;
     use schema::audiobooks::dsl::deleted;
@@ -38,6 +32,13 @@ fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
                .filter(deleted.eq(false))
                .count()
                .first::<i64>(&*(pool.get().unwrap())).unwrap()
+}
+
+
+fn set_dates(times: Vec<(String, NaiveDate)>) {
+    for (ref path, ref date) in times {
+        set_date(path, date);
+    }
 }
 
 // IMPORTANT:

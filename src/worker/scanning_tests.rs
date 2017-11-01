@@ -154,4 +154,34 @@ describe! scanner_integrationn_tests {
         assert_eq!(1, count_books(&scanner, &pool));
         assert_eq!(book.id, book2.id);
     }
+
+    it "works_with_moved_files_same_name" {
+        // This tests introduces another file of the same name in the second step
+        // The file from the first step is still moved
+        // We don't feel strongly about how this behaves we would just like to know when it changes
+        // Currently the filename takes precedence over the files hash.
+        // It might be better to do this the other way around.
+        use schema::audiobooks::dsl::deleted;
+        println!("============Step 1!============");
+        let mut base = String::from("integration-tests/works_with_moved_files_same_name/01");
+        scanner.library.location = base.clone();
+        scanner.incremental_scan();
+        let book = Audiobook::belonging_to(&scanner.library)
+            .filter(deleted.eq(false))
+            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        assert_eq!(book.location, "book.mp3");
+        assert_eq!(1, count_books(&scanner, &pool));
+
+        println!("============Step 2!============");
+        let mut base = String::from("integration-tests/works_with_moved_files_same_name/02");
+        scanner.library.location = base.clone();
+        let book2 = Audiobook::belonging_to(&scanner.library)
+            .filter(deleted.eq(false))
+            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+        scanner.incremental_scan();
+        assert_eq!(2, count_books(&scanner, &pool));
+        assert_eq!(book.id, book2.id);
+        assert_eq!(book2.location, "book.mp3");
+    }
 }

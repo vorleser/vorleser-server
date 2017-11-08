@@ -235,6 +235,7 @@ describe! scanner_integrationn_tests {
 
         println!("============Step 2!============");
         let mut base = String::from("integration-tests/content_changed_multifile/02");
+        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
         scanner.library.location = base.clone();
         scanner.incremental_scan();
 

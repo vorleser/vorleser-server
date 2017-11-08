@@ -1,6 +1,7 @@
 use chrono::NaiveDate;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::fs::File;
 use diesel::prelude::*;
 use diesel;
 use walkdir::WalkDir;
@@ -26,11 +27,10 @@ fn set_date(file: &str, date: &NaiveDate) {
     }
 }
 
-fn data_file_exists(book: &Audiobook) -> bool {
+fn data_file(book: &Audiobook) -> PathBuf {
     let path_str = "data/".to_owned() + &book.id.to_string() + "." + &book.file_extension;
-    let path = Path::new(&path_str);
-    println!("does {:?} exist?", path);
-    path.exists()
+    let path = PathBuf::from(path_str);
+    path
 }
 
 fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
@@ -211,7 +211,7 @@ describe! scanner_integrationn_tests {
         let book2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert!(!data_file_exists(&book2));
+        assert!(!data_file(&book2).exists());
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
         scanner.incremental_scan();
         assert_eq!(1, count_books(&scanner, &pool));
@@ -227,19 +227,28 @@ describe! scanner_integrationn_tests {
         let book = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert!(data_file_exists(&book));
+        let file_1 = File::open(&data_file(&book)).unwrap();
+        let changed_1 = file_1.metadata().unwrap().modified().unwrap();
+        assert!(data_file(&book).exists());
         assert_eq!(book.location, "book");
         assert_eq!(1, count_books(&scanner, &pool));
 
         println!("============Step 2!============");
         let mut base = String::from("integration-tests/content_changed_multifile/02");
         scanner.library.location = base.clone();
+        scanner.incremental_scan();
+
         let book2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert!(data_file_exists(&book2));
-        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan();
+
+        let file_2 = File::open(&data_file(&book2)).unwrap();
+        let changed_2 = file_2.metadata().unwrap().modified().unwrap();
+
+        assert_ne!(book.length, book2.length);
+
+        assert!(changed_2 > changed_1);
+
         assert_eq!(1, count_books(&scanner, &pool));
         assert_eq!(book.id, book2.id);
     }

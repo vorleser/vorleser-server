@@ -9,6 +9,7 @@ use ::worker::util;
 use helpers::db::init_test_db_pool;
 use helpers::db::Pool;
 use models::library::Library;
+use models::audiobook::Audiobook;
 use worker::scanner::Scanner;
 
 fn set_date(file: &str, date: &NaiveDate) {
@@ -23,6 +24,13 @@ fn set_date(file: &str, date: &NaiveDate) {
             .output()
             .expect("Can't run touch!");
     }
+}
+
+fn data_file_exists(book: &Audiobook) -> bool {
+    let path_str = "data/".to_owned() + &book.id.to_string() + "." + &book.file_extension;
+    let path = Path::new(&path_str);
+    println!("does {:?} exist?", path);
+    path.exists()
 }
 
 fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
@@ -203,6 +211,33 @@ describe! scanner_integrationn_tests {
         let book2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        assert!(!data_file_exists(&book2));
+        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+        scanner.incremental_scan();
+        assert_eq!(1, count_books(&scanner, &pool));
+        assert_eq!(book.id, book2.id);
+    }
+
+    it "content_changed_multifile" {
+        use schema::audiobooks::dsl::deleted;
+        println!("============Step 1!============");
+        let mut base = String::from("integration-tests/content_changed_multifile/01");
+        scanner.library.location = base.clone();
+        scanner.incremental_scan();
+        let book = Audiobook::belonging_to(&scanner.library)
+            .filter(deleted.eq(false))
+            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        assert!(data_file_exists(&book));
+        assert_eq!(book.location, "book");
+        assert_eq!(1, count_books(&scanner, &pool));
+
+        println!("============Step 2!============");
+        let mut base = String::from("integration-tests/content_changed_multifile/02");
+        scanner.library.location = base.clone();
+        let book2 = Audiobook::belonging_to(&scanner.library)
+            .filter(deleted.eq(false))
+            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        assert!(data_file_exists(&book2));
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
         scanner.incremental_scan();
         assert_eq!(1, count_books(&scanner, &pool));

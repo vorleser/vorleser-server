@@ -36,3 +36,11 @@ walkdir = "1"
 
 [dev-dependencies]
 stainless = { git = "https://github.com/reem/stainless" }
+
+[lib]
+name = "vorleser_server"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vorleser_server_bin"
+path = "src/bin/main.rs"

@@ -28,7 +28,8 @@ impl RangedFile {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
+    /// extern crate rocket;
     /// use rocket::response::RangedFile;
     ///
     /// # #[allow(unused_variables)]
@@ -61,7 +62,7 @@ impl RangedFile {
     ///
     /// # Examples
     ///
-    /// ```rust
+    /// ```ignore
     /// # use std::io;
     /// use rocket::response::RangedFile;
     ///

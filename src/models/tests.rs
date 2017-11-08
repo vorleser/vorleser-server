@@ -3,7 +3,8 @@ use diesel;
 use diesel::prelude::*;
 use helpers::db::init_test_db_pool;
 use ::*;
-use models::library::LibraryAccess;
+use models::user::{NewUser, UserModel};
+use models::library::{LibraryAccess, NewLibrary, Library};
 use models::audiobook::{Audiobook, NewAudiobook};
 
 describe! user_tests {

@@ -43,37 +43,28 @@ extern crate walkdir;
 extern crate dotenv;
 extern crate image;
 extern crate humanesort;
-
-mod api;
-mod validation;
-mod models;
-mod schema;
-mod handlers;
-mod responses;
-mod helpers;
-mod worker;
-#[cfg(test)]
-mod tests;
+extern crate vorleser_server;
 
 use std::error::Error;
 use std::path::PathBuf;
-use worker::scanner::Scanner;
+use vorleser_server::worker::scanner::Scanner;
 use regex::Regex;
-use schema::libraries;
-use schema::libraries::dsl::*;
-use models::library::{Library, NewLibrary};
-use models::user::{UserModel, NewUser};
-use schema::users;
+use vorleser_server::schema::libraries;
+use vorleser_server::schema::libraries::dsl::*;
+use vorleser_server::models::library::{Library, NewLibrary};
+use vorleser_server::models::user::{UserModel, NewUser};
+use vorleser_server::schema::users;
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
 use diesel::insert;
-use helpers::db::Pool;
+use vorleser_server::helpers::db::{Pool, init_db_pool};
+use vorleser_server::helpers;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
-    let pool = helpers::db::init_db_pool();
+    let pool = init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))

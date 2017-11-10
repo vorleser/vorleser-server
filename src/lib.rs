@@ -43,6 +43,7 @@ extern crate walkdir;
 extern crate dotenv;
 extern crate image;
 extern crate humanesort;
+extern crate toml;
 
 pub mod api;
 pub mod validation;
@@ -52,5 +53,6 @@ pub mod handlers;
 pub mod responses;
 pub mod helpers;
 pub mod worker;
+pub mod config;
 #[cfg(test)]
 mod tests;

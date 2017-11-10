@@ -31,6 +31,7 @@ use vorleser_server::schema::libraries::dsl::*;
 use vorleser_server::models::library::{Library, NewLibrary};
 use vorleser_server::models::user::{UserModel, NewUser};
 use vorleser_server::schema::users;
+use vorleser_server::config;
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
@@ -41,6 +42,8 @@ use vorleser_server::helpers;
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
+    config::init_config();
+    let config = config::get_config();
     let pool = init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))

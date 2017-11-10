@@ -28,6 +28,7 @@ dependencies = [
  "serde_derive 1.0.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde_json 1.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "stainless 0.1.11 (git+https://github.com/reem/stainless)",
+ "toml 0.4.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "uuid 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "validator 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "validator_derive 0.5.0 (registry+https://github.com/rust-lang/crates.io-index)",

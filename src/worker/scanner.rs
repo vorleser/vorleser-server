@@ -1,34 +1,34 @@
-extern crate diesel;
 use std::io;
 use std::io::Read;
 use std::fs::File;
 use std::ffi::{OsString, OsStr};
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-
-use walkdir::{WalkDir, WalkDirIterator};
-use walkdir;
-use regex::Regex;
-use diesel::prelude::*;
-use worker::mediafile::MediaFile;
-use worker::error::*;
-use ring::digest;
-use humanesort::HumaneOrder;
-
-use ::helpers::db::Pool;
-use ::models::library::*;
-use ::models::audiobook::{Audiobook, NewAudiobook, Update};
-use ::models::chapter::{NewChapter, Chapter};
-use ::schema::audiobooks;
-use ::schema::chapters;
-use ::schema::libraries;
-use worker::muxer;
-use chrono::prelude::*;
-use chrono::NaiveDateTime;
 use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
 use std::fs::create_dir;
+
+use walkdir::{WalkDir, WalkDirIterator};
+use walkdir;
+use regex::Regex;
+use diesel;
+use diesel::prelude::*;
+use ring::digest;
+use humanesort::HumaneOrder;
+use chrono::prelude::*;
+use chrono::NaiveDateTime;
+
+use helpers::db::Pool;
+use models::library::*;
+use models::audiobook::{Audiobook, NewAudiobook, Update};
+use models::chapter::{NewChapter, Chapter};
+use schema::audiobooks;
+use schema::chapters;
+use schema::libraries;
+use worker::mediafile::MediaFile;
+use worker::muxer;
+use worker::error::*;
 use diesel::BelongingToDsl;
 use worker::util;
 use worker::mediafile::Image;
@@ -83,7 +83,9 @@ impl Scanner {
         self.scan_library(Scan::Full)
     }
 
-    fn path_of(&self, book: &Audiobook) -> PathBuf {
+    /// Gets path for cache directory entry of the book.
+    /// This may or may not actually be a file
+    fn data_path_of(&self, book: &Audiobook) -> PathBuf {
         PathBuf::from(&format!("data/{}.{}", book.id.hyphenated(), book.file_extension))
     }
 
@@ -123,7 +125,7 @@ impl Scanner {
                 // Ensure cached file exists here no need to check if its current, that is ensured
                 // above
                 if let Ok(mut book) = book_result {
-                    if path.is_dir() && !self.path_of(&book).exists() {
+                    if path.is_dir() && !self.data_path_of(&book).exists() {
                         self.multifile_remux(&mut book)?;
                     } else {
                         self.link_audiobook(&book)?;
@@ -223,18 +225,6 @@ impl Scanner {
     }
 
 
-    /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
-    /// source of data.
-    fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
-        let mut dest = PathBuf::from("data");
-        dest.push(&book.id.hyphenated().to_string());
-        dest.set_extension(&book.file_extension);
-        let mut src = PathBuf::from(&self.library.location);
-        src.push(&book.location);
-        fs::symlink(src, dest);
-        Ok(())
-    }
-
     /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
         match create_dir("data/img") {
@@ -310,17 +300,21 @@ impl Scanner {
         }
     }
 
-    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
-        match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
-            Err(_) => Err(ErrorKind::Other("Path is not inside library.").into()),
-            Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
-            Ok(Some(p)) => Ok(p)
-        }
+    /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
+    /// source of data.
+    fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
+        let mut dest = PathBuf::from("data");
+        dest.push(&book.id.hyphenated().to_string());
+        dest.set_extension(&book.file_extension);
+        let mut src = PathBuf::from(&self.library.location);
+        src.push(&book.location);
+        fs::symlink(src, dest);
+        Ok(())
     }
 
     fn multifile_remux(&self, mut book: &mut Audiobook) -> Result<()> {
         let collection = self.multifile_extract_chapters(&mut book)?;
-        let target_path = format!("data/{}.{}", book.id.hyphenated(), &book.file_extension);
+        let target_path = self.data_path_of(&book);
         muxer::merge_files(
             &target_path,
             &collection.media_files
@@ -419,14 +413,6 @@ impl Scanner {
             None => return Err(ErrorKind::Other("No valid file extensions found.").into())
         };
         debug!("decided on file type {:?}", filetype);
-        let walker = WalkDir::new(&path.as_ref())
-            .follow_links(true)
-            .sort_by(
-                |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
-                );
-        let mut all_chapters: Vec<NewChapter> = Vec::new();
-        let mut mediafiles: Vec<MediaFile> = Vec::new();
-        let mut start_time = 0.0;
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
             None => return Err(ErrorKind::InvalidUtf8.into())
@@ -468,6 +454,14 @@ impl Scanner {
                 Ok(())
             },
             Err(e) => Err(e)
+        }
+    }
+
+    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
+        match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
+            Err(_) => Err(ErrorKind::Other("Path is not inside library.").into()),
+            Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
+            Ok(Some(p)) => Ok(p)
         }
     }
 }

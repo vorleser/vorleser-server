@@ -7,9 +7,7 @@ use std::io::{Write, Read};
 use toml;
 /// This module holds functions for loading config files.
 
-lazy_static! {
-    static ref _CONFIG: RwLock<Option<Config>> = RwLock::new(None);
-}
+static mut _CONFIG: Option<Config> = None;
 
 #[cfg(release = "release")]
 static CONFIG_LOCATION: &'static str = "/etc/vorleser.toml";
@@ -32,7 +30,6 @@ error_chain! {
 
 static DEFAULT_CONFIG: &'static str = include_str!("../default-config.toml");
 
-
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
 pub fn load_config() -> Result<()> {
@@ -40,37 +37,32 @@ pub fn load_config() -> Result<()> {
 }
 
 pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<()> {
+    unsafe {
+        if _CONFIG.is_some() {
+            panic!("Trying to load config for a second time.");
+        }
+    }
     let mut file = File::open(config_path)?;
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content)?;
-    let config = toml::from_slice(&content)?;
-    let mut guard = _CONFIG.write().expect("Error accessing shared config object.");
-    *guard = Some(config);
+    unsafe {
+        _CONFIG = Some(toml::from_slice(&content)?);
+    };
     Ok(())
 }
 
-pub fn get_config() -> Config {
-    if (*_CONFIG.read().unwrap()).is_none() {
-        load_config().expect("Failed loading config.");
+pub fn get_config() -> &'static Config {
+    unsafe {
+        _CONFIG.as_ref().unwrap()
     }
-    let guard = _CONFIG.read().unwrap();
-    return (*guard).clone().expect("Config was not loaded!");
-}
-
-pub fn borrow_config() -> RwLockReadGuard<'static, Option<Config>> {
-    if (*_CONFIG.read().unwrap()).is_none() {
-        load_config().expect("Failed loading config.");
-    }
-    let guard = _CONFIG.read().unwrap();
-    guard
 }
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
     #[serde(default = "default_data_directory")]
-    data_directory: String,
+    pub data_directory: String,
     #[serde(default)] // Default to false
-    register_web: bool
+    pub register_web: bool
 }
 
 fn default_data_directory() -> String {

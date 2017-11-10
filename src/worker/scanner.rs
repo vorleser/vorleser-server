@@ -19,6 +19,7 @@ use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
 
+use config::get_config;
 use helpers::db::Pool;
 use models::library::*;
 use models::audiobook::{Audiobook, NewAudiobook, Update};
@@ -86,7 +87,9 @@ impl Scanner {
     /// Gets path for cache directory entry of the book.
     /// This may or may not actually be a file
     fn data_path_of(&self, book: &Audiobook) -> PathBuf {
-        PathBuf::from(&format!("data/{}.{}", book.id.hyphenated(), book.file_extension))
+        PathBuf::from(&format!(
+                "{}/{}.{}", get_config().data_directory, book.id.hyphenated(), book.file_extension
+                ))
     }
 
     // for all existing audiobooks
@@ -227,14 +230,14 @@ impl Scanner {
 
     /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
-        match create_dir("data/img") {
+        let mut dest = PathBuf::from(format!("{}/img", get_config().data_directory));
+        match create_dir(dest.clone()) {
             Err(e) => match e.kind() {
                 io::ErrorKind::AlreadyExists => (),
                 _ => Err(e)?
             },
             Ok(_) => ()
         };
-        let mut dest = PathBuf::from("data/img");
         dest.push(&book.id.hyphenated().to_string());
         image.save(&dest)?;
         Ok(())
@@ -303,7 +306,7 @@ impl Scanner {
     /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
     /// source of data.
     fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
-        let mut dest = PathBuf::from("data");
+        let mut dest = PathBuf::from(get_config().data_directory.to_owned());
         dest.push(&book.id.hyphenated().to_string());
         dest.set_extension(&book.file_extension);
         let mut src = PathBuf::from(&self.library.location);
@@ -440,7 +443,12 @@ impl Scanner {
             book.length = collection.length;
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
                 .set(&book).execute(conn)?;
-            let target_path = format!("data/{}.{}", book.id.hyphenated(), &filetype.to_string_lossy());
+            let target_path = format!(
+                "{}/{}.{}",
+                get_config().data_directory,
+                book.id.hyphenated(),
+                &filetype.to_string_lossy()
+            );
             debug!("muxing files into {:?}", target_path);
             muxer::merge_files(
                 &target_path,

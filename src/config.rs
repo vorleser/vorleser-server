@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{RwLock, RwLockReadGuard, RwLockWriteGuard};
 use std::path::{Path, PathBuf};
 use std::fs::File;
 use std::io;
@@ -8,7 +8,7 @@ use toml;
 /// This module holds functions for loading config files.
 
 lazy_static! {
-    static ref _CONFIG: Mutex<Option<Config>> = Mutex::new(None);
+    static ref _CONFIG: RwLock<Option<Config>> = RwLock::new(None);
 }
 
 #[cfg(release = "release")]
@@ -44,17 +44,25 @@ pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<()> {
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content)?;
     let config = toml::from_slice(&content)?;
-    let mut guard = _CONFIG.lock().expect("Error accessing shared config object.");
+    let mut guard = _CONFIG.write().expect("Error accessing shared config object.");
     *guard = Some(config);
     Ok(())
 }
 
 pub fn get_config() -> Config {
-    if (*_CONFIG.lock().unwrap()).is_none() {
+    if (*_CONFIG.read().unwrap()).is_none() {
         load_config().expect("Failed loading config.");
     }
-    let guard = _CONFIG.lock().unwrap();
+    let guard = _CONFIG.read().unwrap();
     return (*guard).clone().expect("Config was not loaded!");
+}
+
+pub fn borrow_config() -> RwLockReadGuard<'static, Option<Config>> {
+    if (*_CONFIG.read().unwrap()).is_none() {
+        load_config().expect("Failed loading config.");
+    }
+    let guard = _CONFIG.read().unwrap();
+    guard
 }
 
 #[derive(Deserialize, Clone)]

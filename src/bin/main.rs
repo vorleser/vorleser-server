@@ -84,8 +84,6 @@ fn main() {
 
     if let Some(config_path) = matches.value_of("config") {
         config::load_config_from_path(&config_path);
-    } else {
-        config::load_config();
     }
     let config = config::get_config();
 

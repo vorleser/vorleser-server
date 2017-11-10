@@ -7,9 +7,6 @@ use std::io::{Write, Read};
 use toml;
 use xdg;
 /// This module holds functions for loading config files.
-/// Make sure to call one of `load_config_from_path` or `load_config` exactly once.
-/// These functions initialze a global variable that you should access via only `get_config`.
-/// Calling `get_config` before `load_config` will panic the program.
 
 lazy_static! {
     static ref _CONFIG: Mutex<Option<Config>> = Mutex::new(None);
@@ -38,7 +35,8 @@ pub fn load_config() -> Result<()> {
     if let Ok(conf_path) = xdg_result {
         load_config_from_path(&conf_path);
     } else {
-        let config = toml::from_str(DEFAULT_CONFIG)?;
+        let config = toml::from_str(DEFAULT_CONFIG).expect("Default config file is incorrect.
+                                                           This is a bug, please report it.");
         let mut guard = _CONFIG.lock().expect("Error accessing shared config object.");
         *guard = Some(config);
     };
@@ -78,8 +76,11 @@ pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<()> {
 }
 
 pub fn get_config() -> Config {
+    if (*_CONFIG.lock().unwrap()).is_none() {
+        load_config().expect("Failed loading config.");
+    }
     let guard = _CONFIG.lock().unwrap();
-    (*guard).clone().expect("Config was not loaded!")
+    return (*guard).clone().expect("Config was not loaded!");
 }
 
 #[derive(Deserialize, Clone)]

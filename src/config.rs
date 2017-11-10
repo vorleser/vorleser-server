@@ -28,8 +28,6 @@ error_chain! {
     }
 }
 
-static DEFAULT_CONFIG: &'static str = include_str!("../default-config.toml");
-
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
 pub fn load_config() -> Result<()> {

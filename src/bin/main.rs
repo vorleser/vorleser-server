@@ -81,6 +81,9 @@ fn main() {
                 .value_name("FILE")
                 .takes_value(true)
         )
+        .subcommand(SubCommand::with_name("sample-config")
+            .about("Print the default configuration file to stdout.")
+        )
         .get_matches();
 
     let config_result = if let Some(config_path) = matches.value_of("config") {
@@ -125,6 +128,10 @@ fn main() {
         }
         std::process::exit(0);
     };
+
+    if let Some(cmd) = matches.subcommand_matches("sample-config") {
+        print!(include_str!("../../default-config.toml"));
+    }
 
     if let Some(scan) = matches.subcommand_matches("scan") {
         let db = &*pool.get().unwrap();

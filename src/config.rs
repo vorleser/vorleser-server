@@ -11,6 +11,12 @@ lazy_static! {
     static ref _CONFIG: Mutex<Option<Config>> = Mutex::new(None);
 }
 
+#[cfg(release = "release")]
+static CONFIG_LOCATION: &'static str = "/etc/vorleser.toml";
+
+#[cfg(not(build = "release"))]
+static CONFIG_LOCATION: &'static str = "default-config.toml";
+
 error_chain! {
     foreign_links {
         Io(io::Error);
@@ -30,7 +36,7 @@ static DEFAULT_CONFIG: &'static str = include_str!("../default-config.toml");
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
 pub fn load_config() -> Result<()> {
-    load_config_from_path(&"/etc/vorleser.toml")
+    load_config_from_path(&CONFIG_LOCATION)
 }
 
 pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<()> {

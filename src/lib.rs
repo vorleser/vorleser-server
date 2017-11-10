@@ -44,6 +44,7 @@ extern crate dotenv;
 extern crate image;
 extern crate humanesort;
 extern crate toml;
+extern crate xdg;
 
 pub mod api;
 pub mod validation;

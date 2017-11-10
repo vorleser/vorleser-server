@@ -42,8 +42,6 @@ use vorleser_server::helpers;
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
-    config::init_config();
-    let config = config::get_config();
     let pool = init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -76,8 +74,20 @@ fn main() {
                 .takes_value(true)
                 .default_value(PATH_REGEX)
             )
+        ).arg(Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .takes_value(true)
         )
         .get_matches();
+
+    if let Some(config_path) = matches.value_of("config") {
+        config::load_config_from_path(&config_path);
+    } else {
+        config::load_config();
+    }
+    let config = config::get_config();
 
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         env_logger::init().unwrap();

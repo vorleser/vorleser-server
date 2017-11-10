@@ -1,0 +1,2 @@
+data_directory = 'data'
+register_web = false

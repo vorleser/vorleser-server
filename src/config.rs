@@ -5,7 +5,6 @@ use std::fs::File;
 use std::io;
 use std::io::{Write, Read};
 use toml;
-use xdg;
 /// This module holds functions for loading config files.
 
 lazy_static! {
@@ -31,45 +30,14 @@ static DEFAULT_CONFIG: &'static str = include_str!("../default-config.toml");
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
 pub fn load_config() -> Result<()> {
-    let xdg_result = build_xdg_config();
-    if let Ok(conf_path) = xdg_result {
-        load_config_from_path(&conf_path);
-    } else {
-        let config = toml::from_str(DEFAULT_CONFIG).expect("Default config file is incorrect.
-                                                           This is a bug, please report it.");
-        let mut guard = _CONFIG.lock().expect("Error accessing shared config object.");
-        *guard = Some(config);
-    };
-    Ok(())
-}
-
-
-/// Initialize xdg config file
-/// Ensures a config file is placed in the xdg config directory
-pub fn build_xdg_config() -> Result<PathBuf> {
-    let xdg_dirs = xdg::BaseDirectories::with_prefix(env!("CARGO_PKG_NAME")).unwrap();
-    let config_path = xdg_dirs.place_config_file("config.toml")
-                          .expect("cannot create configuration directory");
-    if !config_path.exists() {
-        place_default_config_file(&config_path)?;
-    }
-    Ok(config_path)
-}
-
-fn place_default_config_file(path: &AsRef<Path>) -> Result<()> {
-    let mut config_file = File::create(path.as_ref())?;
-    config_file.write_all(DEFAULT_CONFIG.as_bytes())?;
-    Ok(())
+    load_config_from_path(&"/etc/vorleser.toml")
 }
 
 pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<()> {
-    if !config_path.as_ref().exists() {
-        place_default_config_file(&config_path)?;
-    }
     let mut file = File::open(config_path)?;
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content)?;
-    let config = toml::from_slice(&content).unwrap();
+    let config = toml::from_slice(&content)?;
     let mut guard = _CONFIG.lock().expect("Error accessing shared config object.");
     *guard = Some(config);
     Ok(())
@@ -85,6 +53,12 @@ pub fn get_config() -> Config {
 
 #[derive(Deserialize, Clone)]
 pub struct Config {
+    #[serde(default = "default_data_directory")]
     data_directory: String,
+    #[serde(default)] // Default to false
     register_web: bool
+}
+
+fn default_data_directory() -> String {
+    "data".to_owned()
 }

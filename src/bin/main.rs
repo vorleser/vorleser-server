@@ -42,6 +42,7 @@ use vorleser_server::helpers;
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
+    env_logger::init().unwrap();
     let pool = init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
@@ -82,13 +83,28 @@ fn main() {
         )
         .get_matches();
 
-    if let Some(config_path) = matches.value_of("config") {
-        config::load_config_from_path(&config_path);
+    let config_result = if let Some(config_path) = matches.value_of("config") {
+        config::load_config_from_path(&config_path)
+    } else {
+        config::load_config()
+    };
+
+    if let Err(e) = config_result {
+        use config::Error as Error;
+        use config::ErrorKind;
+        match e {
+            Error(ErrorKind::Io(e), _) => error_log!("IO error reading configuration file: {}", e),
+            Error(ErrorKind::Toml(e), _) => error_log!("Malformed configuration file: {}", e),
+            _ => error_log!("Unknown error reading configuration file.")
+        }
+        panic!("Error loading config. Try using --config to supply a valid configuration file.")
+    } else {
+        info!("Succeeded loading config!")
     }
+
     let config = config::get_config();
 
     if let Some(new_command) = matches.subcommand_matches("create_library") {
-        env_logger::init().unwrap();
         let conn = &*pool.get().unwrap();
         let input_path = PathBuf::from(new_command.value_of("path").expect("Please provide a valid utf-8 path."));
         let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
@@ -111,7 +127,6 @@ fn main() {
     };
 
     if let Some(scan) = matches.subcommand_matches("scan") {
-        env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {
@@ -137,7 +152,6 @@ fn main() {
     }
 
     if let Some(create_user) = matches.subcommand_matches("create_user") {
-        env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
 
         let email = create_user.value_of("email").expect("a man has no name");

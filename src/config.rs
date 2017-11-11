@@ -35,6 +35,7 @@ pub fn load_config() -> Result<Config> {
 pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<Config> {
     let mut file = File::open(config_path)?;
     let mut content: Vec<u8> = Vec::new();
+    file.read_to_end(&mut content);
     let conf = toml::from_slice(&content)?;
     Ok(conf)
 }
@@ -44,7 +45,19 @@ pub struct Config {
     #[serde(default = "default_data_directory")]
     pub data_directory: String,
     #[serde(default)] // Default to false
-    pub register_web: bool
+    pub register_web: bool,
+    pub web: WebConfig
+}
+
+#[derive(Deserialize, Clone)]
+pub struct WebConfig {
+    #[serde(default = "default_data_directory")]
+    pub address: String,
+    pub port: u16,
+}
+
+fn default_data_address() -> String {
+    "localhost".to_owned()
 }
 
 fn default_data_directory() -> String {

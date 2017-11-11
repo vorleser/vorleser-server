@@ -167,7 +167,10 @@ fn main() {
     }
 
     if let Some(_) = matches.subcommand_matches("serve") {
-        helpers::rocket::factory(pool, conf).launch();
+        match helpers::rocket::factory(pool, conf) {
+            Ok(r) => error_log!("{}", r.launch()),
+            Err(e) => error_log!("Invalid web-server configuration: {}", e)
+        };
     }
 
 }

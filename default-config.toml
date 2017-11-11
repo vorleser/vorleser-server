@@ -1,4 +1,4 @@
-data_directory = 'data'
+data_directory = "data"
 register_web = false
 
 [web]

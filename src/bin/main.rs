@@ -167,7 +167,7 @@ fn main() {
     }
 
     if let Some(_) = matches.subcommand_matches("serve") {
-        helpers::rocket::factory(pool).launch();
+        helpers::rocket::factory(pool, conf).launch();
     }
 
 }

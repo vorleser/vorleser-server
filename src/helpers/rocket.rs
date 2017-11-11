@@ -8,6 +8,8 @@ use rocket::http::{Header, ContentType, Method};
 use std::io::Cursor;
 use std::path::PathBuf;
 
+use config;
+
 pub struct CORS();
 
 impl Fairing for CORS {
@@ -42,10 +44,11 @@ fn options_handler<'a>(path: PathBuf) -> Response<'a> {
         .finalize()
 }
 
-pub fn factory(pool: super::db::Pool) -> Rocket {
+pub fn factory(pool: super::db::Pool, config: config::Config) -> Rocket {
     rocket::ignite()
         .attach(CORS())
         .manage(pool)
+        .manage(config)
         .mount("/", routes![options_handler])
         .mount("/", routes![api::audiobooks::data_file])
         .mount("/api/", routes![

@@ -46,7 +46,7 @@ describe! api_tests {
         }
         println!("Before each {:?}", pool.state());
 
-        let rocket = helpers::rocket::factory(pool.clone());
+        let rocket = helpers::rocket::factory(pool.clone(), config::load_config().unwrap());
         let client = Client::new(rocket).unwrap();
 
         let login_data = json!({"email": "test@test.com", "password": "lol"});

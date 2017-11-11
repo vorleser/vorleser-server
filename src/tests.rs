@@ -9,6 +9,7 @@ use serde_json::{self, Value};
 use worker::scanner::Scanner;
 use models::library::{Library, NewLibrary};
 use regex::Regex;
+use config;
 
 fn post<'a>(client: &'a Client, url: &'a str, data: &Value, auth: Option<&str>) -> LocalResponse<'a> {
     if let Some(token) = auth {
@@ -95,6 +96,7 @@ describe! api_tests {
                 regex: Regex::new(regex).unwrap(),
                 library: library,
                 pool: pool.clone(),
+                config: config::load_config().unwrap()
             };
             scanner.incremental_scan();
         }

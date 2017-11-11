@@ -19,7 +19,7 @@ use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
 
-use config::get_config;
+use config::Config;
 use helpers::db::Pool;
 use models::library::*;
 use models::audiobook::{Audiobook, NewAudiobook, Update};
@@ -38,7 +38,8 @@ use super::hashing;
 pub struct Scanner {
     pub regex: Regex,
     pub library: Library,
-    pub pool: Pool
+    pub pool: Pool,
+    pub config: Config
 }
 
 struct ChapterCollection {
@@ -61,11 +62,12 @@ enum Scan {
 /// Scanner object for scanning a library.
 /// Construct this from a library object, then scan the library's directory using `scan_incremental`.
 impl Scanner {
-    pub fn new(conn_pool: Pool, library: Library) -> Self {
+    pub fn new(conn_pool: Pool, library: Library, config: Config) -> Self {
         Self {
             regex: Regex::new(library.is_audiobook_regex.as_str()).expect("Invalid Regex!"),
             library: library,
-            pool: conn_pool
+            pool: conn_pool,
+            config: config
         }
     }
 
@@ -88,7 +90,7 @@ impl Scanner {
     /// This may or may not actually be a file
     fn data_path_of(&self, book: &Audiobook) -> PathBuf {
         PathBuf::from(&format!(
-                "{}/{}.{}", get_config().data_directory, book.id.hyphenated(), book.file_extension
+                "{}/{}.{}", self.config.data_directory, book.id.hyphenated(), book.file_extension
                 ))
     }
 
@@ -230,7 +232,7 @@ impl Scanner {
 
     /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
-        let mut dest = PathBuf::from(format!("{}/img", get_config().data_directory));
+        let mut dest = PathBuf::from(format!("{}/img", self.config.data_directory));
         match create_dir(dest.clone()) {
             Err(e) => match e.kind() {
                 io::ErrorKind::AlreadyExists => (),
@@ -306,7 +308,7 @@ impl Scanner {
     /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
     /// source of data.
     fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
-        let mut dest = PathBuf::from(get_config().data_directory.to_owned());
+        let mut dest = PathBuf::from(self.config.data_directory.to_owned());
         dest.push(&book.id.hyphenated().to_string());
         dest.set_extension(&book.file_extension);
         let mut src = PathBuf::from(&self.library.location);
@@ -445,7 +447,7 @@ impl Scanner {
                 .set(&book).execute(conn)?;
             let target_path = format!(
                 "{}/{}.{}",
-                get_config().data_directory,
+                self.config.data_directory,
                 book.id.hyphenated(),
                 &filetype.to_string_lossy()
             );

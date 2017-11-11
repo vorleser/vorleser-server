@@ -104,8 +104,7 @@ fn main() {
     } else {
         info!("Succeeded loading config!")
     }
-
-    let config = config::get_config();
+    let conf = config_result.unwrap();
 
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         let conn = &*pool.get().unwrap();
@@ -141,6 +140,7 @@ fn main() {
                 regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
                 library: l,
                 pool: pool.clone(),
+                config: conf.clone()
             };
 
             let scan_result = if scan.is_present("full") {

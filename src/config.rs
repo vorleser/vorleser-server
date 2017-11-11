@@ -7,8 +7,6 @@ use std::io::{Write, Read};
 use toml;
 /// This module holds functions for loading config files.
 
-static mut _CONFIG: Option<Config> = None;
-
 #[cfg(release = "release")]
 static CONFIG_LOCATION: &'static str = "/etc/vorleser.toml";
 
@@ -30,29 +28,15 @@ error_chain! {
 
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
-pub fn load_config() -> Result<()> {
+pub fn load_config() -> Result<Config> {
     load_config_from_path(&CONFIG_LOCATION)
 }
 
-pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<()> {
-    unsafe {
-        if _CONFIG.is_some() {
-            panic!("Trying to load config for a second time.");
-        }
-    }
+pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<Config> {
     let mut file = File::open(config_path)?;
     let mut content: Vec<u8> = Vec::new();
-    file.read_to_end(&mut content)?;
-    unsafe {
-        _CONFIG = Some(toml::from_slice(&content)?);
-    };
-    Ok(())
-}
-
-pub fn get_config() -> &'static Config {
-    unsafe {
-        _CONFIG.as_ref().unwrap()
-    }
+    let conf = toml::from_slice(&content)?;
+    Ok(conf)
 }
 
 #[derive(Deserialize, Clone)]

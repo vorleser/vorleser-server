@@ -12,6 +12,7 @@ use helpers::db::Pool;
 use models::library::Library;
 use models::audiobook::Audiobook;
 use worker::scanner::Scanner;
+use config;
 
 fn set_date(file: &str, date: &NaiveDate) {
     let time = date.format("%y%m%d0000").to_string();
@@ -55,8 +56,9 @@ fn set_dates(times: Vec<(String, NaiveDate)>) {
 // directory.
 //
 // To ensure this please name each test EXACTLY like the directory.
-describe! scanner_integrationn_tests {
+describe! scanner_integration_tests {
     before_each {
+        config::load_config();
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 
@@ -72,7 +74,7 @@ describe! scanner_integrationn_tests {
             .into(libraries::table)
             .get_result(&*(pool.get().unwrap()))
             .unwrap();
-        let mut scanner = scanner::Scanner::new(pool.clone(), library);
+        let mut scanner = scanner::Scanner::new(pool.clone(), library, config::load_config().unwrap());
     }
 
     it "simple" {

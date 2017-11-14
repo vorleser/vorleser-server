@@ -43,7 +43,6 @@ static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
     env_logger::init().unwrap();
-    let pool = init_db_pool();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
@@ -106,9 +105,13 @@ fn main() {
     }
     let conf = config_result.unwrap();
 
+    let pool = init_db_pool(Some(conf.database.clone()));
+
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         let conn = &*pool.get().unwrap();
-        let input_path = PathBuf::from(new_command.value_of("path").expect("Please provide a valid utf-8 path."));
+        let input_path = PathBuf::from(
+            new_command.value_of("path").expect("Please provide a valid utf-8 path.")
+        );
         let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
         let path = if input_path.is_absolute() {
             input_path

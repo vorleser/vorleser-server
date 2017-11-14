@@ -46,6 +46,7 @@ pub struct Config {
     pub data_directory: String,
     #[serde(default)] // Default to false
     pub register_web: bool,
+    pub database: String,
     pub web: WebConfig
 }
 

@@ -31,7 +31,7 @@ use vorleser_server::schema::libraries::dsl::*;
 use vorleser_server::models::library::{Library, NewLibrary};
 use vorleser_server::models::user::{UserModel, NewUser};
 use vorleser_server::schema::users;
-use vorleser_server::config;
+use vorleser_server::config::{self, Config, WebConfig};
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
@@ -47,7 +47,13 @@ fn main() {
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .version(env!("CARGO_PKG_VERSION"))
-        .subcommand(SubCommand::with_name("serve"))
+        .subcommand(SubCommand::with_name("serve")
+            .arg(Arg::with_name("port")
+                 .long("port")
+                 .help("Which port to serve on. Overwrites the value in the config file.")
+                 .takes_value(true)
+            )
+        )
         .subcommand(SubCommand::with_name("scan")
             .arg(Arg::with_name("full")
                  .long("full")
@@ -103,7 +109,7 @@ fn main() {
     } else {
         info!("Succeeded loading config!")
     }
-    let conf = config_result.unwrap();
+    let mut conf = config_result.unwrap();
 
     let pool = init_db_pool(Some(conf.database.clone()));
 
@@ -169,7 +175,17 @@ fn main() {
         let user = UserModel::create(&email, &pass, db).expect("Error saving user");
     }
 
-    if let Some(_) = matches.subcommand_matches("serve") {
+    if let Some(serve) = matches.subcommand_matches("serve") {
+        if let Some(port_string) = serve.value_of("port") {
+            let port = port_string.parse::<u16>().expect("Invalid value for port.");
+            conf = Config {
+                web: WebConfig {
+                    port: port,
+                    .. conf.web
+                },
+                .. conf
+            };
+        }
         match helpers::rocket::factory(pool, conf) {
             Ok(r) => error_log!("{}", r.launch()),
             Err(e) => error_log!("Invalid web-server configuration: {}", e)

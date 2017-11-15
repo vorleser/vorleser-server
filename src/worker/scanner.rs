@@ -129,12 +129,12 @@ impl Scanner {
         if path.as_ref().is_dir() {
             match self.create_multifile_audiobook(conn, path) {
                 Ok(_) => (),
-                Err(e) => error_log!("Error: {}", e.description())
+                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e.description())
             };
         } else {
             match self.create_audiobook(conn, path) {
                 Ok(_) => (),
-                Err(e) => error_log!("Error: {}", e.description())
+                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e.description())
             };
         }
     }

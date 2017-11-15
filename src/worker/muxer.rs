@@ -1,7 +1,8 @@
 use ffmpeg::*;
 use ffmpeg::AVMediaType::AVMEDIA_TYPE_AUDIO;
 
-use std::ffi::CString;
+use std::ffi::{CString, OsStr};
+use std::mem;
 use std::ptr;
 use std::path::Path;
 use super::mediafile::MediaFile;
@@ -31,13 +32,28 @@ impl NewMediaFile {
                     Some(s) => s,
                     None => return Err(ErrorKind::InvalidUtf8.into())
                 }).unwrap();
+        let ipod_short_name = CString::new("ipod").unwrap();
         unsafe {
-            let format = match ptr_to_opt_mut(av_guess_format(ptr::null(), c_file_name.as_ptr(), ptr::null())) {
+            let extension = file_name.extension().and_then(OsStr::to_str);
+            debug!("finding format for {:?}", extension);
+            let short_name = match extension {
+                Some("m4b") => {
+                    debug!("short_name ipod");
+                    ipod_short_name.as_ptr()
+                },
+                _ => ptr::null()
+            };
+            debug!("decided on short_name {:?}", short_name);
+            let format = match ptr_to_opt_mut(av_guess_format(short_name, c_file_name.as_ptr(), ptr::null())) {
                 Some(f) => f,
                 None => return Err(ErrorKind::Other("No Format could be guessed").into())
             };
             let mut ctx = ptr::null_mut();
-            try!(check_av_result(avformat_alloc_output_context2(&mut ctx, ptr::null_mut(), ptr::null(), c_file_name.as_ptr())));
+            try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
+
+            let faststart = CString::new("movflags").unwrap();
+            let opt_true = CString::new("faststart").unwrap();
+            try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
             // (*ctx).oformat = format;
             let mut io_ctx = ptr::null_mut();
             try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), AVIO_FLAG_WRITE, ptr::null(), ptr::null_mut())));

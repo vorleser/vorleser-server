@@ -14,10 +14,9 @@ use models::user::UserModel;
 use models::permission::Permission;
 
 #[table_name="audiobooks"]
-#[derive(Insertable)]
+#[derive(Insertable, AsChangeset)]
 pub struct NewAudiobook {
     pub location: String,
-    pub mime_type: String,
     pub title: String,
     pub artist: Option<String>,
     pub length: f64,
@@ -32,15 +31,14 @@ pub struct NewAudiobook {
 #[belongs_to(Library)]
 pub struct Audiobook {
     pub id: Uuid,
-    #[serde(skip_serializing)]
     pub location: String,
-    pub mime_type: String,
     pub title: String,
     pub artist: Option<String>,
     pub length: f64,
     pub library_id: Uuid,
     pub hash: Vec<u8>,
     pub file_extension: String,
+    pub deleted: bool
 }
 
 pub enum Update {
@@ -73,7 +71,7 @@ impl Audiobook {
         diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
     }
 
-    pub fn ensure_exsits_in(relative_path: &AsRef<str>, library: &Library,
+    pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
                             new_book: &NewAudiobook, conn: &PgConnection)
         -> Result<Audiobook, diesel::result::Error> {
         match Self::belonging_to(library)
@@ -81,6 +79,7 @@ impl Audiobook {
             .first(&*conn)
             .optional()? {
                 Some(b) => {
+                    diesel::update(audiobooks::table).set(new_book).get_result::<Audiobook>(conn)?;
                     Ok(b)
                 },
                 None => {

@@ -1,34 +1,35 @@
-extern crate diesel;
 use std::io;
 use std::io::Read;
 use std::fs::File;
 use std::ffi::{OsString, OsStr};
 use std::path::{Path, PathBuf};
 use std::collections::HashMap;
-
-use walkdir::{WalkDir, WalkDirIterator};
-use walkdir;
-use regex::Regex;
-use diesel::prelude::*;
-use worker::mediafile::MediaFile;
-use worker::error::*;
-use ring::digest;
-use humanesort::HumaneOrder;
-
-use ::helpers::db::Pool;
-use ::models::library::*;
-use ::models::audiobook::{Audiobook, NewAudiobook, Update};
-use ::models::chapter::{NewChapter, Chapter};
-use ::schema::audiobooks;
-use ::schema::chapters;
-use ::schema::libraries;
-use worker::muxer;
-use chrono::prelude::*;
-use chrono::NaiveDateTime;
 use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
 use std::fs::create_dir;
+
+use walkdir::{WalkDir, WalkDirIterator};
+use walkdir;
+use regex::Regex;
+use diesel;
+use diesel::prelude::*;
+use ring::digest;
+use humanesort::HumaneOrder;
+use chrono::prelude::*;
+use chrono::NaiveDateTime;
+
+use config::Config;
+use helpers::db::Pool;
+use models::library::*;
+use models::audiobook::{Audiobook, NewAudiobook, Update};
+use models::chapter::{NewChapter, Chapter};
+use schema::audiobooks;
+use schema::chapters;
+use schema::libraries;
+use worker::mediafile::MediaFile;
+use worker::muxer;
+use worker::error::*;
 use diesel::BelongingToDsl;
 use worker::util;
 use worker::mediafile::Image;
@@ -37,7 +38,14 @@ use super::hashing;
 pub struct Scanner {
     pub regex: Regex,
     pub library: Library,
-    pub pool: Pool
+    pub pool: Pool,
+    pub config: Config
+}
+
+struct ChapterCollection {
+    pub media_files: Vec<MediaFile>,
+    pub chapters: Vec<NewChapter>,
+    pub length: f64,
 }
 
 #[derive(Hash, Eq, PartialEq, Debug)]
@@ -54,11 +62,12 @@ enum Scan {
 /// Scanner object for scanning a library.
 /// Construct this from a library object, then scan the library's directory using `scan_incremental`.
 impl Scanner {
-    pub fn new(conn_pool: Pool, library: Library) -> Self {
+    pub fn new(conn_pool: Pool, library: Library, config: Config) -> Self {
         Self {
             regex: Regex::new(library.is_audiobook_regex.as_str()).expect("Invalid Regex!"),
             library: library,
-            pool: conn_pool
+            pool: conn_pool,
+            config: config
         }
     }
 
@@ -77,6 +86,14 @@ impl Scanner {
         self.scan_library(Scan::Full)
     }
 
+    /// Gets path for cache directory entry of the book.
+    /// This may or may not actually be a file
+    fn data_path_of(&self, book: &Audiobook) -> PathBuf {
+        PathBuf::from(&format!(
+                "{}/{}.{}", self.config.data_directory, book.id.hyphenated(), book.file_extension
+                ))
+    }
+
     // for all existing audiobooks
     // check hashes, if changed, remove book and create new with new data
     // if hashes have not changed: check symlinked/remuxed files still there? if not re-link/mux
@@ -85,7 +102,7 @@ impl Scanner {
         let last_scan = self.library.last_scan;
         self.library.last_scan = Some(Utc::now().naive_utc());
         let conn = &*self.pool.get().unwrap();
-        self.recover_deleted(conn);
+        self.recover_deleted(conn)?;
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
         loop {
@@ -106,6 +123,21 @@ impl Scanner {
                     },
                     Scan::Full => self.process_audiobook(&path, conn)
                 }
+                use schema::audiobooks::dsl::location;
+                let mut book_result = Audiobook::belonging_to(&self.library)
+                    .filter(location.eq(&relative_path.to_string_lossy()))
+                    .get_result::<Audiobook>(&*conn);
+                // Ensure cached file exists here no need to check if its current, that is ensured
+                // above
+                if let Ok(mut book) = book_result {
+                    if path.is_dir() && !self.data_path_of(&book).exists() {
+                        self.multifile_remux(&mut book)?;
+                    } else {
+                        self.link_audiobook(&book)?;
+                    }
+                }
+
+
                 // Since we are in an audiobook we don't continue searching deeper in the dir tree from here
                 if path.is_dir() {
                     walker.skip_current_dir();
@@ -142,8 +174,28 @@ impl Scanner {
 
     /// Try to recover those books that were marked as deleted.
     /// Checks the file paths of books in the database and recovers them if hashes match
-    fn recover_deleted(&self, conn: &PgConnection) {
-        ()
+    fn recover_deleted(&self, conn: &PgConnection) -> Result<usize> {
+        use schema::audiobooks::dsl as dsl;
+        let mut recovered = 0;
+        for book in Audiobook::belonging_to(&self.library).filter(dsl::deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
+            let path = Path::new(&self.library.location).join(Path::new(&book.location));
+            info!("Recovering previously deleted book: {:?}", path);
+            let hash = match path.is_dir() {
+                true => hashing::checksum_dir(&path)?,
+                false => hashing::checksum_file(&path)?
+            };
+            if path.exists() && hash == book.hash {
+                use schema::audiobooks::dsl::*;
+                diesel::update(
+                        Audiobook::belonging_to(&self.library)
+                        .filter(dsl::id.eq(book.id))
+                    )
+                    .set(dsl::deleted.eq(false))
+                    .execute(&*conn)?;
+                recovered += 1;
+            }
+        }
+        Ok(recovered)
     }
 
     /// Delete all those books from the database that are not present in the file system.
@@ -151,52 +203,43 @@ impl Scanner {
         // TODO: we should just mark books deleted here, after all accidents where the
         // filesystem is gone for a bit should not lead to you loosing all playback data
         // we should also be able to recover from having the book set to deleted
-        let mut deleted = 0;
+        let mut deleted_count = 0;
         for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
             info!("checking weather audiobook at {:?} still exists", path);
             if !path.exists() {
-                let del = diesel::delete(
+                use schema::audiobooks::dsl::*;
+                let del = diesel::update(
                         Audiobook::belonging_to(&self.library)
-                        .filter(audiobooks::dsl::id.eq(book.id))
-                    ).execute(&*conn)?;
+                        .filter(id.eq(book.id))
+                    )
+                    .set(deleted.eq(true))
+                    .execute(&*conn)?;
+                println!("deleted: {}", del);
                 match del {
                     0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
-                    1 => deleted += 1,
+                    1 => deleted_count += 1,
                     x => {
                         warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
-                        deleted += x;
+                        deleted_count += x;
                     }
                 }
             }
         };
-        Ok(deleted)
-    }
-
-
-    /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
-    /// source of data.
-    fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
-        let mut dest = PathBuf::from("data");
-        dest.push(&book.id.hyphenated().to_string());
-        dest.set_extension(&book.file_extension);
-        let mut src = PathBuf::from(&self.library.location);
-        src.push(&book.location);
-        fs::symlink(src, dest);
-        Ok(())
+        Ok(deleted_count)
     }
 
 
     /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
-        match create_dir("data/img") {
+        let mut dest = PathBuf::from(format!("{}/img", self.config.data_directory));
+        match create_dir(dest.clone()) {
             Err(e) => match e.kind() {
                 io::ErrorKind::AlreadyExists => (),
                 _ => Err(e)?
             },
             Ok(_) => ()
         };
-        let mut dest = PathBuf::from("data/img");
         dest.push(&book.id.hyphenated().to_string());
         image.save(&dest)?;
         Ok(())
@@ -218,7 +261,6 @@ impl Scanner {
         if !file.has_audio_track() {
             return Err(ErrorKind::Other("Not an audio file!").into())
         }
-        let mime = util::sniff_mime_type(&path)?.ok_or(ErrorKind::Other("Cant read mime data"))?;
         let file_extension = path.as_ref().extension().map(|s| {
             s.to_string_lossy().into_owned()
         });
@@ -232,12 +274,11 @@ impl Scanner {
             location: relative_path.to_owned(),
             library_id: self.library.id,
             hash: hash,
-            mime_type: mime,
             file_extension: file_extension.unwrap_or("".to_owned())
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
+            let book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
             let filename = String::new();
             let chapters = file.get_chapters();
@@ -264,12 +305,90 @@ impl Scanner {
         }
     }
 
-    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
-        match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
-            Err(_) => Err(ErrorKind::Other("Path is not inside library.").into()),
-            Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
-            Ok(Some(p)) => Ok(p)
-        }
+    /// Audiobooks that are not remuxed are linked into our data directory so we have one canonical
+    /// source of data.
+    fn link_audiobook(&self, book: &Audiobook) -> Result<()> {
+        let mut dest = PathBuf::from(self.config.data_directory.to_owned());
+        dest.push(&book.id.hyphenated().to_string());
+        dest.set_extension(&book.file_extension);
+        let mut src = PathBuf::from(&self.library.location);
+        src.push(&book.location);
+        fs::symlink(src, dest);
+        Ok(())
+    }
+
+    fn multifile_remux(&self, mut book: &mut Audiobook) -> Result<()> {
+        let collection = self.multifile_extract_chapters(&mut book)?;
+        let target_path = self.data_path_of(&book);
+        muxer::merge_files(
+            &target_path,
+            &collection.media_files
+            )?;
+        Ok(())
+    }
+
+
+    fn multifile_extract_chapters(&self, book: &mut Audiobook) -> Result<ChapterCollection> {
+        let book_path = Path::new(&self.library.location).join(book.location.clone());
+        let walker = WalkDir::new(book_path)
+            .follow_links(true)
+            .sort_by(
+                |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
+            );
+
+        let mut all_chapters = Vec::new();
+        let mut mediafiles = Vec::new();
+        let mut start_time = 0.0;
+        let mut chapter_index = 0;
+
+        for entry in walker {
+            match entry {
+                Ok(file) => {
+                    if file.path().is_dir() { continue };
+                    match file.path().extension() {
+                        Some(ext) => if &(ext.to_string_lossy()) != &book.file_extension { continue },
+                        None => { continue }
+                    };
+                    let media = match MediaFile::read_file(file.path()) {
+                        Ok(f) => {
+                            let info = f.get_mediainfo();
+                            if chapter_index == 0 {
+                                use self::audiobooks::dsl::*;
+                                if let Some(new_title) = info.metadata.get("album") {
+                                    book.title = new_title.to_owned();
+                                }
+                                if let Some(new_artist) = info.metadata.get("artist") {
+                                    book.artist = Some(new_artist.to_owned());
+                                }
+                                let m = MediaFile::read_file(file.path()).unwrap();
+                                if let Some(image) = m.get_coverart()? {
+                                    self.save_coverart(&book, &image);
+                                }
+                            };
+                            let new_chapter = NewChapter {
+                                title: Some(info.title),
+                                start_time: start_time,
+                                audiobook_id: book.id,
+                                number: chapter_index
+                            };
+                            chapter_index += 1;
+                            start_time += info.length;
+                            all_chapters.push(new_chapter);
+                            f
+                        }
+                        Err(e) => return Err(e.into())
+                    };
+                    mediafiles.push(media)
+                },
+                Err(e) => return Err(e.into())
+            };
+        };
+
+        Ok(ChapterCollection {
+            media_files: mediafiles,
+            chapters: all_chapters,
+            length: start_time,
+        })
     }
 
     pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
@@ -299,14 +418,6 @@ impl Scanner {
             None => return Err(ErrorKind::Other("No valid file extensions found.").into())
         };
         debug!("decided on file type {:?}", filetype);
-        let walker = WalkDir::new(&path.as_ref())
-            .follow_links(true)
-            .sort_by(
-                |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
-                );
-        let mut all_chapters = Vec::new();
-        let mut mediafiles = Vec::new();
-        let mut start_time = 0.0;
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
             None => return Err(ErrorKind::InvalidUtf8.into())
@@ -319,71 +430,31 @@ impl Scanner {
             title: title,
             artist: None,
             hash: hash,
-            mime_type: filetype.to_owned().into_string().unwrap(),
             file_extension: filetype.to_owned().into_string().unwrap(),
         };
 
         let inserted = conn.transaction(||  -> Result<()> {
-            let book = Audiobook::ensure_exsits_in(&relative_path, &self.library, &default_book, conn)?;
+            let mut book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
 
             let mut chapter_index = 0;
-
-            for entry in walker {
-                match entry {
-                    Ok(file) => {
-                        if file.path().is_dir() { continue };
-                        // TODO: we could check the mimetype and not just the extension here
-                        match file.path().extension() {
-                            Some(ext) => if ext != filetype { continue },
-                            None => { continue }
-                        };
-                        let media = match MediaFile::read_file(file.path()) {
-                            Ok(f) => {
-                                let info = f.get_mediainfo();
-                                if chapter_index == 0 {
-                                    use self::audiobooks::dsl::*;
-                                    if let Some(new_title) = info.metadata.get("album") {
-                                        diesel::update(audiobooks.filter(id.eq(book.id)))
-                                            .set(title.eq(new_title)).execute(conn)?;
-                                    }
-                                    if let Some(new_artist) = info.metadata.get("artist") {
-                                        diesel::update(audiobooks.filter(id.eq(book.id)))
-                                            .set(artist.eq(new_artist)).execute(conn)?;
-                                    }
-                                    let m = MediaFile::read_file(file.path()).unwrap();
-                                    if let Some(image) = m.get_coverart()? {
-                                        self.save_coverart(&book, &image);
-                                    }
-                                };
-                                let new_chapter = NewChapter {
-                                    title: Some(info.title),
-                                    start_time: start_time,
-                                    audiobook_id: book.id,
-                                    number: chapter_index
-                                };
-                                chapter_index += 1;
-                                diesel::insert(&new_chapter).into(chapters::table).execute(conn)?;
-                                start_time += info.length;
-                                all_chapters.push(new_chapter);
-                                f
-                            }
-                            Err(e) => return Err(e.into())
-                        };
-                        mediafiles.push(media)
-                    },
-                    Err(e) => return Err(e.into())
-                };
-            };
+            let collection = self.multifile_extract_chapters(&mut book)?;
+            for new_chapter in collection.chapters {
+                diesel::insert(&new_chapter).into(chapters::table).execute(conn)?;
+            }
+            book.length = collection.length;
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
-                .set(audiobooks::dsl::length.eq(start_time)).execute(conn)?;
-            let target_path = "data/".to_string() +
-              &book.id.hyphenated().to_string() + "." +
-              &filetype.to_string_lossy().into_owned();
+                .set(&book).execute(conn)?;
+            let target_path = format!(
+                "{}/{}.{}",
+                self.config.data_directory,
+                book.id.hyphenated(),
+                &filetype.to_string_lossy()
+            );
             debug!("muxing files into {:?}", target_path);
             muxer::merge_files(
                 &target_path,
-                &mediafiles
+                &collection.media_files
                 )?;
             Ok(())
         });
@@ -393,6 +464,14 @@ impl Scanner {
                 Ok(())
             },
             Err(e) => Err(e)
+        }
+    }
+
+    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
+        match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
+            Err(_) => Err(ErrorKind::Other("Path is not inside library.").into()),
+            Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
+            Ok(Some(p)) => Ok(p)
         }
     }
 }
@@ -450,14 +529,19 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<OsStr
 /// Determines whether a scan of a path is necessary based on file change data
 fn should_scan(path: &Path, last_scan: Option<NaiveDateTime>) -> Result<bool> {
     match most_recent_change(&path)? {
-        Some(time) => if let Some(last_scan_time) = last_scan {
-            Ok(time >= last_scan_time)
+        Some(recent_change_time) => if let Some(last_scan_time) = last_scan {
+            debug!("Should scan based on time stamps is: {:?} >= {:?} meaning: {}",
+                  recent_change_time,
+                  last_scan_time,
+                  recent_change_time >= last_scan_time);
+            Ok(recent_change_time >= last_scan_time)
         } else {
+            debug!("First scan ever, scanning!");
             // if there was no scan before we should scan now
             Ok(true)
         },
         None => {
-            info!("No change data for files available, will hash everything.");
+            debug!("No change data for files available, will hash everything.");
             Ok(true)
         }
     }

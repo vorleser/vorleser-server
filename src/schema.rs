@@ -10,13 +10,13 @@ table! {
     audiobooks (id) {
         id -> Uuid,
         location -> Text,
-        mime_type -> Varchar,
         title -> Varchar,
         artist -> Nullable<Varchar>,
         length -> Float8,
         library_id -> Uuid,
         hash -> Bytea,
         file_extension -> Varchar,
+        deleted -> Bool,
     }
 }
 

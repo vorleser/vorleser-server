@@ -14,6 +14,7 @@ use helpers::db::init_test_db_pool;
 use diesel;
 use diesel::prelude::*;
 use ::worker::util;
+use config;
 
 describe! worker_tests {
     before_each {
@@ -35,7 +36,7 @@ describe! worker_tests {
                 .into(libraries::table)
                 .get_result(&*conn)
                 .unwrap();
-            let test_scanner = scanner::Scanner::new(pool.clone(), library.clone());
+            let test_scanner = scanner::Scanner::new(pool.clone(), library.clone(), config::load_config().unwrap());
         }
 
         it "can create single file audiobooks" {
@@ -126,12 +127,6 @@ describe! mediafile_tests {
             tmp_dir.push(Path::new("muxed.mp3"));
             muxer::merge_files(&tmp_dir, &files).unwrap();
         }
-    }
-}
-
-describe! mimetype {
-    it "should find the mime type" {
-        assert_eq!(util::sniff_mime_type(&"test-data/1.mp3".to_owned()).unwrap().unwrap(), "audio/mpeg")
     }
 }
 

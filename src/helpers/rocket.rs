@@ -3,11 +3,13 @@ use ::api;
 use ::handlers;
 
 use rocket::{Request, Response};
+use rocket::config::{Config, Environment};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::{Header, ContentType, Method};
 use std::io::Cursor;
 use std::path::PathBuf;
 
+use config;
 pub struct CORS();
 
 impl Fairing for CORS {
@@ -42,10 +44,15 @@ fn options_handler<'a>(path: PathBuf) -> Response<'a> {
         .finalize()
 }
 
-pub fn factory(pool: super::db::Pool) -> Rocket {
-    rocket::ignite()
+pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
+    let rocket_config = Config::build(Environment::Production)
+        .address(config.web.address.clone())
+        .port(config.web.port.clone())
+        .finalize()?;
+    Ok(rocket::custom(rocket_config, true)
         .attach(CORS())
         .manage(pool)
+        .manage(config.clone())
         .mount("/", routes![options_handler])
         .mount("/", routes![api::audiobooks::data_file])
         .mount("/api/", routes![
@@ -60,5 +67,5 @@ pub fn factory(pool: super::db::Pool) -> Rocket {
                api::auth::login,
                api::auth::register,
                api::auth::whoami,
-        ])
+        ]))
 }

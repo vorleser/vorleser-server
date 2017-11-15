@@ -1,14 +1,9 @@
-#![feature(custom_attribute, plugin, non_ascii_idents)]
-#![plugin(rocket_codegen)]
-#![cfg_attr(test, plugin(stainless))]
 #![allow(dead_code, unused)]
 #![feature(decl_macro)]
 // We need the atomic mutex for locking ffmepg initialization
 // pass by value is handy for use in rocket routes
-#![cfg_attr(feature = "cargo-clippy", allow(mutex_atomic, needless_pass_by_value))]
+#![cfg_attr(feature = "cargo-clippy", allow())]
 
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate error_chain;
 #[macro_use(log, info, debug, warn, trace)] extern crate log;
 // disgusting workaround for error also being present in rocket
 #[macro_use]
@@ -21,65 +16,44 @@ macro_rules! error_log {
     )
 }
 
-extern crate base64;
-extern crate mime_sniffer;
 extern crate env_logger;
-extern crate ring;
-extern crate uuid;
-extern crate rocket;
 extern crate clap;
-#[macro_use] extern crate rocket_contrib;
-extern crate serde_json; #[macro_use] extern crate serde_derive;
-extern crate validator;
-#[macro_use] extern crate validator_derive;
-#[macro_use] extern crate diesel;
-#[macro_use] extern crate diesel_codegen;
-extern crate chrono;
-extern crate argon2rs;
-extern crate r2d2;
-extern crate r2d2_diesel;
-extern crate ffmpeg_sys as ffmpeg;
 extern crate regex;
-extern crate walkdir;
-extern crate dotenv;
-extern crate image;
-extern crate humanesort;
-
-mod api;
-mod validation;
-mod models;
-mod schema;
-mod handlers;
-mod responses;
-mod helpers;
-mod worker;
-#[cfg(test)]
-mod tests;
+extern crate vorleser_server;
+extern crate diesel;
 
 use std::error::Error;
 use std::path::PathBuf;
-use worker::scanner::Scanner;
+use vorleser_server::worker::scanner::Scanner;
 use regex::Regex;
-use schema::libraries;
-use schema::libraries::dsl::*;
-use models::library::{Library, NewLibrary};
-use models::user::{UserModel, NewUser};
-use schema::users;
+use vorleser_server::schema::libraries;
+use vorleser_server::schema::libraries::dsl::*;
+use vorleser_server::models::library::{Library, NewLibrary};
+use vorleser_server::models::user::{UserModel, NewUser};
+use vorleser_server::schema::users;
+use vorleser_server::config::{self, Config, WebConfig};
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
 use diesel::insert;
-use helpers::db::Pool;
+use vorleser_server::helpers::db::{Pool, init_db_pool};
+use vorleser_server::helpers;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
-    let pool = helpers::db::init_db_pool();
+    env_logger::init().unwrap();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .version(env!("CARGO_PKG_VERSION"))
-        .subcommand(SubCommand::with_name("serve"))
+        .subcommand(SubCommand::with_name("serve")
+            .arg(Arg::with_name("port")
+                 .long("port")
+                 .help("Which port to serve on. Overwrites the value in the config file.")
+                 .takes_value(true)
+            )
+        )
         .subcommand(SubCommand::with_name("scan")
             .arg(Arg::with_name("full")
                  .long("full")
@@ -106,13 +80,44 @@ fn main() {
                 .takes_value(true)
                 .default_value(PATH_REGEX)
             )
+        ).arg(Arg::with_name("config")
+                .short("c")
+                .long("config")
+                .value_name("FILE")
+                .takes_value(true)
+        )
+        .subcommand(SubCommand::with_name("sample-config")
+            .about("Print the default configuration file to stdout.")
         )
         .get_matches();
 
+    let config_result = if let Some(config_path) = matches.value_of("config") {
+        config::load_config_from_path(&config_path)
+    } else {
+        config::load_config()
+    };
+
+    if let Err(e) = config_result {
+        use config::Error as Error;
+        use config::ErrorKind;
+        match e {
+            Error(ErrorKind::Io(e), _) => error_log!("IO error reading configuration file: {}", e),
+            Error(ErrorKind::Toml(e), _) => error_log!("Malformed configuration file: {}", e),
+            _ => error_log!("Unknown error reading configuration file.")
+        }
+        panic!("Error loading config. Try using --config to supply a valid configuration file.")
+    } else {
+        info!("Succeeded loading config!")
+    }
+    let mut conf = config_result.unwrap();
+
+    let pool = init_db_pool(Some(conf.database.clone()));
+
     if let Some(new_command) = matches.subcommand_matches("create_library") {
-        env_logger::init().unwrap();
         let conn = &*pool.get().unwrap();
-        let input_path = PathBuf::from(new_command.value_of("path").expect("Please provide a valid utf-8 path."));
+        let input_path = PathBuf::from(
+            new_command.value_of("path").expect("Please provide a valid utf-8 path.")
+        );
         let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
         let path = if input_path.is_absolute() {
             input_path
@@ -132,8 +137,11 @@ fn main() {
         std::process::exit(0);
     };
 
+    if let Some(cmd) = matches.subcommand_matches("sample-config") {
+        print!(include_str!("../../default-config.toml"));
+    }
+
     if let Some(scan) = matches.subcommand_matches("scan") {
-        env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
         let all_libraries = libraries.load::<Library>(db).unwrap();
         for l in all_libraries {
@@ -141,6 +149,7 @@ fn main() {
                 regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
                 library: l,
                 pool: pool.clone(),
+                config: conf.clone()
             };
 
             let scan_result = if scan.is_present("full") {
@@ -159,7 +168,6 @@ fn main() {
     }
 
     if let Some(create_user) = matches.subcommand_matches("create_user") {
-        env_logger::init().unwrap();
         let db = &*pool.get().unwrap();
 
         let email = create_user.value_of("email").expect("a man has no name");
@@ -167,8 +175,21 @@ fn main() {
         let user = UserModel::create(&email, &pass, db).expect("Error saving user");
     }
 
-    if let Some(_) = matches.subcommand_matches("serve") {
-        helpers::rocket::factory(pool).launch();
+    if let Some(serve) = matches.subcommand_matches("serve") {
+        if let Some(port_string) = serve.value_of("port") {
+            let port = port_string.parse::<u16>().expect("Invalid value for port.");
+            conf = Config {
+                web: WebConfig {
+                    port: port,
+                    .. conf.web
+                },
+                .. conf
+            };
+        }
+        match helpers::rocket::factory(pool, conf) {
+            Ok(r) => error_log!("{}", r.launch()),
+            Err(e) => error_log!("Invalid web-server configuration: {}", e)
+        };
     }
 
 }

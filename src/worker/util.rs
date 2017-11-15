@@ -5,7 +5,6 @@ use std::sync::Mutex;
 use std::os::raw::c_char;
 use ffmpeg::{AVDictionaryEntry, AVRational, av_register_all, av_log_set_level, AV_LOG_QUIET};
 use worker::error::*;
-use mime_sniffer::MimeTypeSniffer;
 use std::fs::File;
 use std::io::Read;
 use std::path::Path;
@@ -94,17 +93,6 @@ pub(super) fn ptr_to_opt<T>(ptr: *const T) -> Option<*const T> {
     } else {
         Some(ptr)
     }
-}
-
-///
-/// Sniff mimetype based on the first `count` bytes of the file.
-///
-pub(super) fn sniff_mime_type(path: &AsRef<Path>) -> Result<Option<String>>{
-    let mut f = File::open(path.as_ref())?;
-    let mut buf: [u8; 4096] = [0; 4096];
-    f.read_exact(&mut buf[..]);
-    Ok((&buf[..]).sniff_mime_type().map(|s| s.to_owned()))
-
 }
 
 pub fn shut_up_ffmpeg() {

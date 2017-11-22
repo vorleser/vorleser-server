@@ -1,7 +1,7 @@
 use ffmpeg::*;
 use ffmpeg::AVMediaType::AVMEDIA_TYPE_AUDIO;
 
-use std::ffi::{CString, OsStr};
+use std::ffi::{CString, CStr, OsStr};
 use std::mem;
 use std::ptr;
 use std::path::Path;
@@ -51,9 +51,11 @@ impl NewMediaFile {
             let mut ctx = ptr::null_mut();
             try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
 
-            let faststart = CString::new("movflags").unwrap();
-            let opt_true = CString::new("faststart").unwrap();
-            try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+            if CStr::from_ptr((*format).name) == &*CString::new("ipod").unwrap() {
+                let faststart = CString::new("movflags").unwrap();
+                let opt_true = CString::new("faststart").unwrap();
+                try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+            }
             // (*ctx).oformat = format;
             let mut io_ctx = ptr::null_mut();
             try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), AVIO_FLAG_WRITE, ptr::null(), ptr::null_mut())));

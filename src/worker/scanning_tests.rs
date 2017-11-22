@@ -12,6 +12,7 @@ use helpers::db::Pool;
 use models::library::Library;
 use models::audiobook::Audiobook;
 use worker::scanner::Scanner;
+use uuid::Uuid;
 use config;
 
 fn set_date(file: &str, date: &NaiveDate) {
@@ -62,13 +63,15 @@ describe! scanner_integration_tests {
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 
-        use models::audiobook::{Audiobook, NewAudiobook, Update};
-        use models::library::{NewLibrary, Library};
+        use models::audiobook::{Audiobook, Update};
+        use models::library::Library;
         use schema::libraries;
         use worker::scanner;
-        let new_lib = NewLibrary{
+        let new_lib = Library{
+            id: Uuid::new_v4(),
             location: "".to_owned(),
-            is_audiobook_regex: "^[^/]+$".to_owned()
+            is_audiobook_regex: "^[^/]+$".to_owned(),
+            last_scan: None,
         };
         let library: Library = diesel::insert(&new_lib)
             .into(libraries::table)

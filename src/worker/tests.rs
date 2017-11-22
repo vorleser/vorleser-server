@@ -15,6 +15,7 @@ use diesel;
 use diesel::prelude::*;
 use ::worker::util;
 use config;
+use uuid::Uuid;
 
 describe! worker_tests {
     before_each {
@@ -28,7 +29,8 @@ describe! worker_tests {
             use models::library::Library;
             use schema::libraries;
             use worker::scanner;
-            let new_lib = Library{
+            let new_lib = Library {
+                id: Uuid::new_v4(),
                 location: "test-data".to_owned(),
                 is_audiobook_regex: "^[^/]+$".to_owned(),
                 last_scan: None,
@@ -37,7 +39,11 @@ describe! worker_tests {
                 .into(libraries::table)
                 .get_result(&*conn)
                 .unwrap();
-            let test_scanner = scanner::Scanner::new(pool.clone(), library.clone(), config::load_config().unwrap());
+            let test_scanner = scanner::Scanner::new(
+                pool.clone(),
+                library.clone(),
+                config::load_config().unwrap()
+            );
         }
 
         it "can create single file audiobooks" {

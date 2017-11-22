@@ -7,7 +7,7 @@ use rocket::Response;
 use rocket::http::{Status, Method, Header, ContentType};
 use serde_json::{self, Value};
 use worker::scanner::Scanner;
-use models::library::{Library, NewLibrary};
+use models::library::Library;
 use regex::Regex;
 use config;
 

@@ -336,7 +336,7 @@ impl Scanner {
                 |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
             );
 
-        let mut all_chapters = Vec::new();
+        let mut all_chapters: Vec<NewChapter> = Vec::new();
         let mut mediafiles = Vec::new();
         let mut start_time = 0.0;
         let mut chapter_index = 0;
@@ -365,15 +365,17 @@ impl Scanner {
                                     self.save_coverart(&book, &image);
                                 }
                             };
-                            let new_chapter = NewChapter {
-                                title: Some(info.title),
-                                start_time: start_time,
-                                audiobook_id: book.id,
-                                number: chapter_index
-                            };
-                            chapter_index += 1;
-                            start_time += info.length;
-                            all_chapters.push(new_chapter);
+                            if Some(&info.title) != all_chapters.last().and_then(|c| c.title.as_ref() ) {
+                                let new_chapter = NewChapter {
+                                    title: Some(info.title),
+                                    start_time: start_time,
+                                    audiobook_id: book.id,
+                                    number: chapter_index
+                                };
+                                chapter_index += 1;
+                                start_time += info.length;
+                                all_chapters.push(new_chapter);
+                            }
                             f
                         }
                         Err(e) => return Err(e.into())

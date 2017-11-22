@@ -25,12 +25,13 @@ describe! worker_tests {
 
     describe! scanner_tests {
         before_each {
-            use models::library::{NewLibrary, Library};
+            use models::library::Library;
             use schema::libraries;
             use worker::scanner;
-            let new_lib = NewLibrary{
+            let new_lib = Library{
                 location: "test-data".to_owned(),
-                is_audiobook_regex: "^[^/]+$".to_owned()
+                is_audiobook_regex: "^[^/]+$".to_owned(),
+                last_scan: None,
             };
             let library: Library = diesel::insert(&new_lib)
                 .into(libraries::table)
@@ -40,13 +41,13 @@ describe! worker_tests {
         }
 
         it "can create single file audiobooks" {
-            use ::models::audiobook::{Audiobook, NewAudiobook, Update};
+            use ::models::audiobook::{Audiobook, Update};
             test_scanner.create_audiobook(&*conn, &Path::new("test-data/all.m4b")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }
 
         it "can create multi file m4b audiobooks" {
-            use ::models::audiobook::{Audiobook, NewAudiobook, Update};
+            use ::models::audiobook::{Audiobook, Update};
             test_scanner.create_multifile_audiobook(&*conn, &Path::new("test-data/m4bmulti")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }

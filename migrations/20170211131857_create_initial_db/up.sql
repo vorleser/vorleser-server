@@ -18,7 +18,6 @@ CREATE TABLE api_tokens (
 
 CREATE TABLE libraries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    content_change_date TIMESTAMP DEFAULT current_timestamp NOT NULL,
     location TEXT NOT NULL,
     is_audiobook_regex TEXT NOT NULL,
     last_scan TIMESTAMP

@@ -18,11 +18,12 @@ use ring::digest;
 use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
+use uuid::Uuid;
 
 use config::Config;
 use helpers::db::Pool;
 use models::library::*;
-use models::audiobook::{Audiobook, NewAudiobook, Update};
+use models::audiobook::{Audiobook, Update};
 use models::chapter::{NewChapter, Chapter};
 use schema::audiobooks;
 use schema::chapters;
@@ -267,14 +268,16 @@ impl Scanner {
 
         let metadata = file.get_mediainfo();
         let cover_file = MediaFile::read_file(path.as_ref())?;
-        let default_book = NewAudiobook {
+        let default_book = Audiobook {
+            id: Uuid::new_v4(),
             title: metadata.title,
             artist: metadata.metadata.get("artist").cloned(),
             length: metadata.length,
             location: relative_path.to_owned(),
             library_id: self.library.id,
             hash: hash,
-            file_extension: file_extension.unwrap_or("".to_owned())
+            file_extension: file_extension.unwrap_or("".to_owned()),
+            deleted: false,
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
@@ -423,7 +426,8 @@ impl Scanner {
             None => return Err(ErrorKind::InvalidUtf8.into())
         };
 
-        let default_book = NewAudiobook {
+        let default_book = Audiobook {
+            id: Uuid::new_v4(),
             length: 0.0,
             library_id: self.library.id,
             location: relative_path.clone(),
@@ -431,6 +435,7 @@ impl Scanner {
             artist: None,
             hash: hash,
             file_extension: filetype.to_owned().into_string().unwrap(),
+            deleted: false
         };
 
         let inserted = conn.transaction(||  -> Result<()> {

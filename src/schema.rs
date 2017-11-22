@@ -33,7 +33,6 @@ table! {
 table! {
     libraries (id) {
         id -> Uuid,
-        content_change_date -> Timestamp,
         location -> Text,
         is_audiobook_regex -> Text,
         last_scan -> Nullable<Timestamp>,

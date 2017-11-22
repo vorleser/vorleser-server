@@ -14,19 +14,8 @@ use models::user::UserModel;
 use models::permission::Permission;
 
 #[table_name="audiobooks"]
-#[derive(Insertable, AsChangeset)]
-pub struct NewAudiobook {
-    pub location: String,
-    pub title: String,
-    pub artist: Option<String>,
-    pub length: f64,
-    pub library_id: Uuid,
-    pub hash: Vec<u8>,
-    pub file_extension: String,
-}
-
-#[table_name="audiobooks"]
-#[derive(PartialEq, Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone)]
+#[derive(PartialEq, Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone,
+         Insertable)]
 #[hasmany(chapters)]
 #[belongs_to(Library)]
 pub struct Audiobook {
@@ -72,7 +61,7 @@ impl Audiobook {
     }
 
     pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
-                            new_book: &NewAudiobook, conn: &PgConnection)
+                            new_book: &Audiobook, conn: &PgConnection)
         -> Result<Audiobook, diesel::result::Error> {
         match Self::belonging_to(library)
             .filter(audiobooks::dsl::location.eq(relative_path.as_ref()))

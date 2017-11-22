@@ -10,18 +10,11 @@ use helpers::db;
 use models::user::UserModel;
 
 #[table_name="libraries"]
-#[derive(Insertable)]
-pub struct NewLibrary {
-    pub location: String,
-    pub is_audiobook_regex: String
-}
-
-#[table_name="libraries"]
-#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Associations, Identifiable, Serialize)]
+#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Associations, Identifiable, Serialize,
+         Insertable)]
 #[has_many(audiobooks, library_permissions)]
 pub struct Library {
     pub id: Uuid,
-    pub content_change_date: NaiveDateTime,
     #[serde(skip_serializing)]
     pub location: String,
     #[serde(skip_serializing)]
@@ -50,9 +43,11 @@ impl LibraryAccess {
 impl Library {
     pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
         db.transaction(|| -> _ {
-            let lib = diesel::insert(&NewLibrary{
+            let lib = diesel::insert(&Library{
+                id: Uuid::new_v4(),
                 location: location,
-                is_audiobook_regex: audiobook_regex
+                is_audiobook_regex: audiobook_regex,
+                last_scan: None
             }).into(libraries::table).get_result::<Library>(&*db)?;
             let users: Vec<UserModel> = schema::users::table.load(&*db)?;
             for u in users {

@@ -28,7 +28,7 @@ use vorleser_server::worker::scanner::Scanner;
 use regex::Regex;
 use vorleser_server::schema::libraries;
 use vorleser_server::schema::libraries::dsl::*;
-use vorleser_server::models::library::{Library, NewLibrary};
+use vorleser_server::models::library::Library;
 use vorleser_server::models::user::{UserModel, NewUser};
 use vorleser_server::schema::users;
 use vorleser_server::config::{self, Config, WebConfig};

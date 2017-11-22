@@ -24,7 +24,7 @@ use config::Config;
 use helpers::db::Pool;
 use models::library::*;
 use models::audiobook::{Audiobook, Update};
-use models::chapter::{NewChapter, Chapter};
+use models::chapter::Chapter;
 use schema::audiobooks;
 use schema::chapters;
 use schema::libraries;
@@ -45,7 +45,7 @@ pub struct Scanner {
 
 struct ChapterCollection {
     pub media_files: Vec<MediaFile>,
-    pub chapters: Vec<NewChapter>,
+    pub chapters: Vec<Chapter>,
     pub length: f64,
 }
 
@@ -281,7 +281,9 @@ impl Scanner {
         };
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
-            let book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
+            let book = Audiobook::ensure_exists_in(
+                &relative_path, &self.library, &default_book, conn
+            )?;
             book.delete_all_chapters(conn);
             let filename = String::new();
             let chapters = file.get_chapters();
@@ -289,8 +291,9 @@ impl Scanner {
                 self.save_coverart(&book, &image);
             }
             self.link_audiobook(&book)?;
-            let new_chapters: Vec<NewChapter> = chapters.iter().enumerate().map(|(i, chapter)| {
-                NewChapter {
+            let new_chapters: Vec<Chapter> = chapters.iter().enumerate().map(|(i, chapter)| {
+                Chapter {
+                    id: Uuid::new_v4(),
                     audiobook_id: book.id,
                     start_time: chapter.start,
                     title: chapter.title.clone(),
@@ -368,7 +371,8 @@ impl Scanner {
                                     self.save_coverart(&book, &image);
                                 }
                             };
-                            let new_chapter = NewChapter {
+                            let new_chapter = Chapter {
+                                id: Uuid::new_v4(),
                                 title: Some(info.title),
                                 start_time: start_time,
                                 audiobook_id: book.id,

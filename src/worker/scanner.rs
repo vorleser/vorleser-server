@@ -300,7 +300,8 @@ impl Scanner {
                     number: i as i64
                 }
             }).collect();
-            Ok((book, diesel::insert(&new_chapters).into(chapters::table).execute(&*conn)?))
+            Ok((book, diesel::insert_into(chapters::table)
+                .values(&new_chapters).execute(&*conn)?))
         });
         match inserted {
             Ok((b, num_chapters)) => {

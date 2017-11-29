@@ -100,10 +100,10 @@ impl UserModel {
             return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
         }
         conn.transaction(|| -> _ {
-            let u = diesel::insert(&NewUser {
+            let u = diesel::insert_into(users::table).values(&NewUser {
                 email: email.as_ref().to_owned(),
                 password_hash: new_password_hash,
-            }).into(users::table).get_result::<UserModel>(&*conn)?;
+            }).get_result::<UserModel>(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
             for l in libraries.iter() {
                 LibraryAccess::permit(&u, &l, &*conn)?;
@@ -124,8 +124,8 @@ impl UserModel {
         let new_token = NewApiToken {
             user_id: self.id
         };
-        let token = diesel::insert(&new_token)
-            .into(api_tokens::table)
+        let token = diesel::insert_into(api_tokens::table)
+            .values(&new_token)
             .get_result::<ApiToken>(&*db)?;
 
         Ok(token)

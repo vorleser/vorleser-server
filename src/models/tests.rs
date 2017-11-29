@@ -19,29 +19,32 @@ describe! user_tests {
     }
 
     it "can access only accessible books and libraries" {
-        let user = diesel::insert(&NewUser {
+        let user = diesel::insert_into(schema::users::table)
+            .values(&NewUser {
             email: "some@example.com".to_string(),
             password_hash: "hash".to_string()
-        }).into(schema::users::table).get_result::<UserModel>(&*db).unwrap();
+        }).get_result::<UserModel>(&*db).unwrap();
 
-        let accessible_lib = diesel::insert(&Library {
-            id: Uuid::new_v4(),
-            location: "/foo/bar".to_string(),
-            is_audiobook_regex: ".*".to_string(),
-            last_scan: None,
-        }).into(schema::libraries::table).get_result::<Library>(&*db).unwrap();
+        let accessible_lib = diesel::insert_into(schema::libraries::table)
+            .values(&Library {
+                id: Uuid::new_v4(),
+                location: "/foo/bar".to_string(),
+                is_audiobook_regex: ".*".to_string(),
+                last_scan: None,
+            }).get_result::<Library>(&*db).unwrap();
 
-        let inaccessible_lib = diesel::insert(&Library {
+        let inaccessible_lib = diesel::insert_into(schema::libraries::table)
+            .values(&Library {
             id: Uuid::new_v4(),
             location: "/foo/baz".to_string(),
             is_audiobook_regex: ".*".to_string(),
             last_scan: None,
-        }).into(schema::libraries::table).get_result::<Library>(&*db).unwrap();
+        }).get_result::<Library>(&*db).unwrap();
 
-        diesel::insert(&LibraryAccess {
+        diesel::insert_into(schema::library_permissions::table).values(&LibraryAccess {
             library_id: accessible_lib.id,
             user_id: user.id
-        }).into(schema::library_permissions::table).get_result::<LibraryAccess>(&*db);
+        }).get_result::<LibraryAccess>(&*db);
 
         let books = diesel::insert(&vec![
             Audiobook {

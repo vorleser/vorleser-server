@@ -72,7 +72,7 @@ impl Audiobook {
                     Ok(b)
                 },
                 None => {
-                    diesel::insert(new_book).into(audiobooks::table).get_result::<Audiobook>(conn)
+                    diesel::insert_into(audiobooks::table).values(new_book).get_result::<Audiobook>(conn)
                 }
             }
     }

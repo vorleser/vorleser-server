@@ -18,8 +18,8 @@ image = "0.12.3"
 lazy_static = "0.2"
 libc = "0.2"
 log = "*"
-r2d2 = "0.7.1"
-r2d2-diesel = "0.16"
+r2d2 = "0.8.1"
+r2d2-diesel = "0.99"
 regex = "0.2.1"
 ring = "0.12"
 serde = "1"
@@ -36,11 +36,11 @@ version = "0.4"
 
 [dependencies.diesel]
 features = ["postgres", "uuid", "chrono", "serde_json"]
-version = "0.16"
+version = "0.99"
 
 [dependencies.diesel_codegen]
 features = ["postgres"]
-version = "0.15"
+version = "0.16"
 
 [dependencies.ffmpeg-sys]
 default-features = false

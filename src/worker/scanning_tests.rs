@@ -73,8 +73,8 @@ describe! scanner_integration_tests {
             is_audiobook_regex: "^[^/]+$".to_owned(),
             last_scan: None,
         };
-        let library: Library = diesel::insert(&new_lib)
-            .into(libraries::table)
+        let library: Library = diesel::insert_into(libraries::table)
+            .values(&new_lib)
             .get_result(&*(pool.get().unwrap()))
             .unwrap();
         let mut scanner = scanner::Scanner::new(pool.clone(), library, config::load_config().unwrap());

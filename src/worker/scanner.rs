@@ -450,7 +450,7 @@ impl Scanner {
             let mut chapter_index = 0;
             let collection = self.multifile_extract_chapters(&mut book)?;
             for new_chapter in collection.chapters {
-                diesel::insert(&new_chapter).into(chapters::table).execute(conn)?;
+                diesel::insert_into(chapters::table).values(&new_chapter).execute(conn)?;
             }
             book.length = collection.length;
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))

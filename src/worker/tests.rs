@@ -35,8 +35,8 @@ describe! worker_tests {
                 is_audiobook_regex: "^[^/]+$".to_owned(),
                 last_scan: None,
             };
-            let library: Library = diesel::insert(&new_lib)
-                .into(libraries::table)
+            let library: Library = diesel::insert_into(libraries::table)
+                .values(&new_lib)
                 .get_result(&*conn)
                 .unwrap();
             let test_scanner = scanner::Scanner::new(

@@ -46,7 +46,7 @@ describe! user_tests {
             user_id: user.id
         }).get_result::<LibraryAccess>(&*db);
 
-        let books = diesel::insert(&vec![
+        let books = diesel::insert_into(schema::audiobooks::table).values(&vec![
             Audiobook {
                 id: Uuid::new_v4(),
                 location: "loc1".to_string(),
@@ -69,7 +69,7 @@ describe! user_tests {
                 file_extension: ".mp3".to_owned(),
                 deleted: false,
             },
-        ]).into(schema::audiobooks::table).get_results::<Audiobook>(&*db).unwrap();
+        ]).get_results::<Audiobook>(&*db).unwrap();
 
         assert_eq!(user.accessible_audiobooks(&*db).unwrap(), vec![books[0].clone()]);
 

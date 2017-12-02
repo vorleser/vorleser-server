@@ -22,12 +22,12 @@ impl Playstate {
     pub fn upsert(self, db: &PgConnection) -> Result<Playstate, diesel::result::Error> {
         use schema::playstates::dsl::*;
         use diesel::pg::upsert::*;
-        diesel::insert(
-            &self.on_conflict(
-                (audiobook_id, user_id),
-                do_update().set(&self)
-            )
-        ).into(playstates).get_result(&*db)
+        diesel::insert_into(playstates)
+            .values(&self)
+            .on_conflict((audiobook_id, user_id))
+            .do_update()
+            .set(&self)
+            .get_result(&*db)
     }
 
     pub fn into_api_playstate(&self) -> ApiPlaystate {

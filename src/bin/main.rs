@@ -35,7 +35,6 @@ use vorleser_server::config::{self, Config, WebConfig};
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
-use diesel::insert;
 use vorleser_server::helpers::db::{Pool, init_db_pool};
 use vorleser_server::helpers;
 

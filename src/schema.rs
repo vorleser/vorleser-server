@@ -66,9 +66,19 @@ table! {
 }
 
 joinable!(api_tokens -> users (user_id));
-joinable!(library_permissions -> libraries (library_id));
-joinable!(library_permissions -> users (user_id));
 joinable!(audiobooks -> libraries (library_id));
 joinable!(chapters -> audiobooks (audiobook_id));
+joinable!(library_permissions -> libraries (library_id));
+joinable!(library_permissions -> users (user_id));
 joinable!(playstates -> audiobooks (audiobook_id));
 joinable!(playstates -> users (user_id));
+
+allow_tables_to_appear_in_same_query!(
+    api_tokens,
+    audiobooks,
+    chapters,
+    libraries,
+    library_permissions,
+    playstates,
+    users,
+);

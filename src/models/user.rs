@@ -4,7 +4,7 @@ use argon2rs::{verifier, Argon2};
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
-use models::audiobook::Audiobook;
+use models::audiobook::{Audiobook, AUDIOBOOK_COLUMNS};
 use models::library::{Library, LibraryAccess};
 use std::result::Result as StdResult;
 use diesel;
@@ -79,15 +79,19 @@ impl UserModel {
                 -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
+        use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
+        use schema::libraries::dsl::{libraries, id};
+        use schema::audiobooks::dsl::{audiobooks, library_id, deleted};
+        use schema::users::dsl::users;
         use schema::audiobooks::SqlType;
 
-        Ok(sql::<SqlType>("
-            select a.* from audiobooks a
-            where exists (
-                select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id and a.deleted = false
-            ) order by a.location
-        ").bind::<Uuid, _>(self.id).get_results::<Audiobook>(&*conn)?)
+        audiobooks.inner_join(
+            libraries.inner_join(library_permissions.inner_join(users))
+            )
+            .filter(deleted.eq(false))
+            .filter(library_permissions_user_id.eq(self.id))
+            .select(AUDIOBOOK_COLUMNS)
+            .get_results::<Audiobook>(&*conn)
     }
 
     pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {

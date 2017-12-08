@@ -30,6 +30,30 @@ pub struct Audiobook {
     pub deleted: bool
 }
 
+type AudiobookColumns = (
+    audiobooks::id,
+    audiobooks::location,
+    audiobooks::title,
+    audiobooks::artist,
+    audiobooks::length,
+    audiobooks::library_id,
+    audiobooks::hash,
+    audiobooks::file_extension,
+    audiobooks::deleted,
+);
+
+pub const AUDIOBOOK_COLUMNS: AudiobookColumns = (
+    audiobooks::id,
+    audiobooks::location,
+    audiobooks::title,
+    audiobooks::artist,
+    audiobooks::length,
+    audiobooks::library_id,
+    audiobooks::hash,
+    audiobooks::file_extension,
+    audiobooks::deleted,
+);
+
 pub enum Update {
     Nothing,
     Path,

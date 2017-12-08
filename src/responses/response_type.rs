@@ -6,8 +6,8 @@ use rocket::http::{Status, ContentType};
 use super::responses::*;
 use diesel;
 use uuid;
-use models::user::Error as UserModelError;
-use models::user::ErrorKind as UserModelErrorKind;
+use models::user::Error as UserError;
+use models::user::ErrorKind as UserErrorKind;
 
 #[derive(Debug)]
 pub struct APIResponse {
@@ -52,12 +52,12 @@ impl From<uuid::ParseError> for APIResponse {
     }
 }
 
-impl From<UserModelError> for APIResponse {
-    fn from(error: UserModelError) -> Self {
+impl From<UserError> for APIResponse {
+    fn from(error: UserError) -> Self {
         match error.kind() {
-            &UserModelErrorKind::UserExists(ref user_name) =>
+            &UserErrorKind::UserExists(ref user_name) =>
                 conflict().message(&format!("{}", error)),
-            &UserModelErrorKind::Db(ref db_error) => APIResponse::from(db_error),
+            &UserErrorKind::Db(ref db_error) => APIResponse::from(db_error),
             _ => bad_request().message("Something is wrong with the auth token or login details you provided.")
         }
     }

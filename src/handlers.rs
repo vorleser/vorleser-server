@@ -2,7 +2,7 @@ use rocket::Outcome;
 use rocket::http::Status;
 use rocket::request::{self, Request, FromRequest};
 
-use models::user::{self, UserModel};
+use models::user::{self, User};
 use models::library::Library;
 use helpers::db::DB;
 use responses::{APIResponse, bad_request, unauthorized, forbidden, not_found, internal_server_error,
@@ -10,10 +10,10 @@ use responses::{APIResponse, bad_request, unauthorized, forbidden, not_found, in
 
 
 
-impl<'a, 'r> FromRequest<'a, 'r> for UserModel {
+impl<'a, 'r> FromRequest<'a, 'r> for User {
     type Error = ();
 
-    fn from_request(request: &'a Request<'r>) -> request::Outcome<UserModel, ()> {
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<User, ()> {
         let db = <DB as FromRequest>::from_request(request).unwrap();
         let mut tokens = request.headers().get("Authorization");
         let token = match tokens.next() {
@@ -31,7 +31,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for UserModel {
             }
         };
 
-        match UserModel::get_user_from_api_token(token, &*db) {
+        match User::get_user_from_api_token(token, &*db) {
             Ok(Some(user)) => Outcome::Success(user),
             Err(user::Error(user::ErrorKind::Db(_), _)) => Outcome::Failure((Status::InternalServerError, ())),
             Err(user::Error(user::ErrorKind::UuidParse(_), _)) => Outcome::Failure((Status::BadRequest, ())),

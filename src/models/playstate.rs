@@ -10,7 +10,7 @@ use chrono::prelude::*;
 #[primary_key(audiobook_id, user_id)]
 #[table_name="playstates"]
 #[changeset_for(playstates, treat_none_as_null="true")]
-#[belongs_to(UserModel, foreign_key="user_id")]
+#[belongs_to(User, foreign_key="user_id")]
 pub struct Playstate {
     pub audiobook_id: Uuid,
     pub user_id: Uuid,
@@ -46,10 +46,10 @@ pub struct ApiPlaystate {
     pub timestamp: DateTime<Utc>,
 }
 
-use models::user::UserModel;
+use models::user::User;
 
 impl ApiPlaystate {
-    pub fn into_playstate(&self, user: &UserModel) -> Playstate {
+    pub fn into_playstate(&self, user: &User) -> Playstate {
         Playstate {
             audiobook_id: self.audiobook_id,
             user_id: user.id,

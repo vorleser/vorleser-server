@@ -29,7 +29,7 @@ use regex::Regex;
 use vorleser_server::schema::libraries;
 use vorleser_server::schema::libraries::dsl::*;
 use vorleser_server::models::library::Library;
-use vorleser_server::models::user::{UserModel, NewUser};
+use vorleser_server::models::user::{User, NewUser};
 use vorleser_server::schema::users;
 use vorleser_server::config::{self, Config, WebConfig};
 use diesel::LoadDsl;
@@ -171,7 +171,7 @@ fn main() {
 
         let email = create_user.value_of("email").expect("a man has no name");
         let pass = create_user.value_of("password").expect("a man has no password");
-        let user = UserModel::create(&email, &pass, db).expect("Error saving user");
+        let user = User::create(&email, &pass, db).expect("Error saving user");
     }
 
     if let Some(serve) = matches.subcommand_matches("serve") {

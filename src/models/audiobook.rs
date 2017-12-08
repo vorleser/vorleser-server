@@ -10,7 +10,7 @@ use ::models::library::Library;
 use ::models::chapter::Chapter;
 use chrono::NaiveDateTime;
 use diesel::pg::PgConnection;
-use models::user::UserModel;
+use models::user::User;
 use models::permission::Permission;
 
 #[table_name="audiobooks"]

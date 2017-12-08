@@ -3,7 +3,7 @@ use diesel;
 use diesel::prelude::*;
 use helpers::db::init_test_db_pool;
 use ::*;
-use models::user::{NewUser, UserModel};
+use models::user::{NewUser, User};
 use models::library::{LibraryAccess, Library};
 use models::audiobook::Audiobook;
 use uuid::Uuid;
@@ -23,7 +23,7 @@ describe! user_tests {
             .values(&NewUser {
             email: "some@example.com".to_string(),
             password_hash: "hash".to_string()
-        }).get_result::<UserModel>(&*db).unwrap();
+        }).get_result::<User>(&*db).unwrap();
 
         let accessible_lib = diesel::insert_into(schema::libraries::table)
             .values(&Library {

@@ -1,7 +1,7 @@
 use helpers::db::init_test_db_pool;
 use helpers;
 use diesel::prelude::*;
-use models::user::UserModel;
+use models::user::User;
 use rocket::local::{Client, LocalResponse};
 use rocket::Response;
 use rocket::http::{Status, Method, Header, ContentType};
@@ -42,7 +42,7 @@ describe! api_tests {
         let mut pool = init_test_db_pool();
         {
             let conn = pool.get().unwrap();
-            let user = UserModel::create(&"test@test.com", &"lol", &*conn).expect("Error saving user");
+            let user = User::create(&"test@test.com", &"lol", &*conn).expect("Error saving user");
         }
         println!("Before each {:?}", pool.state());
 

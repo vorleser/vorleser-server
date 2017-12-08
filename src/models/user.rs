@@ -19,7 +19,7 @@ use helpers::db::DB;
 #[derive(Identifiable, Debug, Serialize, Deserialize, Queryable)]
 #[table_name="users"]
 #[hasmany(library_permissions)]
-pub struct UserModel {
+pub struct User {
     pub id: Uuid,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -47,7 +47,7 @@ error_chain! {
     }
 }
 
-impl UserModel {
+impl User {
     pub fn make_password_hash(new_password: &AsRef<str>) -> String {
         let rand = SystemRandom::new();
         let mut salt: [u8; 10] = [0; 10];
@@ -94,12 +94,12 @@ impl UserModel {
             .get_results::<Audiobook>(&*conn)
     }
 
-    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {
+    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<User> {
         use schema::users;
         use schema::users::dsl;
-        let new_password_hash = UserModel::make_password_hash(password);
+        let new_password_hash = User::make_password_hash(password);
         let results = dsl::users.filter(dsl::email.eq(email.as_ref().clone()))
-            .first::<UserModel>(&*conn);
+            .first::<User>(&*conn);
         if results.is_ok() {
             return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
         }
@@ -107,7 +107,7 @@ impl UserModel {
             let u = diesel::insert_into(users::table).values(&NewUser {
                 email: email.as_ref().to_owned(),
                 password_hash: new_password_hash,
-            }).get_result::<UserModel>(&*conn)?;
+            }).get_result::<User>(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
             for l in libraries.iter() {
                 LibraryAccess::permit(&u, &l, &*conn)?;
@@ -135,7 +135,7 @@ impl UserModel {
         Ok(token)
     }
 
-    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Result<Option<UserModel>> {
+    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Result<Option<User>> {
         use schema;
         use schema::api_tokens::dsl::*;
 
@@ -143,7 +143,7 @@ impl UserModel {
 
         let token_id = Uuid::parse_str(token_id_string)?;
         if let Some(token) = api_tokens.filter(schema::api_tokens::dsl::id.eq(token_id)).first::<ApiToken>(&*db).optional()? {
-            Ok(users.filter(schema::users::dsl::id.eq(token.user_id)).first::<UserModel>(&*db).optional()?)
+            Ok(users.filter(schema::users::dsl::id.eq(token.user_id)).first::<User>(&*db).optional()?)
         } else {
             Ok(None)
         }

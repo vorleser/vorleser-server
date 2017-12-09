@@ -4,7 +4,7 @@ use argon2rs::{verifier, Argon2};
 use diesel::pg::PgConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
-use models::audiobook::{Audiobook, AUDIOBOOK_COLUMNS};
+use models::audiobook::Audiobook;
 use models::library::{Library, LibraryAccess};
 use std::result::Result as StdResult;
 use diesel;

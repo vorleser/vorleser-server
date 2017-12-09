@@ -23,6 +23,20 @@ pub struct Library {
     pub last_scan: Option<NaiveDateTime>
 }
 
+type LibraryColumns = (
+    libraries::id,
+    libraries::location,
+    libraries::is_audiobook_regex,
+    libraries::last_scan,
+);
+
+pub const LIBRARY_COLUMNS: LibraryColumns = (
+    libraries::id,
+    libraries::location,
+    libraries::is_audiobook_regex,
+    libraries::last_scan,
+);
+
 #[table_name="library_permissions"]
 #[primary_key(library_id, user_id)]
 #[derive(Debug, Clone, Queryable, Associations, Identifiable, Insertable)]

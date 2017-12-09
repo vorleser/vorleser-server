@@ -61,18 +61,16 @@ impl User {
         base64::encode(&session.to_u8())
     }
 
-    pub fn accessible_libraries(&self, db: &PgConnection) -> Result<Vec<Library>> {
+    pub fn accessible_libraries(&self, conn: &PgConnection) -> Result<Vec<Library>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
-        use schema::libraries::SqlType;
+        use schema::libraries::dsl::libraries;
+        use schema::library_permissions::dsl::{library_permissions, user_id};
+        use models::library::LIBRARY_COLUMNS;
 
-        Ok(sql::<SqlType>("
-            select l.* from libraries l
-            where exists (
-                select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = l.id
-            )
-        ").bind::<Uuid, _>(self.id).get_results::<Library>(&*db)?)
+        Ok(library_permissions.inner_join(libraries).filter(user_id.eq(self.id))
+            .select(LIBRARY_COLUMNS)
+            .get_results::<Library>(&*conn)?)
     }
 
     pub fn accessible_audiobooks(&self, conn: &PgConnection)
@@ -83,11 +81,9 @@ impl User {
         use schema::libraries::dsl::{libraries, id};
         use schema::audiobooks::dsl::{audiobooks, library_id, deleted};
         use schema::users::dsl::users;
-        use schema::audiobooks::SqlType;
 
         audiobooks.inner_join(
-            libraries.inner_join(library_permissions.inner_join(users))
-            )
+            libraries.inner_join(library_permissions))
             .filter(deleted.eq(false))
             .filter(library_permissions_user_id.eq(self.id))
             .select(AUDIOBOOK_COLUMNS)
@@ -152,19 +148,17 @@ impl User {
     pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &PgConnection) -> QueryResult<Option<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
-        use schema::audiobooks::SqlType;
-        use schema::users;
-        use schema::libraries;
-        use schema::library_permissions;
-        Ok(sql::<SqlType>("
-            select a.* from audiobooks a
-            where exists (
-                select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id and a.id = $2 and a.deleted = false
+        use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
+        use schema::audiobooks::dsl::{audiobooks, id as audiobook_id};
+        use schema::libraries::dsl::libraries;
+
+        Ok(audiobooks.inner_join(
+                libraries.inner_join(library_permissions)
             )
-        ").bind::<Uuid, _>(self.id)
-           .bind::<Uuid, _>(book_id)
-           .get_result::<Audiobook>(&*conn).optional()?)
+            .filter(library_permissions_user_id.eq(self.id))
+            .filter(audiobook_id.eq(book_id))
+            .select(AUDIOBOOK_COLUMNS)
+            .get_result::<Audiobook>(&*conn).optional()?)
     }
 }
 

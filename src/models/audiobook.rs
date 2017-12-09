@@ -69,7 +69,7 @@ impl Audiobook {
             .first(&*conn)
             .optional()? {
                 Some(b) => {
-                    diesel::update(audiobooks::table).set(new_book).get_result::<Audiobook>(conn)?;
+                    diesel::update(audiobooks::table).set(new_book).execute(conn)?;
                     Ok(b)
                 },
                 None => {

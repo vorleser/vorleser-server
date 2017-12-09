@@ -1,9 +1,9 @@
 use models::user::User;
-use rocket_contrib::{Json, UUID};
+use rocket_contrib::Json;
 use diesel::prelude::*;
 use serde_json;
 use helpers::db::DB;
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use models::library::Library;
 use models::playstate::Playstate;
 use models::audiobook::Audiobook;
@@ -17,14 +17,12 @@ use responses::{APIResponse, self, ok, internal_server_error};
 use rocket::response::NamedFile;
 
 #[get("/data/<book_id>")]
-pub fn data_file(current_user: User, db: DB, book_id: UUID) -> Result<RangedFile, APIResponse> {
+pub fn data_file(current_user: User, db: DB, book_id: Uuid) -> Result<RangedFile, APIResponse> {
     match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(_) => (),
         None => return Err(responses::not_found())
     };
-    let idstr = book_id.hyphenated().to_string();
-    let id = Uuid::parse_str(&idstr)?;
-    let book = audiobooks.filter(dsl::id.eq(id)).first::<Audiobook>(&*db)?;
+    let book = audiobooks.filter(dsl::id.eq(book_id)).first::<Audiobook>(&*db)?;
     let mut path = PathBuf::from("data/");
     path.push(book.id.hyphenated().to_string());
     path.set_extension(book.file_extension);
@@ -38,7 +36,7 @@ pub fn data_file(current_user: User, db: DB, book_id: UUID) -> Result<RangedFile
 }
 
 #[get("/coverart/<book_id>")]
-pub fn get_coverart(current_user: User, db: DB, book_id: UUID) -> Result<NamedFile, APIResponse> {
+pub fn get_coverart(current_user: User, db: DB, book_id: Uuid) -> Result<NamedFile, APIResponse> {
     use schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,
@@ -63,7 +61,7 @@ pub fn get_audiobooks(current_user: User, db: DB) -> Result<APIResponse, APIResp
 }
 
 #[get("/audiobooks/<book_id>")]
-pub fn audiobook(current_user: User, db: DB, book_id: UUID) -> Result<APIResponse, APIResponse> {
+pub fn audiobook(current_user: User, db: DB, book_id: Uuid) -> Result<APIResponse, APIResponse> {
     use schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,

@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use diesel::prelude::*;
 use models::audiobook::Audiobook;
 use schema::chapters;

@@ -18,7 +18,7 @@ use ring::digest;
 use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use diesel::sqlite::SqliteConnection;
 
 use config::Config;

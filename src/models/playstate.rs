@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use diesel;
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;

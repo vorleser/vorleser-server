@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
 use std::time::SystemTime;
 use diesel;

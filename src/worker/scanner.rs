@@ -19,6 +19,7 @@ use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
 use uuid::Uuid;
+use diesel::sqlite::SqliteConnection;
 
 use config::Config;
 use helpers::db::Pool;
@@ -158,7 +159,7 @@ impl Scanner {
             }
     }
 
-    fn process_audiobook(&self, path: &AsRef<Path>, conn: &PgConnection) {
+    fn process_audiobook(&self, path: &AsRef<Path>, conn: &SqliteConnection) {
         if path.as_ref().is_dir() {
             match self.create_multifile_audiobook(conn, path) {
                 Ok(_) => (),
@@ -175,7 +176,7 @@ impl Scanner {
 
     /// Try to recover those books that were marked as deleted.
     /// Checks the file paths of books in the database and recovers them if hashes match
-    fn recover_deleted(&self, conn: &PgConnection) -> Result<usize> {
+    fn recover_deleted(&self, conn: &SqliteConnection) -> Result<usize> {
         use schema::audiobooks::dsl as dsl;
         let mut recovered = 0;
         for book in Audiobook::belonging_to(&self.library).filter(dsl::deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
@@ -200,7 +201,7 @@ impl Scanner {
     }
 
     /// Delete all those books from the database that are not present in the file system.
-    fn delete_not_in_fs(&self, conn: &PgConnection) -> Result<usize> {
+    fn delete_not_in_fs(&self, conn: &SqliteConnection) -> Result<usize> {
         // TODO: we should just mark books deleted here, after all accidents where the
         // filesystem is gone for a bit should not lead to you loosing all playback data
         // we should also be able to recover from having the book set to deleted
@@ -246,7 +247,7 @@ impl Scanner {
         Ok(())
     }
 
-    pub(super) fn create_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
+    pub(super) fn create_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &AsRef<Path>) -> Result<()> {
         let relative_path = self.relative_path_str(path)?;
         let hash = hashing::checksum_file(path)?;
 
@@ -399,7 +400,7 @@ impl Scanner {
         })
     }
 
-    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::pg::PgConnection, path: &AsRef<Path>) -> Result<()> {
+    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &AsRef<Path>) -> Result<()> {
         // This might lead to inconsistent data as we hash before iterating over the files,
         // not better way to go about this seems possible to me
         // TODO: think about this

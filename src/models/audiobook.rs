@@ -9,7 +9,7 @@ use diesel::result::Error;
 use ::models::library::Library;
 use ::models::chapter::Chapter;
 use chrono::NaiveDateTime;
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use models::user::User;
 use models::permission::Permission;
 
@@ -37,13 +37,13 @@ pub enum Update {
 }
 
 impl Audiobook {
-    fn find_by_hash(hash: &[u8], conn: &diesel::pg::PgConnection) -> Result<Audiobook, diesel::result::Error> {
+    fn find_by_hash(hash: &[u8], conn: &diesel::sqlite::SqliteConnection) -> Result<Audiobook, diesel::result::Error> {
         audiobooks::dsl::audiobooks.filter(audiobooks::dsl::hash.eq(hash)).get_result(conn)
     }
 
     /// Updates the path of any book with the given hash to the new_path provided.
     /// Returns true if a path is now correct, returns false if no book with this hash exists.
-    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::pg::PgConnection)
+    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::sqlite::SqliteConnection)
         -> Result<Update, diesel::result::Error> {
         if let Ok(book) = Self::find_by_hash(book_hash, conn) {
             if book.location != new_path.as_ref() {
@@ -57,12 +57,12 @@ impl Audiobook {
         }
     }
 
-    pub fn delete_all_chapters(&self, conn: &diesel::pg::PgConnection) -> diesel::result::QueryResult<usize> {
+    pub fn delete_all_chapters(&self, conn: &diesel::sqlite::SqliteConnection) -> diesel::result::QueryResult<usize> {
         diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
     }
 
     pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
-                            new_book: &Audiobook, conn: &PgConnection)
+                            new_book: &Audiobook, conn: &SqliteConnection)
         -> Result<Audiobook, diesel::result::Error> {
         match Self::belonging_to(library)
             .filter(audiobooks::dsl::location.eq(relative_path.as_ref()))

@@ -1,20 +1,20 @@
 table! {
     api_tokens (id) {
-        id -> Uuid,
-        user_id -> Uuid,
+        id -> Text,
+        user_id -> Text,
         created_at -> Timestamp,
     }
 }
 
 table! {
     audiobooks (id) {
-        id -> Uuid,
+        id -> Text,
         location -> Text,
         title -> Varchar,
         artist -> Nullable<Varchar>,
         length -> Float8,
-        library_id -> Uuid,
-        hash -> Bytea,
+        library_id -> Text,
+        hash -> Binary,
         file_extension -> Varchar,
         deleted -> Bool,
     }
@@ -22,9 +22,9 @@ table! {
 
 table! {
     chapters (id) {
-        id -> Uuid,
+        id -> Text,
         title -> Nullable<Varchar>,
-        audiobook_id -> Uuid,
+        audiobook_id -> Text,
         start_time -> Float8,
         number -> Int8,
     }
@@ -32,7 +32,7 @@ table! {
 
 table! {
     libraries (id) {
-        id -> Uuid,
+        id -> Text,
         location -> Text,
         is_audiobook_regex -> Text,
         last_scan -> Nullable<Timestamp>,
@@ -41,15 +41,15 @@ table! {
 
 table! {
     library_permissions (library_id, user_id) {
-        library_id -> Uuid,
-        user_id -> Uuid,
+        library_id -> Text,
+        user_id -> Text,
     }
 }
 
 table! {
     playstates (audiobook_id, user_id) {
-        audiobook_id -> Uuid,
-        user_id -> Uuid,
+        audiobook_id -> Text,
+        user_id -> Text,
         position -> Float8,
         timestamp -> Timestamp,
     }
@@ -57,7 +57,7 @@ table! {
 
 table! {
     users (id) {
-        id -> Uuid,
+        id -> Text,
         created_at -> Timestamp,
         updated_at -> Timestamp,
         email -> Varchar,

@@ -2,15 +2,15 @@ use std::ops::Deref;
 use rocket::http::Status;
 use rocket::{Request, State, Outcome};
 use rocket::request::{self, FromRequest};
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use r2d2;
 use r2d2_diesel::ConnectionManager;
 use std::env;
 use dotenv::dotenv;
 
-pub type Pool = r2d2::Pool<ConnectionManager<PgConnection>>;
-pub type PooledConnection = r2d2::PooledConnection<ConnectionManager<PgConnection>>;
-pub type Connection = PgConnection;
+pub type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
+pub type PooledConnection = r2d2::PooledConnection<ConnectionManager<SqliteConnection>>;
+pub type Connection = SqliteConnection;
 
 /// Initialize database DB pool from specified URL.
 /// Will fall back to "DATABASE_URL" environment variable if `url` is None.
@@ -19,7 +19,7 @@ pub fn init_db_pool(url: Option<String>) -> Pool {
     let database_url = url.unwrap_or(
         env::var("DATABASE_URL").expect("DATABASE_URL must be set")
     );
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     r2d2::Pool::builder().build(manager).expect("Failed to create pool.")
 }
 
@@ -28,7 +28,7 @@ pub fn init_test_db_pool() -> Pool {
     use diesel::Connection;
     dotenv().unwrap();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let manager = ConnectionManager::<PgConnection>::new(database_url);
+    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
     let pool = r2d2::Pool::builder().max_size(1).build(manager).expect("Failed to create pool.");
     (*pool.get().unwrap()).begin_test_transaction();
     pool
@@ -37,7 +37,7 @@ pub fn init_test_db_pool() -> Pool {
 pub struct DB(PooledConnection);
 
 impl Deref for DB {
-    type Target = PgConnection;
+    type Target = SqliteConnection;
 
     fn deref(&self) -> &Self::Target {
         &self.0

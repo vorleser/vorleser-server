@@ -2,6 +2,7 @@
 authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
 name = "vorleser-rust"
 version = "0.1.0"
+
 [[bin]]
 name = "vorleser_server_bin"
 path = "src/bin/main.rs"
@@ -35,11 +36,11 @@ features = ["serde"]
 version = "0.4"
 
 [dependencies.diesel]
-features = ["postgres", "uuid", "chrono", "serde_json"]
+features = ["sqlite", "uuid", "chrono", "serde_json"]
 version = "0.99"
 
 [dependencies.diesel_codegen]
-features = ["postgres"]
+features = ["sqlite"]
 version = "0.16"
 
 [dependencies.ffmpeg-sys]

@@ -19,11 +19,7 @@ describe! user_tests {
     }
 
     it "can access only accessible books and libraries" {
-        let user = diesel::insert_into(schema::users::table)
-            .values(&NewUser {
-            email: "some@example.com".to_string(),
-            password_hash: "hash".to_string()
-        }).get_result::<User>(&*db).unwrap();
+        let user = User::create(&"some@example.com", &"password", &*db).unwrap();
 
         let accessible_lib = diesel::insert_into(schema::libraries::table)
             .values(&Library {

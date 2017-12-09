@@ -1,7 +1,8 @@
-use uuid::{self, Uuid};
+use uuid;
+use helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
 use argon2rs::{verifier, Argon2};
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
 use models::audiobook::Audiobook;
@@ -61,7 +62,7 @@ impl User {
         base64::encode(&session.to_u8())
     }
 
-    pub fn accessible_libraries(&self, conn: &PgConnection) -> Result<Vec<Library>> {
+    pub fn accessible_libraries(&self, conn: &SqliteConnection) -> Result<Vec<Library>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
         use schema::libraries::dsl::libraries;
@@ -73,7 +74,7 @@ impl User {
             .get_results::<Library>(&*conn)?)
     }
 
-    pub fn accessible_audiobooks(&self, conn: &PgConnection)
+    pub fn accessible_audiobooks(&self, conn: &SqliteConnection)
                 -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
@@ -91,7 +92,7 @@ impl User {
             .get_results::<Audiobook>(&*conn)
     }
 
-    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<User> {
+    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &SqliteConnection) -> Result<User> {
         use schema::users;
         use schema::users::dsl;
         let new_password_hash = User::make_password_hash(password);
@@ -132,7 +133,7 @@ impl User {
         Ok(token)
     }
 
-    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Result<Option<User>> {
+    pub fn get_user_from_api_token(token_id_string: &str, db: &SqliteConnection) -> Result<Option<User>> {
         use schema;
         use schema::api_tokens::dsl::*;
 
@@ -146,7 +147,7 @@ impl User {
         }
     }
 
-    pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &PgConnection) -> QueryResult<Option<Audiobook>> {
+    pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &SqliteConnection) -> QueryResult<Option<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
         use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};

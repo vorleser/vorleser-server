@@ -1,7 +1,7 @@
 use uuid::Uuid;
 use diesel;
 use diesel::prelude::*;
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use schema::playstates;
 use schema::library_permissions;
 use chrono::prelude::*;
@@ -19,9 +19,8 @@ pub struct Playstate {
 }
 
 impl Playstate {
-    pub fn upsert(self, db: &PgConnection) -> Result<Playstate, diesel::result::Error> {
+    pub fn upsert(self, db: &SqliteConnection) -> Result<Playstate, diesel::result::Error> {
         use schema::playstates::dsl::*;
-        use diesel::pg::upsert::*;
         diesel::insert_into(playstates)
             .values(&self)
             .on_conflict((audiobook_id, user_id))

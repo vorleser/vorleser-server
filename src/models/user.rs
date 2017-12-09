@@ -66,10 +66,10 @@ impl User {
         use diesel::types::*;
         use schema::libraries::dsl::libraries;
         use schema::library_permissions::dsl::{library_permissions, user_id};
-        use models::library::LIBRARY_COLUMNS;
+        use schema::libraries::all_columns;
 
         Ok(library_permissions.inner_join(libraries).filter(user_id.eq(self.id))
-            .select(LIBRARY_COLUMNS)
+            .select(all_columns)
             .get_results::<Library>(&*conn)?)
     }
 
@@ -80,13 +80,14 @@ impl User {
         use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
         use schema::libraries::dsl::{libraries, id};
         use schema::audiobooks::dsl::{audiobooks, library_id, deleted};
+        use schema::audiobooks::all_columns;
         use schema::users::dsl::users;
 
         audiobooks.inner_join(
             libraries.inner_join(library_permissions))
             .filter(deleted.eq(false))
             .filter(library_permissions_user_id.eq(self.id))
-            .select(AUDIOBOOK_COLUMNS)
+            .select(all_columns)
             .get_results::<Audiobook>(&*conn)
     }
 
@@ -150,6 +151,7 @@ impl User {
         use diesel::types::*;
         use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
         use schema::audiobooks::dsl::{audiobooks, id as audiobook_id};
+        use schema::audiobooks::all_columns;
         use schema::libraries::dsl::libraries;
 
         Ok(audiobooks.inner_join(
@@ -157,7 +159,7 @@ impl User {
             )
             .filter(library_permissions_user_id.eq(self.id))
             .filter(audiobook_id.eq(book_id))
-            .select(AUDIOBOOK_COLUMNS)
+            .select(all_columns)
             .get_result::<Audiobook>(&*conn).optional()?)
     }
 }

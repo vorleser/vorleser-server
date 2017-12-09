@@ -30,30 +30,6 @@ pub struct Audiobook {
     pub deleted: bool
 }
 
-type AudiobookColumns = (
-    audiobooks::id,
-    audiobooks::location,
-    audiobooks::title,
-    audiobooks::artist,
-    audiobooks::length,
-    audiobooks::library_id,
-    audiobooks::hash,
-    audiobooks::file_extension,
-    audiobooks::deleted,
-);
-
-pub const AUDIOBOOK_COLUMNS: AudiobookColumns = (
-    audiobooks::id,
-    audiobooks::location,
-    audiobooks::title,
-    audiobooks::artist,
-    audiobooks::length,
-    audiobooks::library_id,
-    audiobooks::hash,
-    audiobooks::file_extension,
-    audiobooks::deleted,
-);
-
 pub enum Update {
     Nothing,
     Path,
@@ -67,7 +43,8 @@ impl Audiobook {
 
     /// Updates the path of any book with the given hash to the new_path provided.
     /// Returns true if a path is now correct, returns false if no book with this hash exists.
-    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::pg::PgConnection) -> Result<Update, diesel::result::Error> {
+    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::pg::PgConnection)
+        -> Result<Update, diesel::result::Error> {
         if let Ok(book) = Self::find_by_hash(book_hash, conn) {
             if book.location != new_path.as_ref() {
                 diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::hash.eq(book_hash)))

@@ -1,3 +1,3 @@
 #!/bin/bash
-
-rm data/vorleser.sqlite && diesel setup
+rm data/vorleser.sqlite
+diesel setup

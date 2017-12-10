@@ -39,11 +39,9 @@ fn get<'a>(client: &'a Client, url: &'a str, auth: Option<&str>) -> LocalRespons
 
 describe! api_tests {
     before_each {
-        let mut pool = init_test_db_pool();
-        {
-            let conn = pool.get().unwrap();
-            let user = User::create(&"test@test.com", &"lol", &*conn).expect("Error saving user");
-        }
+        let pool = init_test_db_pool();
+        let user = User::create(&"test@test.com", &"lol", &*pool.get().unwrap())
+            .expect("Error saving user");
         println!("Before each {:?}", pool.state());
 
         let rocket = helpers::rocket::factory(pool.clone(), config::load_config().unwrap()).unwrap();

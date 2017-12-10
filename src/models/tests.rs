@@ -14,10 +14,6 @@ describe! user_tests {
         let db = pool.get().unwrap();
     }
 
-    after_each {
-        db.execute("TRUNCATE audiobooks, chapters, playstates RESTART IDENTITY CASCADE").unwrap();
-    }
-
     it "can access only accessible books and libraries" {
         let user = User::create(&"some@example.com", &"password", &*db).unwrap();
 

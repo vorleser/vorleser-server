@@ -20,7 +20,8 @@ pub struct BusyWaitConnectionCustomizer;
 
 impl<C: diesel::Connection, E> CustomizeConnection<C, E> for BusyWaitConnectionCustomizer {
     fn on_acquire(&self, conn: &mut C) -> Result<(), E> {
-        conn.batch_execute("PRAGMA journal_mode=WAL; PRAGMA busy_timeout = 5000;").unwrap();
+        conn.batch_execute("PRAGMA busy_timeout = 5000;").unwrap();
+        conn.batch_execute("PRAGMA journal_mode = WAL;").unwrap();
         Ok(())
     }
 }
@@ -44,13 +45,14 @@ pub fn init_test_db_pool() -> Pool {
     use diesel::Connection;
     dotenv().unwrap();
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
-    let manager = ConnectionManager::<SqliteConnection>::new("data/vorleser.sqlite");
+    let manager = ConnectionManager::<SqliteConnection>::new(":memory:");
     let pool = r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))
         .max_size(1)
         .build(manager)
         .expect("Failed to create pool.");
-    (*pool.get().unwrap()).begin_test_transaction();
+    ::embedded_migrations::run(&*pool.get().unwrap());
+    (&*pool.get().unwrap()).begin_test_transaction();
     pool
 }
 

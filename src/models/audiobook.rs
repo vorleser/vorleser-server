@@ -70,8 +70,10 @@ impl Audiobook {
             .first::<Audiobook>(&*conn)
             .optional()? {
                 Some(b) => {
-                    diesel::update(audiobooks::table).set(new_book).execute(conn)?;
-                    Ok(new_book.clone())
+                    let mut updated = new_book.clone();
+                    updated.id = b.id;
+                    diesel::update(audiobooks::table).set(&updated).execute(conn)?;
+                    Ok(updated)
                 },
                 None => {
                     diesel::insert_into(audiobooks::table).values(new_book).execute(conn);

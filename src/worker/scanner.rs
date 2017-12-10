@@ -202,9 +202,6 @@ impl Scanner {
 
     /// Delete all those books from the database that are not present in the file system.
     fn delete_not_in_fs(&self, conn: &SqliteConnection) -> Result<usize> {
-        // TODO: we should just mark books deleted here, after all accidents where the
-        // filesystem is gone for a bit should not lead to you loosing all playback data
-        // we should also be able to recover from having the book set to deleted
         let mut deleted_count = 0;
         for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
@@ -301,7 +298,7 @@ impl Scanner {
                     number: i as i64
                 }
             }).collect();
-            Ok((book, diesel::insert_into(chapters::table)
+            Ok((book, diesel::replace_into(chapters::table)
                 .values(&new_chapters).execute(&*conn)?))
         });
         match inserted {

@@ -1,4 +1,4 @@
-database = "postgres://localhost/vorleser"
+database = "data/vorleser.sqlite"
 data_directory = "data"
 register_web = false
 

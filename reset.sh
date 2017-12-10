@@ -1,3 +1,3 @@
 #!/bin/bash
 
-dropdb vorleser && diesel setup
+rm data/vorleser.sqlite && diesel setup

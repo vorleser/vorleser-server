@@ -15,7 +15,7 @@ use diesel;
 use diesel::prelude::*;
 use ::worker::util;
 use config;
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 
 describe! worker_tests {
     before_each {
@@ -29,15 +29,15 @@ describe! worker_tests {
             use models::library::Library;
             use schema::libraries;
             use worker::scanner;
-            let new_lib = Library {
+            let library = Library {
                 id: Uuid::new_v4(),
                 location: "test-data".to_owned(),
                 is_audiobook_regex: "^[^/]+$".to_owned(),
                 last_scan: None,
             };
-            let library: Library = diesel::insert_into(libraries::table)
-                .values(&new_lib)
-                .get_result(&*conn)
+            diesel::insert_into(libraries::table)
+                .values(&library)
+                .execute(&*conn)
                 .unwrap();
             let test_scanner = scanner::Scanner::new(
                 pool.clone(),

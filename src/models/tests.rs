@@ -6,7 +6,7 @@ use ::*;
 use models::user::{NewUser, User};
 use models::library::{LibraryAccess, Library};
 use models::audiobook::Audiobook;
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 
 describe! user_tests {
     before_each {
@@ -21,35 +21,37 @@ describe! user_tests {
     it "can access only accessible books and libraries" {
         let user = User::create(&"some@example.com", &"password", &*db).unwrap();
 
-        let accessible_lib = diesel::insert_into(schema::libraries::table)
-            .values(&Library {
-                id: Uuid::new_v4(),
-                location: "/foo/bar".to_string(),
-                is_audiobook_regex: ".*".to_string(),
-                last_scan: None,
-            }).get_result::<Library>(&*db).unwrap();
+        let accessible_lib = Library {
+            id: Uuid::new_v4(),
+            location: "/foo/bar".to_string(),
+            is_audiobook_regex: ".*".to_string(),
+            last_scan: None,
+        };
+        diesel::insert_into(schema::libraries::table)
+            .values(&accessible_lib).execute(&*db).unwrap();
 
-        let inaccessible_lib = diesel::insert_into(schema::libraries::table)
-            .values(&Library {
+        let inaccessible_lib = Library {
             id: Uuid::new_v4(),
             location: "/foo/baz".to_string(),
             is_audiobook_regex: ".*".to_string(),
             last_scan: None,
-        }).get_result::<Library>(&*db).unwrap();
+        };
+        diesel::insert_into(schema::libraries::table)
+            .values(&inaccessible_lib).execute(&*db).unwrap();
 
         diesel::insert_into(schema::library_permissions::table).values(&LibraryAccess {
-            library_id: accessible_lib.id,
-            user_id: user.id
-        }).get_result::<LibraryAccess>(&*db);
+            library_id: accessible_lib.id.clone(),
+            user_id: user.id.clone()
+        }).execute(&*db);
 
-        let books = diesel::insert_into(schema::audiobooks::table).values(&vec![
+        let books = vec![
             Audiobook {
                 id: Uuid::new_v4(),
                 location: "loc1".to_string(),
                 title: "book 1".to_string(),
                 artist: Some("artist 1".to_string()),
                 length: 1234.5,
-                library_id: accessible_lib.id,
+                library_id: accessible_lib.id.clone(),
                 hash: vec![1, 2, 3],
                 file_extension: ".mp3".to_owned(),
                 deleted: false,
@@ -65,7 +67,9 @@ describe! user_tests {
                 file_extension: ".mp3".to_owned(),
                 deleted: false,
             },
-        ]).get_results::<Audiobook>(&*db).unwrap();
+        ];
+
+        diesel::insert_into(schema::audiobooks::table).values(&books).execute(&*db).unwrap();
 
         assert_eq!(user.accessible_audiobooks(&*db).unwrap(), vec![books[0].clone()]);
 

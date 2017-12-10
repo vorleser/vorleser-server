@@ -12,7 +12,7 @@ use helpers::db::Pool;
 use models::library::Library;
 use models::audiobook::Audiobook;
 use worker::scanner::Scanner;
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use config;
 
 fn set_date(file: &str, date: &NaiveDate) {
@@ -30,7 +30,7 @@ fn set_date(file: &str, date: &NaiveDate) {
 }
 
 fn data_file(book: &Audiobook) -> PathBuf {
-    let path_str = "data/".to_owned() + &book.id.to_string() + "." + &book.file_extension;
+    let path_str = "data/".to_owned() + &book.id.hyphenated().to_string() + "." + &book.file_extension;
     let path = PathBuf::from(path_str);
     path
 }
@@ -67,15 +67,15 @@ describe! scanner_integration_tests {
         use models::library::Library;
         use schema::libraries;
         use worker::scanner;
-        let new_lib = Library{
+        let library = Library{
             id: Uuid::new_v4(),
             location: "".to_owned(),
             is_audiobook_regex: "^[^/]+$".to_owned(),
             last_scan: None,
         };
-        let library: Library = diesel::insert_into(libraries::table)
-            .values(&new_lib)
-            .get_result(&*(pool.get().unwrap()))
+        diesel::insert_into(libraries::table)
+            .values(&library)
+            .execute(&*(pool.get().unwrap()))
             .unwrap();
         let mut scanner = scanner::Scanner::new(pool.clone(), library, config::load_config().unwrap());
     }

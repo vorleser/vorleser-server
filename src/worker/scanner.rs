@@ -151,7 +151,7 @@ impl Scanner {
         let deleted = self.delete_not_in_fs(conn)?;
         info!("Deleted {} audiobooks because their files are no longer present.", deleted);
 
-        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(self.library.id)))
+        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(&self.library.id)))
             .set(&self.library)
             .execute(conn) {
                 Ok(_) => Ok(()),
@@ -275,7 +275,7 @@ impl Scanner {
             artist: metadata.metadata.get("artist").cloned(),
             length: metadata.length,
             location: relative_path.to_owned(),
-            library_id: self.library.id,
+            library_id: self.library.id.clone(),
             hash: hash,
             file_extension: file_extension.unwrap_or("".to_owned()),
             deleted: false,
@@ -295,7 +295,7 @@ impl Scanner {
             let new_chapters: Vec<Chapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 Chapter {
                     id: Uuid::new_v4(),
-                    audiobook_id: book.id,
+                    audiobook_id: book.id.clone(),
                     start_time: chapter.start,
                     title: chapter.title.clone(),
                     number: i as i64
@@ -377,7 +377,7 @@ impl Scanner {
                                 id: Uuid::new_v4(),
                                 title: Some(info.title),
                                 start_time: start_time,
-                                audiobook_id: book.id,
+                                audiobook_id: book.id.clone(),
                                 number: chapter_index
                             };
                             chapter_index += 1;
@@ -435,7 +435,7 @@ impl Scanner {
         let default_book = Audiobook {
             id: Uuid::new_v4(),
             length: 0.0,
-            library_id: self.library.id,
+            library_id: self.library.id.clone(),
             location: relative_path.clone(),
             title: title,
             artist: None,
@@ -454,7 +454,7 @@ impl Scanner {
                 diesel::insert_into(chapters::table).values(&new_chapter).execute(conn)?;
             }
             book.length = collection.length;
-            diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(book.id)))
+            diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(&book.id)))
                 .set(&book).execute(conn)?;
             let target_path = format!(
                 "{}/{}.{}",

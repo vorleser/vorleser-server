@@ -70,7 +70,7 @@ impl User {
         use schema::library_permissions::dsl::{library_permissions, user_id};
         use schema::libraries::all_columns;
 
-        Ok(library_permissions.inner_join(libraries).filter(user_id.eq(self.id))
+        Ok(library_permissions.inner_join(libraries).filter(user_id.eq(&self.id))
             .select(all_columns)
             .get_results::<Library>(&*conn)?)
     }
@@ -88,7 +88,7 @@ impl User {
         audiobooks.inner_join(
             libraries.inner_join(library_permissions))
             .filter(deleted.eq(false))
-            .filter(library_permissions_user_id.eq(self.id))
+            .filter(library_permissions_user_id.eq(&self.id))
             .select(all_columns)
             .get_results::<Audiobook>(&*conn)
     }
@@ -130,7 +130,7 @@ impl User {
     pub fn generate_api_token(&self, db: DB) -> Result<ApiToken> {
         let token = ApiToken {
             id: Uuid::new_v4(),
-            user_id: self.id,
+            user_id: self.id.clone(),
             created_at: Utc::now().naive_utc(),
         };
         diesel::insert_into(api_tokens::table)

@@ -64,16 +64,18 @@ impl Audiobook {
     pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
                             new_book: &Audiobook, conn: &SqliteConnection)
         -> Result<Audiobook, diesel::result::Error> {
+        // TODO: no longer return audiobook
         match Self::belonging_to(library)
             .filter(audiobooks::dsl::location.eq(relative_path.as_ref()))
-            .first(&*conn)
+            .first::<Audiobook>(&*conn)
             .optional()? {
                 Some(b) => {
                     diesel::update(audiobooks::table).set(new_book).execute(conn)?;
-                    Ok(b)
+                    Ok(new_book.clone())
                 },
                 None => {
-                    diesel::insert_into(audiobooks::table).values(new_book).get_result::<Audiobook>(conn)
+                    diesel::insert_into(audiobooks::table).values(new_book).execute(conn);
+                    Ok(new_book.clone())
                 }
             }
     }

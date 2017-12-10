@@ -1,6 +1,7 @@
 use uuid;
 use helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
+use chrono::prelude::*;
 use argon2rs::{verifier, Argon2};
 use diesel::sqlite::SqliteConnection;
 use diesel::prelude::*;
@@ -17,7 +18,7 @@ use schema::{users, api_tokens};
 use schema;
 use helpers::db::DB;
 
-#[derive(Identifiable, Debug, Serialize, Deserialize, Queryable)]
+#[derive(Identifiable, Debug, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name="users"]
 #[hasmany(library_permissions)]
 pub struct User {
@@ -102,15 +103,19 @@ impl User {
             return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
         }
         conn.transaction(|| -> _ {
-            let u = diesel::insert_into(users::table).values(&NewUser {
+            let user = User {
+                id: Uuid::new_v4(),
+                created_at: Utc::now().naive_utc(),
+                updated_at: Utc::now().naive_utc(),
                 email: email.as_ref().to_owned(),
                 password_hash: new_password_hash,
-            }).get_result::<User>(&*conn)?;
+            };
+            diesel::insert_into(users::table).values(&user).execute(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
             for l in libraries.iter() {
-                LibraryAccess::permit(&u, &l, &*conn)?;
+                LibraryAccess::permit(&user, &l, &*conn)?;
             }
-            Ok(u)
+            Ok(user)
         }).map_err(|e| ErrorKind::Db(e).into())
     }
 
@@ -123,13 +128,14 @@ impl User {
     }
 
     pub fn generate_api_token(&self, db: DB) -> Result<ApiToken> {
-        let new_token = NewApiToken {
-            user_id: self.id
+        let token = ApiToken {
+            id: Uuid::new_v4(),
+            user_id: self.id,
+            created_at: Utc::now().naive_utc(),
         };
-        let token = diesel::insert_into(api_tokens::table)
-            .values(&new_token)
-            .get_result::<ApiToken>(&*db)?;
-
+        diesel::insert_into(api_tokens::table)
+            .values(&token)
+            .execute(&*db)?;
         Ok(token)
     }
 
@@ -178,7 +184,7 @@ pub struct NewApiToken {
     pub user_id: Uuid,
 }
 
-#[derive(Debug, Queryable, Serialize)]
+#[derive(Debug, Queryable, Serialize, Insertable)]
 #[table_name="api_tokens"]
 pub struct ApiToken {
     pub id: Uuid,

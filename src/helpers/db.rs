@@ -31,7 +31,7 @@ pub fn init_db_pool(url: String) -> Pool {
 }
 
 fn init_db_pool_with_count(url: String, count: u32) -> Pool {
-    let manager = ConnectionManager::<SqliteConnection>::new(":memory:");
+    let manager = ConnectionManager::<SqliteConnection>::new(url);
     r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))
         .max_size(count)
@@ -55,6 +55,7 @@ pub fn init_test_db_pool() -> Pool {
 
 /// Initializes a SQLite file, running the migrations and setting the journal mode.
 pub fn init_db(url: String) {
+    info!("Initializing database at {}", url);
     let pool = init_db_pool_with_count(url, 1);
     ::embedded_migrations::run(&*pool.get().unwrap());
 }

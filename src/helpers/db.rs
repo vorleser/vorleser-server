@@ -27,16 +27,20 @@ impl<C: diesel::Connection, E> CustomizeConnection<C, E> for BusyWaitConnectionC
 
 /// Initialize database DB pool from specified URL.
 pub fn init_db_pool(url: String) -> Pool {
-    let manager = ConnectionManager::<SqliteConnection>::new(url);
+    init_db_pool_with_count(url, 10)
+}
+
+fn init_db_pool_with_count(url: String, count: u32) -> Pool {
+    let manager = ConnectionManager::<SqliteConnection>::new(":memory:");
     r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))
+        .max_size(count)
         .build(manager)
         .expect("Failed to create pool.")
 }
 
 #[cfg(test)]
 pub fn init_test_db_pool() -> Pool {
-    use diesel::Connection;
     let manager = ConnectionManager::<SqliteConnection>::new(":memory:");
     let pool = r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))
@@ -46,6 +50,12 @@ pub fn init_test_db_pool() -> Pool {
     ::embedded_migrations::run(&*pool.get().unwrap());
     (&*pool.get().unwrap()).begin_test_transaction();
     pool
+}
+
+/// Initializes a SQLite file, running the migrations and setting the journal mode.
+pub fn init_db(url: String) {
+    let pool = init_db_pool_with_count(url, 1);
+    ::embedded_migrations::run(&*pool.get().unwrap());
 }
 
 pub struct DB(PooledConnection);

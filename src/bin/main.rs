@@ -35,7 +35,7 @@ use vorleser_server::config::{self, Config, WebConfig};
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
-use vorleser_server::helpers::db::{Pool, init_db_pool};
+use vorleser_server::helpers::db::{Pool, init_db_pool, init_db};
 use vorleser_server::helpers;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
@@ -110,6 +110,7 @@ fn main() {
     }
     let mut conf = config_result.unwrap();
 
+    init_db(conf.database.clone());
     let pool = init_db_pool(conf.database.clone());
 
     if let Some(new_command) = matches.subcommand_matches("create_library") {

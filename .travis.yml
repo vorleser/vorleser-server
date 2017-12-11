@@ -4,7 +4,7 @@ before_install:
   - docker pull hatzel/vorleser-test
 script:
   - docker-compose up -d
-  - docker-compose run app bash -c "diesel setup && cargo test"
+  - docker-compose run app bash -c "cargo test"
 cache:
   directories:
     - target

@@ -41,6 +41,7 @@ fn init_db_pool_with_count(url: String, count: u32) -> Pool {
 
 #[cfg(test)]
 pub fn init_test_db_pool() -> Pool {
+    use diesel::Connection;
     let manager = ConnectionManager::<SqliteConnection>::new(":memory:");
     let pool = r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))

@@ -24,7 +24,7 @@ package() {
   cargo build --release
 
   install -D -m755 "$srcdir/$pkgname/target/release/vorleser_server_bin" "$pkgdir/usr/bin/vorleser"
-  install -D -m644 "$srcdir/$pkgname/config.toml" "$pkgdir/etc/vorleser.toml"
+  install -D -m644 "$srcdir/$pkgname/vorleser-default.toml" "$pkgdir/etc/vorleser.toml"
   install -D -m644 ../../vorleser.service "$pkgdir/usr/lib/systemd/system/vorleser.service"
   install -D -m644 ../../vorleser.sysuser "$pkgdir/usr/lib/sysusers.d/vorleser.conf"
 

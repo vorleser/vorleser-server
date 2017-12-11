@@ -1,0 +1,7 @@
+database = "/var/lib/vorlesr/vorleser.sqlite"
+data_directory = "/var/lib/vorleser"
+register_web = false
+
+[web]
+address = "localhost"
+port = 8000

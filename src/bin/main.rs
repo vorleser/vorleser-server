@@ -138,7 +138,7 @@ fn main() {
     };
 
     if let Some(cmd) = matches.subcommand_matches("sample-config") {
-        print!(include_str!("../../config.toml"));
+        print!(include_str!("../../vorleser-default.toml"));
     }
 
     if let Some(scan) = matches.subcommand_matches("scan") {

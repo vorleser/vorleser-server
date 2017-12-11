@@ -7,11 +7,8 @@ use std::io::{Write, Read};
 use toml;
 /// This module holds functions for loading config files.
 
-#[cfg(release = "release")]
-static CONFIG_LOCATION: &'static str = "/etc/vorleser.toml";
-
 #[cfg(not(build = "release"))]
-static CONFIG_LOCATION: &'static str = "default-config.toml";
+static CONFIG_LOCATION: &'static str = "config.toml";
 
 error_chain! {
     foreign_links {

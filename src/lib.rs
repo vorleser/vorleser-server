@@ -41,7 +41,6 @@ extern crate r2d2_diesel;
 extern crate ffmpeg_sys as ffmpeg;
 extern crate regex;
 extern crate walkdir;
-extern crate dotenv;
 extern crate image;
 extern crate humanesort;
 extern crate toml;

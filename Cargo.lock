@@ -364,9 +364,6 @@ dependencies = [
 name = "error-chain"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-dependencies = [
- "backtrace 0.3.4 (registry+https://github.com/rust-lang/crates.io-index)",
-]
 
 [[package]]
 name = "error-chain"
@@ -1220,7 +1217,6 @@ dependencies = [
  "diesel 0.99.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel_codegen 0.16.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "diesel_migrations 0.99.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "dotenv 0.10.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "ffmpeg-sys 3.4.0 (registry+https://github.com/rust-lang/crates.io-index)",

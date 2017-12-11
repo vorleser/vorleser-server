@@ -6,7 +6,6 @@ use diesel::sqlite::SqliteConnection;
 use r2d2_diesel::ConnectionManager;
 use r2d2::{self, CustomizeConnection};
 use std::env;
-use dotenv::dotenv;
 use diesel::dsl::sql;
 use diesel::{self, ExecuteDsl};
 
@@ -27,13 +26,8 @@ impl<C: diesel::Connection, E> CustomizeConnection<C, E> for BusyWaitConnectionC
 }
 
 /// Initialize database DB pool from specified URL.
-/// Will fall back to "DATABASE_URL" environment variable if `url` is None.
-pub fn init_db_pool(url: Option<String>) -> Pool {
-    dotenv().unwrap();
-    let database_url = url.unwrap_or(
-        env::var("DATABASE_URL").expect("DATABASE_URL must be set")
-    );
-    let manager = ConnectionManager::<SqliteConnection>::new(database_url);
+pub fn init_db_pool(url: String) -> Pool {
+    let manager = ConnectionManager::<SqliteConnection>::new(url);
     r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))
         .build(manager)
@@ -43,8 +37,6 @@ pub fn init_db_pool(url: Option<String>) -> Pool {
 #[cfg(test)]
 pub fn init_test_db_pool() -> Pool {
     use diesel::Connection;
-    dotenv().unwrap();
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let manager = ConnectionManager::<SqliteConnection>::new(":memory:");
     let pool = r2d2::Pool::builder()
         .connection_customizer(Box::new(BusyWaitConnectionCustomizer{}))

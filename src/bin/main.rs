@@ -110,7 +110,7 @@ fn main() {
     }
     let mut conf = config_result.unwrap();
 
-    let pool = init_db_pool(Some(conf.database.clone()));
+    let pool = init_db_pool(conf.database.clone());
 
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         let conn = &*pool.get().unwrap();

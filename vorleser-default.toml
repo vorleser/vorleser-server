@@ -1,4 +1,4 @@
-database = "/var/lib/vorlesr/vorleser.sqlite"
+database = "/var/lib/vorleser/vorleser.sqlite"
 data_directory = "/var/lib/vorleser"
 register_web = false
 

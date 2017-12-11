@@ -5,6 +5,8 @@ use std::fs::File;
 use std::io;
 use std::io::{Write, Read};
 use toml;
+use rocket::request::{self, FromRequest};
+use rocket::{Request, State, Outcome};
 /// This module holds functions for loading config files.
 
 #[cfg(not(build = "release"))]
@@ -60,4 +62,13 @@ fn default_data_address() -> String {
 
 fn default_data_directory() -> String {
     "data".to_owned()
+}
+
+impl<'a, 'r> FromRequest<'a, 'r> for Config {
+    type Error = ();
+
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<Config, ()> {
+        request.guard::<State<Config>>()
+            .map(|config| config.clone())
+    }
 }

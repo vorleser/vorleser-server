@@ -15,15 +15,16 @@ use std::io;
 use schema::audiobooks::dsl::{audiobooks, self};
 use responses::{APIResponse, self, ok, internal_server_error};
 use rocket::response::NamedFile;
+use config::Config;
 
 #[get("/data/<book_id>")]
-pub fn data_file(current_user: User, db: DB, book_id: Uuid) -> Result<RangedFile, APIResponse> {
+pub fn data_file(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<RangedFile, APIResponse> {
     match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(_) => (),
         None => return Err(responses::not_found())
     };
     let book = audiobooks.filter(dsl::id.eq(book_id)).first::<Audiobook>(&*db)?;
-    let mut path = PathBuf::from("data/");
+    let mut path = PathBuf::from(config.data_directory);
     path.push(book.id.hyphenated().to_string());
     path.set_extension(book.file_extension);
     match RangedFile::open(path.clone()) {
@@ -36,13 +37,14 @@ pub fn data_file(current_user: User, db: DB, book_id: Uuid) -> Result<RangedFile
 }
 
 #[get("/coverart/<book_id>")]
-pub fn get_coverart(current_user: User, db: DB, book_id: Uuid) -> Result<NamedFile, APIResponse> {
+pub fn get_coverart(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<NamedFile, APIResponse> {
     use schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,
         None => return Err(responses::not_found().message("No book found or not accessible."))
     };
-    let mut path = PathBuf::from("data/img");
+    let mut path = PathBuf::from(config.data_directory);
+    path.push("img");
     path.push(book_id.hyphenated().to_string());
     match NamedFile::open(path) {
         Ok(f) => Ok(f),

@@ -64,7 +64,6 @@ impl Audiobook {
     pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
                             new_book: &Audiobook, conn: &SqliteConnection)
         -> Result<Audiobook, diesel::result::Error> {
-        // TODO: no longer return audiobook
         match Self::belonging_to(library)
             .filter(audiobooks::dsl::location.eq(relative_path.as_ref()))
             .first::<Audiobook>(&*conn)

@@ -440,30 +440,30 @@ impl Scanner {
             file_extension: filetype.to_owned().into_string().unwrap(),
             deleted: false
         };
+        let mut book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
+        let collection = self.multifile_extract_chapters(&mut book)?;
+        book.length = collection.length;
+
+        let target_path = format!(
+            "{}/{}.{}",
+            self.config.data_directory,
+            book.id.hyphenated(),
+            &filetype.to_string_lossy()
+        );
+        debug!("muxing files into {:?}", target_path);
+        muxer::merge_files(
+            &target_path,
+            &collection.media_files
+        )?;
 
         let inserted = conn.transaction(||  -> Result<()> {
-            let mut book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
             book.delete_all_chapters(conn);
-
-            let mut chapter_index = 0;
-            let collection = self.multifile_extract_chapters(&mut book)?;
             for new_chapter in collection.chapters {
                 diesel::insert_into(chapters::table).values(&new_chapter).execute(conn)?;
             }
-            book.length = collection.length;
+
             diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(&book.id)))
                 .set(&book).execute(conn)?;
-            let target_path = format!(
-                "{}/{}.{}",
-                self.config.data_directory,
-                book.id.hyphenated(),
-                &filetype.to_string_lossy()
-            );
-            debug!("muxing files into {:?}", target_path);
-            muxer::merge_files(
-                &target_path,
-                &collection.media_files
-                )?;
             Ok(())
         });
         match inserted {

@@ -245,6 +245,7 @@ impl Scanner {
     }
 
     pub(super) fn create_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &AsRef<Path>) -> Result<()> {
+        info!("Scanning single file audiobook at: {:?}", path.as_ref());
         let relative_path = self.relative_path_str(path)?;
         let hash = hashing::checksum_file(path)?;
 
@@ -468,10 +469,13 @@ impl Scanner {
         });
         match inserted {
             Ok(_) => {
-                info!("Successfully saved book");
+                info!("Successfully saved book: {}", book.title);
                 Ok(())
             },
-            Err(e) => Err(e)
+            Err(e) => {
+                warn!("Error saving book: {}", relative_path);
+                Err(e)
+            }
         }
     }
 
@@ -544,7 +548,7 @@ fn should_scan(path: &Path, last_scan: Option<NaiveDateTime>) -> Result<bool> {
                   recent_change_time >= last_scan_time);
             Ok(recent_change_time >= last_scan_time)
         } else {
-            debug!("First scan ever, scanning!");
+            debug!("First scan of this book ever, scanning!");
             // if there was no scan before we should scan now
             Ok(true)
         },

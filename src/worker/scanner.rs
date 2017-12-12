@@ -133,9 +133,17 @@ impl Scanner {
                 // above
                 if let Ok(mut book) = book_result {
                     if path.is_dir() && !self.data_path_of(&book).exists() {
-                        self.multifile_remux(&mut book)?;
+                        debug!("No remuxed version of {}, remuxing!", book.title);
+                        match self.multifile_remux(&mut book) {
+                            Ok(_) => info!("Successfully remuxed {}", book.title),
+                            Err(e) => info!("Error {:?} while remuxing {}", e, book.title),
+                        }
                     } else {
-                        self.link_audiobook(&book)?;
+                        debug!("No remuxed version of {}, linking!", book.title);
+                        match self.link_audiobook(&book) {
+                            Ok(_) => info!("Successfully linked {} into collection", book.title),
+                            Err(e) => info!("Error {:?} while linking {}", e, book.title),
+                        }
                     }
                 }
 
@@ -254,7 +262,7 @@ impl Scanner {
             Update::NotFound => false
         };
         if done {
-            debug!("This audiobook already exists in the database, moving on.")
+            debug!("This audiobook already exists in the database, moving on.");
             return Ok(());
         };
 
@@ -418,7 +426,7 @@ impl Scanner {
             Update::NotFound => false
         };
         if done {
-            debug!("This audiobook already exists in the database, moving on.")
+            debug!("This audiobook already exists in the database, moving on.");
             return Ok(());
         };
 
@@ -432,7 +440,7 @@ impl Scanner {
             None => return Err(ErrorKind::InvalidUtf8.into())
         };
 
-        let default_book = Audiobook {
+        let mut default_book = Audiobook {
             id: Uuid::new_v4(),
             length: 0.0,
             library_id: self.library.id.clone(),
@@ -443,21 +451,21 @@ impl Scanner {
             file_extension: filetype.to_owned().into_string().unwrap(),
             deleted: false
         };
-        let mut book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
-        let collection = self.multifile_extract_chapters(&mut book)?;
-        book.length = collection.length;
-
         let target_path = format!(
             "{}/{}.{}",
             self.config.data_directory,
-            book.id.hyphenated(),
+            default_book.id.hyphenated(),
             &filetype.to_string_lossy()
         );
+        let collection = self.multifile_extract_chapters(&mut default_book)?;
         debug!("muxing files into {:?}", target_path);
         muxer::merge_files(
             &target_path,
             &collection.media_files
         )?;
+
+        let mut book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
+        book.length = collection.length;
 
         let inserted = conn.transaction(||  -> Result<()> {
             book.delete_all_chapters(conn);

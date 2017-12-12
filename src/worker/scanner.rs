@@ -254,6 +254,7 @@ impl Scanner {
             Update::NotFound => false
         };
         if done {
+            debug!("This audiobook already exists in the database, moving on.")
             return Ok(());
         };
 
@@ -417,6 +418,7 @@ impl Scanner {
             Update::NotFound => false
         };
         if done {
+            debug!("This audiobook already exists in the database, moving on.")
             return Ok(());
         };
 

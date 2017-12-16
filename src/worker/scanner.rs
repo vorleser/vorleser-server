@@ -7,7 +7,7 @@ use std::collections::HashMap;
 use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
-use std::fs::create_dir;
+use std::fs::{create_dir, rename};
 
 use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;
@@ -129,6 +129,7 @@ impl Scanner {
                 let mut book_result = Audiobook::belonging_to(&self.library)
                     .filter(location.eq(&relative_path.to_string_lossy()))
                     .get_result::<Audiobook>(&*conn);
+                debug!("book: {:?}", book_result);
                 // Ensure cached file exists here no need to check if its current, that is ensured
                 // above
                 if let Ok(mut book) = book_result {
@@ -425,6 +426,7 @@ impl Scanner {
             Update::Nothing | Update::Path => true,
             Update::NotFound => false
         };
+        debug!("Checking if {} needs to be updated, result is: {}", relative_path, done);
         if done {
             debug!("This audiobook already exists in the database, moving on.");
             return Ok(());
@@ -434,7 +436,9 @@ impl Scanner {
             Some(e) => e,
             None => return Err(ErrorKind::Other("No valid file extensions found.").into())
         };
+
         debug!("decided on file type {:?}", filetype);
+
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
             None => return Err(ErrorKind::InvalidUtf8.into())
@@ -451,16 +455,14 @@ impl Scanner {
             file_extension: filetype.to_owned().into_string().unwrap(),
             deleted: false
         };
-        let target_path = format!(
-            "{}/{}.{}",
-            self.config.data_directory,
-            default_book.id.hyphenated(),
-            &filetype.to_string_lossy()
+
+        let temp_target_path = self.build_target_path(
+            &self.config.data_directory, &default_book.id, &filetype
         );
         let collection = self.multifile_extract_chapters(&mut default_book)?;
-        debug!("muxing files into {:?}", target_path);
+        debug!("muxing files into {:?}", temp_target_path);
         muxer::merge_files(
-            &target_path,
+            &temp_target_path,
             &collection.media_files
         )?;
 
@@ -478,6 +480,12 @@ impl Scanner {
             diesel::update(
                 Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(&book.id))
             ).set(&book).execute(conn)?;
+
+            let target_path = self.build_target_path(
+                &self.config.data_directory, &book.id, &filetype
+            );
+            debug!("Moving {} to {}.", temp_target_path, target_path);
+            rename(temp_target_path, target_path)?;
             Ok(book)
         });
         match inserted {
@@ -498,6 +506,16 @@ impl Scanner {
             Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
             Ok(Some(p)) => Ok(p)
         }
+    }
+
+    /// Path at which to place a data file, where uuid is the books uuid and filetype its filetype.
+    fn build_target_path(&self, data_path: &AsRef<str>, uuid: &Uuid, filetype: &OsStr) -> String {
+        format!(
+            "{}/{}.{}",
+            data_path.as_ref(),
+            uuid.hyphenated(),
+            &filetype.to_string_lossy()
+        )
     }
 }
 

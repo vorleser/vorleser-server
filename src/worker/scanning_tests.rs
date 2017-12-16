@@ -227,6 +227,7 @@ describe! scanner_integration_tests {
         use schema::audiobooks::dsl::deleted;
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/content_changed_multifile/01");
+        set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
         scanner.library.location = base.clone();
         scanner.incremental_scan();
         let book = Audiobook::belonging_to(&scanner.library)
@@ -247,12 +248,14 @@ describe! scanner_integration_tests {
         let book2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        println!("{:?}", book2);
 
+        // Make sure the file was remuxed again
         let file_2 = File::open(&data_file(&book2)).unwrap();
         let changed_2 = file_2.metadata().unwrap().modified().unwrap();
 
         assert_ne!(book.length, book2.length);
-
+        println!("{:?} > {:?}", changed_2, changed_1);
         assert!(changed_2 > changed_1);
 
         assert_eq!(1, count_books(&scanner, &pool));

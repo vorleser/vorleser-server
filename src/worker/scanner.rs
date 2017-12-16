@@ -138,7 +138,7 @@ impl Scanner {
                             Ok(_) => info!("Successfully remuxed {}", book.title),
                             Err(e) => info!("Error {:?} while remuxing {}", e, book.title),
                         }
-                    } else {
+                    } else if !self.data_path_of(&book).exists() {
                         debug!("No remuxed version of {}, linking!", book.title);
                         match self.link_audiobook(&book) {
                             Ok(_) => info!("Successfully linked {} into collection", book.title),
@@ -464,21 +464,24 @@ impl Scanner {
             &collection.media_files
         )?;
 
-        let mut book = Audiobook::ensure_exists_in(&relative_path, &self.library, &default_book, conn)?;
-        book.length = collection.length;
 
-        let inserted = conn.transaction(||  -> Result<()> {
+        let inserted = conn.transaction(||  -> Result<Audiobook> {
+            let mut book = Audiobook::ensure_exists_in(
+                &relative_path, &self.library, &default_book, conn
+            )?;
+            book.length = collection.length;
             book.delete_all_chapters(conn);
             for new_chapter in collection.chapters {
                 diesel::insert_into(chapters::table).values(&new_chapter).execute(conn)?;
             }
 
-            diesel::update(Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(&book.id)))
-                .set(&book).execute(conn)?;
-            Ok(())
+            diesel::update(
+                Audiobook::belonging_to(&self.library).filter(audiobooks::dsl::id.eq(&book.id))
+            ).set(&book).execute(conn)?;
+            Ok(book)
         });
         match inserted {
-            Ok(_) => {
+            Ok(book) => {
                 info!("Successfully saved book: {}", book.title);
                 Ok(())
             },

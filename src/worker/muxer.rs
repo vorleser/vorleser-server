@@ -109,7 +109,11 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
                     if pkt.pts < 0 || pkt.dts < 0 {
                         println!("foo");
                     }
-                    try!(out.write_frame(&mut pkt))
+                    let res = try!(out.write_frame(&mut pkt));
+                    unsafe {
+                        av_free_packet(&mut pkt);
+                    }
+                    res
                 },
                 None => break
             }

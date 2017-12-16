@@ -289,13 +289,13 @@ impl Scanner {
             deleted: false,
         };
 
+        let chapters = file.get_chapters();
+
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
             let book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn
             )?;
             book.delete_all_chapters(conn);
-            let filename = String::new();
-            let chapters = file.get_chapters();
             if let Some(image) = file.get_coverart()? {
                 self.save_coverart(&book, &image);
             }
@@ -426,7 +426,7 @@ impl Scanner {
             Update::Nothing | Update::Path => true,
             Update::NotFound => false
         };
-        debug!("Checking if {} needs to be updated, result is: {}", relative_path, done);
+        debug!("Checking if {} is up to date, result is: {}", relative_path, done);
         if done {
             debug!("This audiobook already exists in the database, moving on.");
             return Ok(());

@@ -5,16 +5,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow())]
 
 #[macro_use(log, info, debug, warn, trace)] extern crate log;
-// disgusting workaround for error also being present in rocket
-#[macro_use]
-macro_rules! error_log {
-    (target: $target:expr, $($arg:tt)*) => (
-        log!(target: $target, ::log::LogLevel::Error, $($arg)*);
-    );
-    ($($arg:tt)*) => (
-        log!(::log::LogLevel::Error, $($arg)*);
-    )
-}
 
 extern crate env_logger;
 extern crate clap;
@@ -37,6 +27,7 @@ use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
 use vorleser_server::helpers::db::{Pool, init_db_pool, init_db};
 use vorleser_server::helpers;
+use log::error as error_log;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 

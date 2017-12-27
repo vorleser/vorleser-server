@@ -8,6 +8,7 @@ use std::env;
 use std::os::unix::prelude::*;
 use std::os::unix::fs;
 use std::fs::{create_dir, rename};
+use log::error as error_log;
 
 use walkdir::{WalkDir, WalkDirIterator};
 use walkdir;

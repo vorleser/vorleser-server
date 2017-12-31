@@ -81,7 +81,7 @@ impl User {
         use diesel::types::*;
         use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
         use schema::libraries::dsl::{libraries, id};
-        use schema::audiobooks::dsl::{audiobooks, library_id, deleted};
+        use schema::audiobooks::dsl::{audiobooks, library_id, location, deleted};
         use schema::audiobooks::all_columns;
         use schema::users::dsl::users;
 
@@ -90,6 +90,7 @@ impl User {
             .filter(deleted.eq(false))
             .filter(library_permissions_user_id.eq(&self.id))
             .select(all_columns)
+            .order(location.asc())
             .get_results::<Audiobook>(&*conn)
     }
 

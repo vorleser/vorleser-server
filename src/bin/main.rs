@@ -5,16 +5,6 @@
 #![cfg_attr(feature = "cargo-clippy", allow())]
 
 #[macro_use(log, info, debug, warn, trace)] extern crate log;
-// disgusting workaround for error also being present in rocket
-#[macro_use]
-macro_rules! error_log {
-    (target: $target:expr, $($arg:tt)*) => (
-        log!(target: $target, ::log::LogLevel::Error, $($arg)*);
-    );
-    ($($arg:tt)*) => (
-        log!(::log::LogLevel::Error, $($arg)*);
-    )
-}
 
 extern crate env_logger;
 extern crate clap;
@@ -28,16 +18,16 @@ use vorleser_server::worker::scanner::Scanner;
 use regex::Regex;
 use vorleser_server::schema::libraries;
 use vorleser_server::schema::libraries::dsl::*;
-use vorleser_server::models::library::{Library, NewLibrary};
-use vorleser_server::models::user::{UserModel, NewUser};
+use vorleser_server::models::library::Library;
+use vorleser_server::models::user::{User, NewUser};
 use vorleser_server::schema::users;
 use vorleser_server::config::{self, Config, WebConfig};
 use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
-use diesel::insert;
-use vorleser_server::helpers::db::{Pool, init_db_pool};
+use vorleser_server::helpers::db::{Pool, init_db_pool, init_db};
 use vorleser_server::helpers;
+use log::error as error_log;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 
@@ -111,7 +101,8 @@ fn main() {
     }
     let mut conf = config_result.unwrap();
 
-    let pool = init_db_pool(Some(conf.database.clone()));
+    init_db(conf.database.clone());
+    let pool = init_db_pool(conf.database.clone());
 
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         let conn = &*pool.get().unwrap();
@@ -138,7 +129,7 @@ fn main() {
     };
 
     if let Some(cmd) = matches.subcommand_matches("sample-config") {
-        print!(include_str!("../../default-config.toml"));
+        print!(include_str!("../../vorleser-default.toml"));
     }
 
     if let Some(scan) = matches.subcommand_matches("scan") {
@@ -172,7 +163,7 @@ fn main() {
 
         let email = create_user.value_of("email").expect("a man has no name");
         let pass = create_user.value_of("password").expect("a man has no password");
-        let user = UserModel::create(&email, &pass, db).expect("Error saving user");
+        let user = User::create(&email, &pass, db).expect("Error saving user");
     }
 
     if let Some(serve) = matches.subcommand_matches("serve") {

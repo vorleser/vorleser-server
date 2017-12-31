@@ -1,16 +1,16 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use diesel;
 use diesel::prelude::*;
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use schema::playstates;
 use schema::library_permissions;
 use chrono::prelude::*;
 
-#[derive(Identifiable, Associations, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug)]
+#[derive(Identifiable, Associations, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug, Clone)]
 #[primary_key(audiobook_id, user_id)]
 #[table_name="playstates"]
 #[changeset_for(playstates, treat_none_as_null="true")]
-#[belongs_to(UserModel, foreign_key="user_id")]
+#[belongs_to(User, foreign_key="user_id")]
 pub struct Playstate {
     pub audiobook_id: Uuid,
     pub user_id: Uuid,
@@ -19,21 +19,18 @@ pub struct Playstate {
 }
 
 impl Playstate {
-    pub fn upsert(self, db: &PgConnection) -> Result<Playstate, diesel::result::Error> {
+    pub fn upsert(self, db: &SqliteConnection) -> Result<Playstate, diesel::result::Error> {
         use schema::playstates::dsl::*;
-        use diesel::pg::upsert::*;
-        diesel::insert(
-            &self.on_conflict(
-                (audiobook_id, user_id),
-                do_update().set(&self)
-            )
-        ).into(playstates).get_result(&*db)
+        diesel::replace_into(playstates)
+            .values(&self)
+            .execute(&*db)?;
+        Ok(self.clone())
     }
 
     pub fn into_api_playstate(&self) -> ApiPlaystate {
         ApiPlaystate {
-            audiobook_id: self.audiobook_id,
-            position: self.position,
+            audiobook_id: self.audiobook_id.clone(),
+            position: self.position.clone(),
             timestamp: DateTime::<Utc>::from_utc(self.timestamp, Utc),
         }
     }
@@ -46,13 +43,13 @@ pub struct ApiPlaystate {
     pub timestamp: DateTime<Utc>,
 }
 
-use models::user::UserModel;
+use models::user::User;
 
 impl ApiPlaystate {
-    pub fn into_playstate(&self, user: &UserModel) -> Playstate {
+    pub fn into_playstate(&self, user: &User) -> Playstate {
         Playstate {
-            audiobook_id: self.audiobook_id,
-            user_id: user.id,
+            audiobook_id: self.audiobook_id.clone(),
+            user_id: user.id.clone(),
             position: self.position,
             timestamp: self.timestamp.naive_utc(),
         }

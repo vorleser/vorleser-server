@@ -1,13 +1,13 @@
 use helpers::db::init_test_db_pool;
 use helpers;
 use diesel::prelude::*;
-use models::user::UserModel;
+use models::user::User;
 use rocket::local::{Client, LocalResponse};
 use rocket::Response;
 use rocket::http::{Status, Method, Header, ContentType};
 use serde_json::{self, Value};
 use worker::scanner::Scanner;
-use models::library::{Library, NewLibrary};
+use models::library::Library;
 use regex::Regex;
 use config;
 
@@ -39,11 +39,9 @@ fn get<'a>(client: &'a Client, url: &'a str, auth: Option<&str>) -> LocalRespons
 
 describe! api_tests {
     before_each {
-        let mut pool = init_test_db_pool();
-        {
-            let conn = pool.get().unwrap();
-            let user = UserModel::create(&"test@test.com", &"lol", &*conn).expect("Error saving user");
-        }
+        let pool = init_test_db_pool();
+        let user = User::create(&"test@test.com", &"lol", &*pool.get().unwrap())
+            .expect("Error saving user");
         println!("Before each {:?}", pool.state());
 
         let rocket = helpers::rocket::factory(pool.clone(), config::load_config().unwrap()).unwrap();

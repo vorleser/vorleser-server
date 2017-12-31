@@ -1,13 +1,10 @@
 services:
   - docker
 before_install:
-  - echo DATABASE_URL=postgres://vorleser@postgres/vorleser > .env
   - docker pull hatzel/vorleser-test
-  - docker pull postgres:latest
 script:
   - docker-compose up -d
-  - sleep 5
-  - docker-compose run app bash -c "diesel setup && cargo test"
+  - docker-compose run app bash -c "cargo test"
 cache:
   directories:
     - target

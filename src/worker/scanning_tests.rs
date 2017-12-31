@@ -12,6 +12,7 @@ use helpers::db::Pool;
 use models::library::Library;
 use models::audiobook::Audiobook;
 use worker::scanner::Scanner;
+use helpers::uuid::Uuid;
 use config;
 
 fn set_date(file: &str, date: &NaiveDate) {
@@ -29,7 +30,7 @@ fn set_date(file: &str, date: &NaiveDate) {
 }
 
 fn data_file(book: &Audiobook) -> PathBuf {
-    let path_str = "data/".to_owned() + &book.id.to_string() + "." + &book.file_extension;
+    let path_str = "data/".to_owned() + &book.id.hyphenated().to_string() + "." + &book.file_extension;
     let path = PathBuf::from(path_str);
     path
 }
@@ -62,17 +63,19 @@ describe! scanner_integration_tests {
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 
-        use models::audiobook::{Audiobook, NewAudiobook, Update};
-        use models::library::{NewLibrary, Library};
+        use models::audiobook::{Audiobook, Update};
+        use models::library::Library;
         use schema::libraries;
         use worker::scanner;
-        let new_lib = NewLibrary{
+        let library = Library{
+            id: Uuid::new_v4(),
             location: "".to_owned(),
-            is_audiobook_regex: "^[^/]+$".to_owned()
+            is_audiobook_regex: "^[^/]+$".to_owned(),
+            last_scan: None,
         };
-        let library: Library = diesel::insert(&new_lib)
-            .into(libraries::table)
-            .get_result(&*(pool.get().unwrap()))
+        diesel::insert_into(libraries::table)
+            .values(&library)
+            .execute(&*(pool.get().unwrap()))
             .unwrap();
         let mut scanner = scanner::Scanner::new(pool.clone(), library, config::load_config().unwrap());
     }
@@ -224,6 +227,7 @@ describe! scanner_integration_tests {
         use schema::audiobooks::dsl::deleted;
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/content_changed_multifile/01");
+        set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
         scanner.library.location = base.clone();
         scanner.incremental_scan();
         let book = Audiobook::belonging_to(&scanner.library)
@@ -244,12 +248,14 @@ describe! scanner_integration_tests {
         let book2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+        println!("{:?}", book2);
 
+        // Make sure the file was remuxed again
         let file_2 = File::open(&data_file(&book2)).unwrap();
         let changed_2 = file_2.metadata().unwrap().modified().unwrap();
 
         assert_ne!(book.length, book2.length);
-
+        println!("{:?} > {:?}", changed_2, changed_1);
         assert!(changed_2 > changed_1);
 
         assert_eq!(1, count_books(&scanner, &pool));

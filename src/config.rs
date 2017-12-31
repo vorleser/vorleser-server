@@ -5,13 +5,12 @@ use std::fs::File;
 use std::io;
 use std::io::{Write, Read};
 use toml;
+use rocket::request::{self, FromRequest};
+use rocket::{Request, State, Outcome};
 /// This module holds functions for loading config files.
 
-#[cfg(release = "release")]
-static CONFIG_LOCATION: &'static str = "/etc/vorleser.toml";
-
 #[cfg(not(build = "release"))]
-static CONFIG_LOCATION: &'static str = "default-config.toml";
+static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser.toml", "/etc/vorleser.toml"];
 
 error_chain! {
     foreign_links {
@@ -29,7 +28,14 @@ error_chain! {
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
 pub fn load_config() -> Result<Config> {
-    load_config_from_path(&CONFIG_LOCATION)
+    for ref location in CONFIG_LOCATIONS.iter() {
+        let conf = load_config_from_path(&location);
+        if conf.is_ok() {
+            info!("Using config from: {}", location);
+            return conf;
+        }
+    }
+    Err(ErrorKind::Other("Could not read any config files.").into())
 }
 
 pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<Config> {
@@ -63,4 +69,13 @@ fn default_data_address() -> String {
 
 fn default_data_directory() -> String {
     "data".to_owned()
+}
+
+impl<'a, 'r> FromRequest<'a, 'r> for Config {
+    type Error = ();
+
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<Config, ()> {
+        request.guard::<State<Config>>()
+            .map(|config| config.clone())
+    }
 }

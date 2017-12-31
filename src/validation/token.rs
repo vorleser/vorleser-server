@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use models::user::ApiToken;
 
 #[derive(Serialize, Deserialize, Debug)]

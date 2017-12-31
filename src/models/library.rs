@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
 use std::time::SystemTime;
 use diesel;
@@ -7,21 +7,14 @@ use schema::{libraries, audiobooks, library_permissions};
 use schema;
 use models::audiobook::Audiobook;
 use helpers::db;
-use models::user::UserModel;
+use models::user::User;
 
 #[table_name="libraries"]
-#[derive(Insertable)]
-pub struct NewLibrary {
-    pub location: String,
-    pub is_audiobook_regex: String
-}
-
-#[table_name="libraries"]
-#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Associations, Identifiable, Serialize)]
+#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Associations, Identifiable, Serialize,
+         Insertable)]
 #[has_many(audiobooks, library_permissions)]
 pub struct Library {
     pub id: Uuid,
-    pub content_change_date: NaiveDateTime,
     #[serde(skip_serializing)]
     pub location: String,
     #[serde(skip_serializing)]
@@ -39,22 +32,29 @@ pub struct LibraryAccess {
 }
 
 impl LibraryAccess {
-    pub fn permit(user: &UserModel, library: &Library, db: &db::Connection) -> Result<LibraryAccess, diesel::result::Error> {
-        diesel::insert(&LibraryAccess {
-            library_id: library.id,
-            user_id: user.id
-        }).into(library_permissions::table).get_result(&*db)
+    pub fn permit(user: &User, library: &Library, db: &db::Connection) -> Result<LibraryAccess, diesel::result::Error> {
+        let permission = LibraryAccess {
+            library_id: library.id.clone(),
+            user_id: user.id.clone(),
+        };
+        diesel::insert_into(library_permissions::table)
+            .values(&permission).execute(&*db)?;
+        Ok(permission)
     }
 }
 
 impl Library {
     pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
         db.transaction(|| -> _ {
-            let lib = diesel::insert(&NewLibrary{
+            let lib = Library{
+                id: Uuid::new_v4(),
                 location: location,
-                is_audiobook_regex: audiobook_regex
-            }).into(libraries::table).get_result::<Library>(&*db)?;
-            let users: Vec<UserModel> = schema::users::table.load(&*db)?;
+                is_audiobook_regex: audiobook_regex,
+                last_scan: None
+            };
+            diesel::insert_into(libraries::table)
+                .values(&lib).execute(&*db)?;
+            let users: Vec<User> = schema::users::table.load(&*db)?;
             for u in users {
                 LibraryAccess::permit(&u, &lib, &*db)?;
             }

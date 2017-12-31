@@ -1,7 +1,9 @@
-use uuid::{self, Uuid};
+use uuid;
+use helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
+use chrono::prelude::*;
 use argon2rs::{verifier, Argon2};
-use diesel::pg::PgConnection;
+use diesel::sqlite::SqliteConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
 use models::audiobook::Audiobook;
@@ -16,10 +18,10 @@ use schema::{users, api_tokens};
 use schema;
 use helpers::db::DB;
 
-#[derive(Identifiable, Debug, Serialize, Deserialize, Queryable)]
+#[derive(Identifiable, Debug, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name="users"]
 #[hasmany(library_permissions)]
-pub struct UserModel {
+pub struct User {
     pub id: Uuid,
     pub created_at: NaiveDateTime,
     pub updated_at: NaiveDateTime,
@@ -47,7 +49,7 @@ error_chain! {
     }
 }
 
-impl UserModel {
+impl User {
     pub fn make_password_hash(new_password: &AsRef<str>) -> String {
         let rand = SystemRandom::new();
         let mut salt: [u8; 10] = [0; 10];
@@ -61,54 +63,59 @@ impl UserModel {
         base64::encode(&session.to_u8())
     }
 
-    pub fn accessible_libraries(&self, db: &PgConnection) -> Result<Vec<Library>> {
+    pub fn accessible_libraries(&self, conn: &SqliteConnection) -> Result<Vec<Library>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
-        use schema::libraries::SqlType;
+        use schema::libraries::dsl::libraries;
+        use schema::library_permissions::dsl::{library_permissions, user_id};
+        use schema::libraries::all_columns;
 
-        Ok(sql::<SqlType>("
-            select l.* from libraries l
-            where exists (
-                select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = l.id
-            )
-        ").bind::<Uuid, _>(self.id).get_results::<Library>(&*db)?)
+        Ok(library_permissions.inner_join(libraries).filter(user_id.eq(&self.id))
+            .select(all_columns)
+            .get_results::<Library>(&*conn)?)
     }
 
-    pub fn accessible_audiobooks(&self, conn: &PgConnection)
+    pub fn accessible_audiobooks(&self, conn: &SqliteConnection)
                 -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
-        use schema::audiobooks::SqlType;
+        use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
+        use schema::libraries::dsl::{libraries, id};
+        use schema::audiobooks::dsl::{audiobooks, library_id, deleted};
+        use schema::audiobooks::all_columns;
+        use schema::users::dsl::users;
 
-        Ok(sql::<SqlType>("
-            select a.* from audiobooks a
-            where exists (
-                select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id and a.deleted = false
-            ) order by a.location
-        ").bind::<Uuid, _>(self.id).get_results::<Audiobook>(&*conn)?)
+        audiobooks.inner_join(
+            libraries.inner_join(library_permissions))
+            .filter(deleted.eq(false))
+            .filter(library_permissions_user_id.eq(&self.id))
+            .select(all_columns)
+            .get_results::<Audiobook>(&*conn)
     }
 
-    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &PgConnection) -> Result<UserModel> {
+    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &SqliteConnection) -> Result<User> {
         use schema::users;
         use schema::users::dsl;
-        let new_password_hash = UserModel::make_password_hash(password);
+        let new_password_hash = User::make_password_hash(password);
         let results = dsl::users.filter(dsl::email.eq(email.as_ref().clone()))
-            .first::<UserModel>(&*conn);
+            .first::<User>(&*conn);
         if results.is_ok() {
             return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
         }
         conn.transaction(|| -> _ {
-            let u = diesel::insert(&NewUser {
+            let user = User {
+                id: Uuid::new_v4(),
+                created_at: Utc::now().naive_utc(),
+                updated_at: Utc::now().naive_utc(),
                 email: email.as_ref().to_owned(),
                 password_hash: new_password_hash,
-            }).into(users::table).get_result::<UserModel>(&*conn)?;
+            };
+            diesel::insert_into(users::table).values(&user).execute(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
             for l in libraries.iter() {
-                LibraryAccess::permit(&u, &l, &*conn)?;
+                LibraryAccess::permit(&user, &l, &*conn)?;
             }
-            Ok(u)
+            Ok(user)
         }).map_err(|e| ErrorKind::Db(e).into())
     }
 
@@ -121,17 +128,18 @@ impl UserModel {
     }
 
     pub fn generate_api_token(&self, db: DB) -> Result<ApiToken> {
-        let new_token = NewApiToken {
-            user_id: self.id
+        let token = ApiToken {
+            id: Uuid::new_v4(),
+            user_id: self.id.clone(),
+            created_at: Utc::now().naive_utc(),
         };
-        let token = diesel::insert(&new_token)
-            .into(api_tokens::table)
-            .get_result::<ApiToken>(&*db)?;
-
+        diesel::insert_into(api_tokens::table)
+            .values(&token)
+            .execute(&*db)?;
         Ok(token)
     }
 
-    pub fn get_user_from_api_token(token_id_string: &str, db: &PgConnection) -> Result<Option<UserModel>> {
+    pub fn get_user_from_api_token(token_id_string: &str, db: &SqliteConnection) -> Result<Option<User>> {
         use schema;
         use schema::api_tokens::dsl::*;
 
@@ -139,28 +147,27 @@ impl UserModel {
 
         let token_id = Uuid::parse_str(token_id_string)?;
         if let Some(token) = api_tokens.filter(schema::api_tokens::dsl::id.eq(token_id)).first::<ApiToken>(&*db).optional()? {
-            Ok(users.filter(schema::users::dsl::id.eq(token.user_id)).first::<UserModel>(&*db).optional()?)
+            Ok(users.filter(schema::users::dsl::id.eq(token.user_id)).first::<User>(&*db).optional()?)
         } else {
             Ok(None)
         }
     }
 
-    pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &PgConnection) -> QueryResult<Option<Audiobook>> {
+    pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &SqliteConnection) -> QueryResult<Option<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::types::*;
-        use schema::audiobooks::SqlType;
-        use schema::users;
-        use schema::libraries;
-        use schema::library_permissions;
-        Ok(sql::<SqlType>("
-            select a.* from audiobooks a
-            where exists (
-                select * from library_permissions lp
-                where lp.user_id = $1 and lp.library_id = a.library_id and a.id = $2 and a.deleted = false
+        use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
+        use schema::audiobooks::dsl::{audiobooks, id as audiobook_id};
+        use schema::audiobooks::all_columns;
+        use schema::libraries::dsl::libraries;
+
+        Ok(audiobooks.inner_join(
+                libraries.inner_join(library_permissions)
             )
-        ").bind::<Uuid, _>(self.id)
-           .bind::<Uuid, _>(book_id)
-           .get_result::<Audiobook>(&*conn).optional()?)
+            .filter(library_permissions_user_id.eq(self.id))
+            .filter(audiobook_id.eq(book_id))
+            .select(all_columns)
+            .get_result::<Audiobook>(&*conn).optional()?)
     }
 }
 
@@ -177,7 +184,7 @@ pub struct NewApiToken {
     pub user_id: Uuid,
 }
 
-#[derive(Debug, Queryable, Serialize)]
+#[derive(Debug, Queryable, Serialize, Insertable)]
 #[table_name="api_tokens"]
 pub struct ApiToken {
     pub id: Uuid,

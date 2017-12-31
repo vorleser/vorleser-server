@@ -1,7 +1,11 @@
 [package]
-authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
+authors = [
+    "Lukas Stabe <ahti333@gmail.com>",
+    "Hans Ole Hatzel <hhatzel@gmail.com>",
+]
 name = "vorleser-rust"
 version = "0.1.0"
+
 [[bin]]
 name = "vorleser_server_bin"
 path = "src/bin/main.rs"
@@ -10,7 +14,7 @@ path = "src/bin/main.rs"
 argon2rs = "0.2"
 base64 = "~0.6.0"
 clap = "*"
-dotenv = "*"
+diesel_migrations = "0.99.0"
 env_logger = "*"
 error-chain = "0.11.0"
 humanesort = "0.1.0-alpha"
@@ -18,8 +22,8 @@ image = "0.12.3"
 lazy_static = "0.2"
 libc = "0.2"
 log = "*"
-r2d2 = "0.7.1"
-r2d2-diesel = "0.16"
+r2d2 = "0.8.1"
+r2d2-diesel = "0.99"
 regex = "0.2.1"
 ring = "0.12"
 serde = "1"
@@ -35,12 +39,17 @@ features = ["serde"]
 version = "0.4"
 
 [dependencies.diesel]
-features = ["postgres", "uuid", "chrono", "serde_json"]
-version = "0.16"
+features = [
+    "sqlite",
+    "uuid",
+    "chrono",
+    "serde_json",
+]
+version = "0.99"
 
 [dependencies.diesel_codegen]
-features = ["postgres"]
-version = "0.15"
+features = ["sqlite"]
+version = "0.16"
 
 [dependencies.ffmpeg-sys]
 default-features = false
@@ -55,14 +64,19 @@ git = "https://github.com/SergioBenitez/Rocket.git"
 
 [dependencies.rocket_contrib]
 default-features = false
-features = ["json", "uuid"]
+features = [
+    "json",
+    "uuid",
+]
 git = "https://github.com/SergioBenitez/Rocket.git"
 
 [dependencies.uuid]
-features = ["use_std", "serde", "v4"]
+features = [
+    "use_std",
+    "serde",
+    "v4",
+]
 version = "0.5"
-
-[dev-dependencies]
 [dev-dependencies.stainless]
 git = "https://github.com/reem/stainless"
 

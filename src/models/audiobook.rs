@@ -1,4 +1,4 @@
-use uuid::Uuid;
+use helpers::uuid::Uuid;
 use diesel;
 use diesel::prelude::*;
 use schema::audiobooks;
@@ -9,24 +9,13 @@ use diesel::result::Error;
 use ::models::library::Library;
 use ::models::chapter::Chapter;
 use chrono::NaiveDateTime;
-use diesel::pg::PgConnection;
-use models::user::UserModel;
+use diesel::sqlite::SqliteConnection;
+use models::user::User;
 use models::permission::Permission;
 
 #[table_name="audiobooks"]
-#[derive(Insertable, AsChangeset)]
-pub struct NewAudiobook {
-    pub location: String,
-    pub title: String,
-    pub artist: Option<String>,
-    pub length: f64,
-    pub library_id: Uuid,
-    pub hash: Vec<u8>,
-    pub file_extension: String,
-}
-
-#[table_name="audiobooks"]
-#[derive(PartialEq, Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone)]
+#[derive(PartialEq, Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone,
+         Insertable)]
 #[hasmany(chapters)]
 #[belongs_to(Library)]
 pub struct Audiobook {
@@ -48,13 +37,14 @@ pub enum Update {
 }
 
 impl Audiobook {
-    fn find_by_hash(hash: &[u8], conn: &diesel::pg::PgConnection) -> Result<Audiobook, diesel::result::Error> {
+    fn find_by_hash(hash: &[u8], conn: &diesel::sqlite::SqliteConnection) -> Result<Audiobook, diesel::result::Error> {
         audiobooks::dsl::audiobooks.filter(audiobooks::dsl::hash.eq(hash)).get_result(conn)
     }
 
     /// Updates the path of any book with the given hash to the new_path provided.
     /// Returns true if a path is now correct, returns false if no book with this hash exists.
-    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::pg::PgConnection) -> Result<Update, diesel::result::Error> {
+    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::sqlite::SqliteConnection)
+        -> Result<Update, diesel::result::Error> {
         if let Ok(book) = Self::find_by_hash(book_hash, conn) {
             if book.location != new_path.as_ref() {
                 diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::hash.eq(book_hash)))
@@ -67,23 +57,26 @@ impl Audiobook {
         }
     }
 
-    pub fn delete_all_chapters(&self, conn: &diesel::pg::PgConnection) -> diesel::result::QueryResult<usize> {
+    pub fn delete_all_chapters(&self, conn: &diesel::sqlite::SqliteConnection) -> diesel::result::QueryResult<usize> {
         diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
     }
 
     pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
-                            new_book: &NewAudiobook, conn: &PgConnection)
+                            new_book: &Audiobook, conn: &SqliteConnection)
         -> Result<Audiobook, diesel::result::Error> {
         match Self::belonging_to(library)
             .filter(audiobooks::dsl::location.eq(relative_path.as_ref()))
-            .first(&*conn)
+            .first::<Audiobook>(&*conn)
             .optional()? {
                 Some(b) => {
-                    diesel::update(audiobooks::table).set(new_book).get_result::<Audiobook>(conn)?;
-                    Ok(b)
+                    let mut updated = new_book.clone();
+                    updated.id = b.id;
+                    diesel::update(audiobooks::table).set(&updated).execute(conn)?;
+                    Ok(updated)
                 },
                 None => {
-                    diesel::insert(new_book).into(audiobooks::table).get_result::<Audiobook>(conn)
+                    diesel::insert_into(audiobooks::table).values(new_book).execute(conn);
+                    Ok(new_book.clone())
                 }
             }
     }

@@ -38,7 +38,7 @@ impl Fairing for CORS {
 #[route(OPTIONS, "/<path..>")]
 fn options_handler<'a>(path: PathBuf) -> Response<'a> {
     Response::build()
-        .raw_header("Access-Control-Allow-Origin", "http://localhost:9901")
+        .raw_header("Access-Control-Allow-Origin", "*")
         .raw_header("Access-Control-Allow-Methods", "OPTIONS, POST, PUT, GET, DELETE")
         .raw_header("Access-Control-Allow-Headers", "Content-Type, Authorization")
         .finalize()

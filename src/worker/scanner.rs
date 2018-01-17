@@ -568,7 +568,7 @@ pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<OsStr
         *count += 1;
     };
     let mut filetypes: Vec<(OsString, usize)> = counts.drain().collect();
-    filetypes.sort_by(|&(_, v1), &(_, v2)| v2.cmp(&v1));
+    filetypes.sort_by(|&(_, count_left), &(_, count_right)| count_left.cmp(&count_right));
     Ok(filetypes.pop().map(|el| el.0))
 }
 

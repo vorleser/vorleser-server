@@ -291,15 +291,16 @@ impl Scanner {
         };
 
         let chapters = file.get_chapters();
+        let maybe_image = file.get_coverart()?;
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
             let book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn
             )?;
             book.delete_all_chapters(conn);
-            if let Some(image) = file.get_coverart()? {
+            if let Some(image) = maybe_image {
                 self.save_coverart(&book, &image);
-            }
+            };
             self.link_audiobook(&book)?;
             let new_chapters: Vec<Chapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 Chapter {

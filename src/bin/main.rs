@@ -32,7 +32,7 @@ use log::error as error_log;
 static PATH_REGEX: &'static str = "^[^/]+$";
 
 fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
 
     let matches = App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))

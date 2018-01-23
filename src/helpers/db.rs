@@ -19,7 +19,7 @@ pub struct BusyWaitConnectionCustomizer;
 
 impl<C: diesel::Connection, E> CustomizeConnection<C, E> for BusyWaitConnectionCustomizer {
     fn on_acquire(&self, conn: &mut C) -> Result<(), E> {
-        conn.batch_execute("PRAGMA busy_timeout = 5000;").unwrap();
+        conn.batch_execute("PRAGMA busy_timeout = 1000;").unwrap();
         conn.batch_execute("PRAGMA journal_mode = WAL;").unwrap();
         Ok(())
     }

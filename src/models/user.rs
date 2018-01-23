@@ -104,6 +104,7 @@ impl User {
             return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
         }
         conn.transaction(|| -> _ {
+            debug!("Start transaction creating user.");
             let user = User {
                 id: Uuid::new_v4(),
                 created_at: Utc::now().naive_utc(),
@@ -116,6 +117,7 @@ impl User {
             for l in libraries.iter() {
                 LibraryAccess::permit(&user, &l, &*conn)?;
             }
+            debug!("End transaction creating user.");
             Ok(user)
         }).map_err(|e| ErrorKind::Db(e).into())
     }

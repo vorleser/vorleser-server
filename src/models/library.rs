@@ -46,6 +46,7 @@ impl LibraryAccess {
 impl Library {
     pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
         db.transaction(|| -> _ {
+            debug!("Start transaction creating library.");
             let lib = Library{
                 id: Uuid::new_v4(),
                 location: location,
@@ -58,6 +59,7 @@ impl Library {
             for u in users {
                 LibraryAccess::permit(&u, &lib, &*db)?;
             }
+            debug!("End transaction creating library.");
             Ok(lib)
         })
     }

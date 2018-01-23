@@ -294,6 +294,7 @@ impl Scanner {
         let maybe_image = file.get_coverart()?;
 
         let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
+            debug!("Start transaction inserting single audiobook.");
             let book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn
             )?;
@@ -311,6 +312,7 @@ impl Scanner {
                     number: i as i64
                 }
             }).collect();
+            debug!("End transaction inserting single audiobook.");
             Ok((book, diesel::replace_into(chapters::table)
                 .values(&new_chapters).execute(&*conn)?))
         });
@@ -472,6 +474,7 @@ impl Scanner {
 
 
         let inserted = conn.transaction(||  -> Result<Audiobook> {
+            debug!("Start transaction inserting multifile audiobook.");
             let mut book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn
             )?;
@@ -490,6 +493,7 @@ impl Scanner {
             );
             debug!("Moving {} to {}.", temp_target_path, target_path);
             rename(temp_target_path, target_path)?;
+            debug!("End transaction inserting multifile audiobook.");
             Ok(book)
         });
         match inserted {

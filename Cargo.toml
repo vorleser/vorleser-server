@@ -22,8 +22,6 @@ image = "0.12.3"
 lazy_static = "0.2"
 libc = "0.2"
 log = "*"
-r2d2 = "0.8.2"
-r2d2-diesel = "~1.0"
 regex = "0.2.1"
 ring = "0.13.0-alpha"
 serde = "1"
@@ -44,6 +42,7 @@ features = [
     "uuid",
     "chrono",
     "serde_json",
+    "r2d2",
 ]
 version = "1.1.1"
 

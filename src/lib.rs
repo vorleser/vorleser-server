@@ -27,8 +27,6 @@ extern crate validator;
 #[macro_use] extern crate diesel_migrations;
 extern crate chrono;
 extern crate argon2rs;
-extern crate r2d2;
-extern crate r2d2_diesel;
 extern crate ffmpeg_sys as ffmpeg;
 extern crate regex;
 extern crate walkdir;

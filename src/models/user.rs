@@ -65,7 +65,7 @@ impl User {
 
     pub fn accessible_libraries(&self, conn: &SqliteConnection) -> Result<Vec<Library>> {
         use diesel::expression::sql_literal::*;
-        use diesel::types::*;
+        use diesel::sql_types::*;
         use schema::libraries::dsl::libraries;
         use schema::library_permissions::dsl::{library_permissions, user_id};
         use schema::libraries::all_columns;
@@ -78,7 +78,7 @@ impl User {
     pub fn accessible_audiobooks(&self, conn: &SqliteConnection)
                 -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
-        use diesel::types::*;
+        use diesel::sql_types::*;
         use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
         use schema::libraries::dsl::{libraries, id};
         use schema::audiobooks::dsl::{audiobooks, library_id, location, deleted};
@@ -158,7 +158,7 @@ impl User {
 
     pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &SqliteConnection) -> QueryResult<Option<Audiobook>> {
         use diesel::expression::sql_literal::*;
-        use diesel::types::*;
+        use diesel::sql_types::*;
         use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
         use schema::audiobooks::dsl::{audiobooks, id as audiobook_id};
         use schema::audiobooks::all_columns;

@@ -4,14 +4,17 @@ use std::io::Write;
 use diesel::backend::Backend;
 use diesel::sqlite::Sqlite;
 use diesel::row::Row;
-use diesel::types::*;
+use diesel::sql_types::{Text, VarChar};
+use diesel::types::{FromSqlRow, FromSql, ToSql};
+use diesel::serialize::{self, IsNull};
 use rocket::request::FromParam;
 use rocket::http::RawStr;
 
 use uuid;
 use std::str::FromStr;
 
-#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Clone)]
+#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Clone, AsExpression)]
+#[sql_type = "Text"]
 pub struct Uuid(uuid::Uuid);
 
 impl Uuid {
@@ -28,12 +31,10 @@ impl Uuid {
     }
 }
 
-expression_impls!(Text -> Uuid);
-
 impl ToSql<VarChar, Sqlite> for Uuid {
     fn to_sql<W: Write>(
         &self,
-        out: &mut ToSqlOutput<W, Sqlite>,
+        out: &mut serialize::Output<W, Sqlite>,
     ) -> Result<IsNull, Box<Error + Send + Sync>> {
         let hyphenated = self.0.hyphenated().to_string();
         ToSql::<VarChar, Sqlite>::to_sql(&hyphenated, out)

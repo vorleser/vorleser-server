@@ -7,7 +7,7 @@ use r2d2_diesel::ConnectionManager;
 use r2d2::{self, CustomizeConnection};
 use std::env;
 use diesel::dsl::sql;
-use diesel::{self, ExecuteDsl};
+use diesel;
 
 pub type Pool = r2d2::Pool<ConnectionManager<SqliteConnection>>;
 pub type PooledConnection = r2d2::PooledConnection<ConnectionManager<SqliteConnection>>;

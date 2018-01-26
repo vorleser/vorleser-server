@@ -22,7 +22,6 @@ use vorleser_server::models::library::Library;
 use vorleser_server::models::user::{User, NewUser};
 use vorleser_server::schema::users;
 use vorleser_server::config::{self, Config, WebConfig};
-use diesel::LoadDsl;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand};
 use vorleser_server::helpers::db::{Pool, init_db_pool, init_db};

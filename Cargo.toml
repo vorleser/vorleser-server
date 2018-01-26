@@ -47,10 +47,6 @@ features = [
 ]
 version = "1.1.1"
 
-[dependencies.diesel_codegen]
-features = ["sqlite"]
-version = "0.16"
-
 [dependencies.ffmpeg-sys]
 default-features = false
 features = ["avformat"]

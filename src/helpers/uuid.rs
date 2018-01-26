@@ -7,13 +7,14 @@ use diesel::row::Row;
 use diesel::sql_types::{Text, VarChar};
 use diesel::types::{FromSqlRow, FromSql, ToSql};
 use diesel::serialize::{self, IsNull};
+use diesel::deserialize;
 use rocket::request::FromParam;
 use rocket::http::RawStr;
 
 use uuid;
 use std::str::FromStr;
 
-#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Clone, AsExpression)]
+#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Clone, AsExpression, FromSqlRow)]
 #[sql_type = "Text"]
 pub struct Uuid(uuid::Uuid);
 
@@ -31,11 +32,11 @@ impl Uuid {
     }
 }
 
-impl ToSql<VarChar, Sqlite> for Uuid {
+impl ToSql<Text, Sqlite> for Uuid {
     fn to_sql<W: Write>(
         &self,
         out: &mut serialize::Output<W, Sqlite>,
-    ) -> Result<IsNull, Box<Error + Send + Sync>> {
+    ) -> serialize::Result {
         let hyphenated = self.0.hyphenated().to_string();
         ToSql::<VarChar, Sqlite>::to_sql(&hyphenated, out)
     }
@@ -43,18 +44,12 @@ impl ToSql<VarChar, Sqlite> for Uuid {
 
 impl FromSql<VarChar, Sqlite> for Uuid where {
     fn from_sql(value: Option<&<Sqlite as Backend>::RawValue>)
-        -> Result<Self, Box<Error + Send + Sync>> {
+        -> deserialize::Result<Self> {
         let text: String = FromSql::<Text, Sqlite>::from_sql(value)?;
         match uuid::Uuid::from_str(&text) {
             Err(_) => Err("Can not parse UUID datatype.".into()),
             Ok(value) => Ok(Uuid(value))
         }
-    }
-}
-
-impl FromSqlRow<Text, Sqlite> for Uuid {
-    fn build_from_row<T: Row<Sqlite>>(row: &mut T) -> Result<Self, Box<Error + Send + Sync>> {
-        Self::from_sql(row.take())
     }
 }
 

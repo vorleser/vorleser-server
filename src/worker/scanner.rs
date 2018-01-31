@@ -10,7 +10,7 @@ use std::os::unix::fs;
 use std::fs::{create_dir, rename};
 use log::error as error_log;
 
-use walkdir::{WalkDir, WalkDirIterator};
+use walkdir::WalkDir;
 use walkdir;
 use regex::Regex;
 use diesel;
@@ -353,7 +353,7 @@ impl Scanner {
         let walker = WalkDir::new(book_path)
             .follow_links(true)
             .sort_by(
-                |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
+                |s, o| s.path().to_string_lossy().humane_cmp(&o.path().to_string_lossy())
             );
 
         let mut all_chapters: Vec<Chapter> = Vec::new();

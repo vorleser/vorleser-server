@@ -1,7 +1,7 @@
 use std::fs::File;
 use ring::digest;
 use std::io::Read;
-use walkdir::{WalkDir, WalkDirIterator};
+use walkdir::WalkDir;
 use std::path::{Path, PathBuf};
 use humanesort::HumaneOrder;
 
@@ -33,7 +33,7 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
     let walker = WalkDir::new(path.as_ref())
         .follow_links(true)
         .sort_by(
-            |s, o| s.to_string_lossy().humane_cmp(&o.to_string_lossy())
+            |first, second| first.path().to_string_lossy().humane_cmp(&second.path().to_string_lossy())
         );
     let mut ctx = digest::Context::new(&digest::SHA256);
     for entry in walker {

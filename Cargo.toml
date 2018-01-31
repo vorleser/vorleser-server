@@ -30,7 +30,7 @@ serde_json = "1"
 toml = "0.4.5"
 validator = "0.6"
 validator_derive = "0.6"
-walkdir = "1" # TODO: Update to 2.0
+walkdir = "2"
 
 [dependencies.chrono]
 features = ["serde"]

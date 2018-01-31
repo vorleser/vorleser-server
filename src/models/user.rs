@@ -7,7 +7,8 @@ use diesel::sqlite::SqliteConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
 use models::audiobook::Audiobook;
-use models::library::{Library, LibraryAccess};
+use models::library::Library;
+use models::library_permission::LibraryPermission;
 use std::result::Result as StdResult;
 use diesel;
 use diesel::result::QueryResult;
@@ -115,7 +116,7 @@ impl User {
             diesel::insert_into(users::table).values(&user).execute(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
             for l in libraries.iter() {
-                LibraryAccess::permit(&user, &l, &*conn)?;
+                LibraryPermission::permit(&user, &l, &*conn)?;
             }
             debug!("End transaction creating user.");
             Ok(user)

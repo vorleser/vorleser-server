@@ -3,9 +3,9 @@ use chrono::NaiveDateTime;
 use std::time::SystemTime;
 use diesel;
 use diesel::prelude::*;
-use schema::{libraries, audiobooks, library_permissions};
-use schema;
+use schema::{libraries, audiobooks, library_permissions, self};
 use models::audiobook::Audiobook;
+use models::library_permission::LibraryPermission;
 use helpers::db;
 use models::user::User;
 
@@ -23,26 +23,6 @@ pub struct Library {
     pub last_scan: Option<NaiveDateTime>
 }
 
-#[table_name="library_permissions"]
-#[primary_key(library_id, user_id)]
-#[derive(Debug, Clone, Queryable, Associations, Identifiable, Insertable)]
-pub struct LibraryAccess {
-    pub library_id: Uuid,
-    pub user_id: Uuid,
-}
-
-impl LibraryAccess {
-    pub fn permit(user: &User, library: &Library, db: &db::Connection) -> Result<LibraryAccess, diesel::result::Error> {
-        let permission = LibraryAccess {
-            library_id: library.id.clone(),
-            user_id: user.id.clone(),
-        };
-        diesel::insert_into(library_permissions::table)
-            .values(&permission).execute(&*db)?;
-        Ok(permission)
-    }
-}
-
 impl Library {
     pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
         db.transaction(|| -> _ {
@@ -57,7 +37,7 @@ impl Library {
                 .values(&lib).execute(&*db)?;
             let users: Vec<User> = schema::users::table.load(&*db)?;
             for u in users {
-                LibraryAccess::permit(&u, &lib, &*db)?;
+                LibraryPermission::permit(&u, &lib, &*db)?;
             }
             debug!("End transaction creating library.");
             Ok(lib)

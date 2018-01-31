@@ -4,7 +4,8 @@ use diesel::prelude::*;
 use helpers::db::init_test_db_pool;
 use ::*;
 use models::user::{NewUser, User};
-use models::library::{LibraryAccess, Library};
+use models::library::Library;
+use models::library_permission::LibraryPermission;
 use models::audiobook::Audiobook;
 use helpers::uuid::Uuid;
 
@@ -35,7 +36,7 @@ describe! user_tests {
         diesel::insert_into(schema::libraries::table)
             .values(&inaccessible_lib).execute(&*db).unwrap();
 
-        diesel::insert_into(schema::library_permissions::table).values(&LibraryAccess {
+        diesel::insert_into(schema::library_permissions::table).values(&LibraryPermission {
             library_id: accessible_lib.id.clone(),
             user_id: user.id.clone()
         }).execute(&*db);

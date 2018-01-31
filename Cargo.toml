@@ -12,25 +12,25 @@ path = "src/bin/main.rs"
 
 [dependencies]
 argon2rs = "0.2"
-base64 = "~0.6.0"
+base64 = "~0.9.0"
 clap = "*"
 diesel_migrations = "1.1.0"
 env_logger = "*"
 error-chain = "0.11.0"
 humanesort = "0.1.0-alpha"
-image = "0.12.3"
-lazy_static = "0.2"
+image = "0.18.0"
+lazy_static = "1"
 libc = "0.2"
 log = "*"
-regex = "0.2.1"
+regex = "0.2"
 ring = "0.13.0-alpha"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
 toml = "0.4.5"
-validator = "0.4"
-validator_derive = "0.5"
-walkdir = "1"
+validator = "0.6"
+validator_derive = "0.6"
+walkdir = "1" # TODO: Update to 2.0
 
 [dependencies.chrono]
 features = ["serde"]

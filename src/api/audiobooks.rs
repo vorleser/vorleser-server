@@ -18,7 +18,7 @@ use rocket::response::NamedFile;
 use config::Config;
 
 #[get("/data/<book_id>")]
-pub fn data_file(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<RangedFile, APIResponse> {
+pub fn get_data_file(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<RangedFile, APIResponse> {
     match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(_) => (),
         None => return Err(responses::not_found())
@@ -63,7 +63,7 @@ pub fn get_audiobooks(current_user: User, db: DB) -> Result<APIResponse, APIResp
 }
 
 #[get("/audiobooks/<book_id>")]
-pub fn audiobook(current_user: User, db: DB, book_id: Uuid) -> Result<APIResponse, APIResponse> {
+pub fn get_audiobook(current_user: User, db: DB, book_id: Uuid) -> Result<APIResponse, APIResponse> {
     use schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,

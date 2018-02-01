@@ -54,13 +54,13 @@ pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config:
         .manage(pool)
         .manage(config.clone())
         .mount("/", routes![options_handler])
-        .mount("/", routes![api::audiobooks::data_file])
+        .mount("/", routes![api::audiobooks::get_data_file])
         .mount("/api/", routes![
             api::libraries::libraries,
             api::libraries::all_the_things,
             api::libraries::update_playstates,
             api::audiobooks::get_coverart,
-            api::audiobooks::audiobook,
+            api::audiobooks::get_audiobook,
             api::audiobooks::get_audiobooks,
         ])
         .mount("/api/auth/", routes![

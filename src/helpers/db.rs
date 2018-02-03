@@ -48,7 +48,6 @@ pub fn init_test_db_pool() -> Pool {
         .build(manager)
         .expect("Failed to create pool.");
     ::embedded_migrations::run(&*pool.get().unwrap());
-    (&*pool.get().unwrap()).begin_test_transaction();
     pool
 }
 

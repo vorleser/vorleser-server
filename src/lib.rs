@@ -46,4 +46,4 @@ pub mod config;
 #[cfg(test)]
 mod tests;
 
-// embed_migrations!("migrations");
+embed_migrations!("migrations");

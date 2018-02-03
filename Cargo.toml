@@ -93,6 +93,10 @@ name = "vorleser_server"
 path = "src/lib.rs"
 
 [patch.crates-io]
+diesel = { git = "https://github.com/diesel-rs/diesel.git" }
 diesel_derives = { git = "https://github.com/diesel-rs/diesel.git" }
 diesel_derives2 = { git = "https://github.com/diesel-rs/diesel.git" }
-# diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }
+diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }
+migrations_internals = { git = "https://github.com/diesel-rs/diesel.git" }
+migrations_macros = { git = "https://github.com/diesel-rs/diesel.git" }
+infer_schema_macros = { git = "https://github.com/diesel-rs/diesel.git" }

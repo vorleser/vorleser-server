@@ -35,8 +35,14 @@ pub fn all_the_things(current_user: User, db: DB) -> APIResponse {
 
 #[post("/update_playstates", data = "<playstate>", format = "application/json")]
 pub fn update_playstates(playstate: Json<Vec<ApiPlaystate>>, current_user: User, db: DB) -> APIResponse {
-    for state in playstate.into_inner() {
-        state.into_playstate(&current_user).upsert(&*db).unwrap().into_api_playstate();
-    }
+    use diesel;
+    // TODO: Don't ignore errors here
+    db.exclusive_transaction(|| -> Result<(), diesel::result::Error> {
+        let res = for state in playstate.into_inner() {
+            state.into_playstate(&current_user)
+                .upsert(&*db)?.into_api_playstate();
+        };
+        Ok(())
+    });
     ok().data(json!({}))
 }

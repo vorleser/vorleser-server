@@ -24,10 +24,8 @@ impl LibraryPermission {
             library_id: library.id.clone(),
             user_id: user.id.clone(),
         };
-        db.exclusive_transaction(|| -> _ {
-            diesel::insert_into(library_permissions::table)
-                .values(&permission).execute(&*db)
-        })?;
+        diesel::insert_into(library_permissions::table)
+            .values(&permission).execute(&*db)?;
         Ok(permission)
     }
 }

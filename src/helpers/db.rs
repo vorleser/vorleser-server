@@ -47,7 +47,7 @@ pub fn init_test_db_pool() -> Pool {
         .max_size(1)
         .build(manager)
         .expect("Failed to create pool.");
-    ::embedded_migrations::run(&*pool.get().unwrap());
+    // ::embedded_migrations::run(&*pool.get().unwrap());
     (&*pool.get().unwrap()).begin_test_transaction();
     pool
 }
@@ -56,7 +56,7 @@ pub fn init_test_db_pool() -> Pool {
 pub fn init_db(url: String) {
     info!("Initializing database at {}", url);
     let pool = init_db_pool_with_count(url, 1);
-    ::embedded_migrations::run(&*pool.get().unwrap());
+    // ::embedded_migrations::run(&*pool.get().unwrap());
 }
 
 pub struct DB(PooledConnection);

@@ -293,7 +293,7 @@ impl Scanner {
         let chapters = file.get_chapters();
         let maybe_image = file.get_coverart()?;
 
-        let inserted = conn.transaction(|| -> Result<(Audiobook, usize)> {
+        let inserted = conn.exclusive_transaction(|| -> Result<(Audiobook, usize)> {
             debug!("Start transaction inserting single audiobook.");
             let book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn
@@ -473,7 +473,7 @@ impl Scanner {
         )?;
 
 
-        let inserted = conn.transaction(||  -> Result<Audiobook> {
+        let inserted = conn.exclusive_transaction(||  -> Result<Audiobook> {
             debug!("Start transaction inserting multifile audiobook.");
             let mut book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn

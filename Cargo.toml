@@ -14,7 +14,6 @@ path = "src/bin/main.rs"
 argon2rs = "0.2"
 base64 = "~0.9.0"
 clap = "*"
-diesel_migrations = "1.1.0"
 env_logger = "*"
 error-chain = "0.11.0"
 humanesort = "0.1.0-alpha"
@@ -22,7 +21,7 @@ image = "0.18.0"
 lazy_static = "1"
 libc = "0.2"
 log = "*"
-regex = "0.2"
+regex = "0.2.1"
 ring = "0.13.0-alpha"
 serde = "1"
 serde_derive = "1"
@@ -36,6 +35,18 @@ walkdir = "2"
 features = ["serde"]
 version = "0.4"
 
+[dependencies.diesel_infer_schema]
+features = [
+    "sqlite"
+]
+git = "https://github.com/diesel-rs/diesel.git"
+
+[dependencies.diesel_migrations]
+features = [
+    "sqlite"
+]
+git = "https://github.com/diesel-rs/diesel.git"
+
 [dependencies.diesel]
 features = [
     "sqlite",
@@ -43,13 +54,15 @@ features = [
     "chrono",
     "serde_json",
     "r2d2",
+    "unstable",
 ]
-version = "1.1.1"
+# version = "1.1.1"
+git = "https://github.com/diesel-rs/diesel.git"
 
 [dependencies.ffmpeg-sys]
 default-features = false
 features = ["avformat"]
-version = "3.3.3"
+version = "~3.3"
 
 [dependencies.rocket]
 git = "https://github.com/SergioBenitez/Rocket.git"
@@ -78,3 +91,8 @@ git = "https://github.com/reem/stainless"
 [lib]
 name = "vorleser_server"
 path = "src/lib.rs"
+
+[patch.crates-io]
+diesel_derives = { git = "https://github.com/diesel-rs/diesel.git" }
+diesel_derives2 = { git = "https://github.com/diesel-rs/diesel.git" }
+# diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }

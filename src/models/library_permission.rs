@@ -9,6 +9,8 @@ use helpers::db;
 use models::user::User;
 
 #[table_name="library_permissions"]
+#[belongs_to(User, foreign_key="user_id")]
+#[belongs_to(Library, foreign_key="library_id")]
 #[primary_key(library_id, user_id)]
 #[derive(Debug, Clone, Queryable, Associations, Identifiable, Insertable)]
 pub struct LibraryPermission {
@@ -22,8 +24,10 @@ impl LibraryPermission {
             library_id: library.id.clone(),
             user_id: user.id.clone(),
         };
-        diesel::insert_into(library_permissions::table)
-            .values(&permission).execute(&*db)?;
+        db.exclusive_transaction(|| -> _ {
+            diesel::insert_into(library_permissions::table)
+                .values(&permission).execute(&*db)
+        })?;
         Ok(permission)
     }
 }

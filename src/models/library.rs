@@ -10,7 +10,7 @@ use helpers::db;
 use models::user::User;
 
 #[table_name="libraries"]
-#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Associations, Identifiable, Serialize,
+#[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Identifiable, Serialize,
          Insertable)]
 #[has_many(audiobooks, library_permissions)]
 pub struct Library {
@@ -25,7 +25,7 @@ pub struct Library {
 
 impl Library {
     pub fn create(location: String, audiobook_regex: String, db: &db::Connection) -> Result<Library, diesel::result::Error> {
-        db.transaction(|| -> _ {
+        db.exclusive_transaction(|| -> _ {
             debug!("Start transaction creating library.");
             let lib = Library{
                 id: Uuid::new_v4(),

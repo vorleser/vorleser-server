@@ -104,7 +104,7 @@ impl User {
         if results.is_ok() {
             return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
         }
-        conn.transaction(|| -> _ {
+        conn.exclusive_transaction(|| -> _ {
             debug!("Start transaction creating user.");
             let user = User {
                 id: Uuid::new_v4(),

@@ -123,10 +123,8 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
                     this_file_duration += pkt.duration;
                     pkt.dts += previous_files_duration;
                     pkt.pts += previous_files_duration;
+                    trace!("Providing muxer with {} as dts.", pkt.dts);
 
-                    if pkt.pts < 0 || pkt.dts < 0 {
-                        println!("foo");
-                    }
                     let res = try!(out.write_frame(&mut pkt));
                     unsafe {
                         av_free_packet(&mut pkt);
@@ -136,7 +134,7 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
                 None => break
             }
         }
-        previous_files_duration += this_file_duration;
+        previous_files_duration += this_file_duration + 1;
     }
     info!("writing trailer");
     try!(out.write_trailer());

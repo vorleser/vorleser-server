@@ -3,8 +3,7 @@ services:
 before_install:
   - docker pull hatzel/vorleser-test
 script:
-  - docker-compose up -d
-  - docker-compose run app bash -c "cargo test"
+  - docker run -v $(pwd):/vorleser -w /vorleser -i hatzel/vorleser-test cargo test
 cache:
   directories:
     - target

@@ -86,7 +86,7 @@ features = [
 ]
 version = "0.5"
 [dev-dependencies.stainless]
-git = "https://github.com/reem/stainless"
+git = "https://github.com/PSeitz/stainless"
 
 [lib]
 name = "vorleser_server"

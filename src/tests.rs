@@ -77,7 +77,62 @@ describe! api_tests {
     it "should not work with a wrong auth token" {
         let res = get(&client, "/api/auth/whoami", Some("secret"));
         assert_eq!(res.status(), Status::BadRequest);
-        // TODO: test with valid uuid, result should then be unauthorized
+        let res2 = get(&client, "/api/auth/whoami", Some("de362999-55a1-4d91-9adc-b2ca2c013c97"));
+        assert_eq!(res2.status(), Status::Unauthorized);
+    }
+
+    it "should log you out" {
+        let second_auth_token = {
+            let data = json!({"email": "test@test.com", "password": "lol"});
+            let mut login_resp = post(&client, "/api/auth/login", &data, None);
+
+            let data: Value = serde_json::from_str(
+                &login_resp.body_string()
+                    .expect("no body string")
+            ).expect("JSON failed");
+            &data.get("secret")
+                .expect("no auth token")
+                .as_str()
+                .expect("not valid utf8")
+                .to_owned()
+        };
+
+        let logout_resp = post(
+            &client, "/api/auth/logout", &serde_json::Value::Null, Some(auth_token)
+        );
+        assert_eq!(logout_resp.status(), Status::Ok);
+        let whoami_resp = get(&client, "/api/auth/whoami", Some(auth_token));
+        assert_eq!(whoami_resp.status(), Status::Unauthorized);
+
+        let whoami_resp_second = get(&client, "/api/auth/whoami", Some(second_auth_token));
+        assert_eq!(whoami_resp_second.status(), Status::Ok);
+    }
+
+    it "should logout everyone" {
+        let second_auth_token = {
+            let data = json!({"email": "test@test.com", "password": "lol"});
+            let mut login_resp = post(&client, "/api/auth/login", &data, None);
+
+            let data: Value = serde_json::from_str(
+                &login_resp.body_string()
+                    .expect("no body string")
+            ).expect("JSON failed");
+            &data.get("secret")
+                .expect("no auth token")
+                .as_str()
+                .expect("not valid utf8")
+                .to_owned()
+        };
+
+        let logout_resp = post(
+            &client, "/api/auth/logout_all", &serde_json::Value::Null, Some(auth_token)
+        );
+
+        assert_eq!(logout_resp.status(), Status::Ok);
+        let whoami_resp = get(&client, "/api/auth/whoami", Some(auth_token));
+        assert_eq!(whoami_resp.status(), Status::Unauthorized);
+        let whoami_resp = get(&client, "/api/auth/whoami", Some(second_auth_token));
+        assert_eq!(whoami_resp.status(), Status::Unauthorized);
     }
 
     it "should show libraries" {

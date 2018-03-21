@@ -2,8 +2,11 @@ use rocket::Outcome;
 use rocket::http::Status;
 use rocket::request::{self, Request, FromRequest};
 
-use models::user::{self, User};
+use models::user::{self, User, ApiToken};
 use models::library::Library;
+use diesel;
+use diesel::prelude::*;
+use helpers::uuid::Uuid;
 use helpers::db::DB;
 use responses::{APIResponse, bad_request, unauthorized, forbidden, not_found, internal_server_error,
                 service_unavailable};
@@ -14,6 +17,26 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
     type Error = ();
 
     fn from_request(request: &'a Request<'r>) -> request::Outcome<User, ()> {
+        use schema::users::dsl;
+
+        let token_result = <ApiToken as FromRequest>::from_request(request);
+        let db = <DB as FromRequest>::from_request(request).unwrap();
+        println!("{:?}", token_result);
+        match token_result {
+            Outcome::Success(token) => Outcome::Success(
+                dsl::users.filter(dsl::id.eq(token.user_id))
+                    .first::<User>(&*db)
+                    .unwrap()),
+            Outcome::Failure(err) => Outcome::Failure(err),
+            Outcome::Forward(f) => Outcome::Forward(f)
+        }
+    }
+}
+
+impl<'a, 'r> FromRequest<'a, 'r> for ApiToken {
+    type Error = ();
+
+    fn from_request(request: &'a Request<'r>) -> request::Outcome<ApiToken, ()> {
         let db = <DB as FromRequest>::from_request(request).unwrap();
         let mut tokens = request.headers().get("Authorization");
         let token = match tokens.next() {
@@ -30,13 +53,26 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
                 }
             }
         };
+        use schema;
+        use schema::api_tokens::dsl::api_tokens;
 
-        match User::get_user_from_api_token(token, &*db) {
-            Ok(Some(user)) => Outcome::Success(user),
-            Err(user::Error(user::ErrorKind::Db(_), _)) => Outcome::Failure((Status::InternalServerError, ())),
-            Err(user::Error(user::ErrorKind::UuidParse(_), _)) => Outcome::Failure((Status::BadRequest, ())),
-            _ => Outcome::Failure((Status::Unauthorized, ())),
+        use schema::api_tokens::dsl::id as token_id;
+        use diesel::query_dsl::filter_dsl::FilterDsl;
+        use diesel::RunQueryDsl;
+        use diesel::prelude::*;
+
+        if let Ok(submitted_id) = Uuid::parse_str(token) {
+            let token_option = diesel::query_dsl::filter_dsl::
+                FilterDsl::filter(api_tokens, token_id.eq(&submitted_id))
+                .first::<ApiToken>(&*db)
+                .optional()
+                .expect("Database error!");
+            match token_option {
+                Some(token) => Outcome::Success(token),
+                None => Outcome::Failure((Status::Unauthorized, ()))
+            }
+        } else {
+            Outcome::Failure((Status::BadRequest, ()))
         }
-
     }
 }

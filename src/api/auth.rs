@@ -3,7 +3,7 @@ use validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;
 
-use models::user::{User, NewUser};
+use models::user::{User, NewUser, ApiToken};
 use schema::users;
 use schema::users::dsl::*;
 use helpers::db::DB;
@@ -44,4 +44,23 @@ pub fn register(user: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIRe
 #[get("/whoami")]
 pub fn whoami(current_user: User) -> APIResponse {
     ok().data(json!(&current_user))
+}
+
+#[post("/logout")]
+pub fn logout(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIResponse> {
+    use schema::api_tokens::table;
+    use schema::api_tokens::dsl::id;
+
+    let ret = diesel::delete(table.filter(id.eq(token.id))).execute(&*db)?;
+    println!("{}", ret);
+    Ok(ok())
+}
+
+#[post("/logout_all")]
+pub fn logout_all(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIResponse> {
+    use schema::api_tokens::table;
+    use schema::api_tokens::dsl::user_id;
+
+    diesel::delete(table.filter(user_id.eq(current_user.id))).execute(&*db)?;
+    Ok(ok())
 }

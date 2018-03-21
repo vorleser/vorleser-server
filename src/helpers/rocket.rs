@@ -65,6 +65,8 @@ pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config:
         ])
         .mount("/api/auth/", routes![
                api::auth::login,
+               api::auth::logout,
+               api::auth::logout_all,
                api::auth::register,
                api::auth::whoami,
         ]))

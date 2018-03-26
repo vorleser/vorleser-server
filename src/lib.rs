@@ -43,6 +43,8 @@ pub mod responses;
 pub mod helpers;
 pub mod worker;
 pub mod config;
+#[cfg(feature = "webfrontend")]
+pub mod static_files;
 #[cfg(test)]
 mod tests;
 

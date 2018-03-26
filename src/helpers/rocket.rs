@@ -44,7 +44,27 @@ fn options_handler<'a>(path: PathBuf) -> Response<'a> {
         .finalize()
 }
 
+#[cfg(feature = "webfrontend")]
 pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
+    use ::static_files;
+    Ok(base_factory(pool, config)?
+        .mount("/", routes![
+               static_files::get_index,
+               static_files::get_elmjs,
+               static_files::get_sessionjs,
+               static_files::get_audiojs,
+               static_files::get_appcss,
+               static_files::get_robotocss,
+               static_files::get_materialcss,
+        ]))
+}
+
+#[cfg(not(feature = "webfrontend"))]
+pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
+    base_factory(pool, config)
+}
+
+pub fn base_factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
     let rocket_config = Config::build(Environment::Production)
         .address(config.web.address.clone())
         .port(config.web.port.clone())

@@ -29,9 +29,9 @@ walkdir = "2"
 rocket = "= 0.3.6"
 rocket_codegen = "= 0.3.6"
 
-# [dependencies.sentry]
-# features = ["with_error_chain"]
-# version = "~0.3"
+[dependencies.sentry]
+features = ["with_error_chain"]
+version = "0.5"
 
 [dependencies.rocket_contrib]
 default-features = false

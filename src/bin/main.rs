@@ -11,22 +11,27 @@ extern crate clap;
 extern crate regex;
 extern crate vorleser_server;
 extern crate diesel;
+extern crate sentry;
 
 use std::error::Error;
 use std::path::PathBuf;
-use vorleser_server::worker::scanner::Scanner;
+
+use sentry::integrations::panic::register_panic_handler;
+use sentry::integrations::failure::capture_error;
+use diesel::prelude::*;
+use clap::{Arg, App, SubCommand};
 use regex::Regex;
+use log::error as error_log;
+
+use vorleser_server::worker::scanner::Scanner;
 use vorleser_server::schema::libraries;
 use vorleser_server::schema::libraries::dsl::*;
 use vorleser_server::models::library::Library;
 use vorleser_server::models::user::{User, NewUser};
 use vorleser_server::schema::users;
 use vorleser_server::config::{self, Config, WebConfig};
-use diesel::prelude::*;
-use clap::{Arg, App, SubCommand};
 use vorleser_server::helpers::db::{Pool, init_db_pool, init_db};
 use vorleser_server::helpers;
-use log::error as error_log;
 
 static PATH_REGEX: &'static str = "^[^/]+$";
 
@@ -99,6 +104,11 @@ fn main() {
         info!("Succeeded loading config!")
     }
     let mut conf = config_result.unwrap();
+
+    if let Some(ref dsn) = conf.sentry_dsn {
+        let _sentry = sentry::init(dsn.as_str());
+        register_panic_handler();
+    }
 
     init_db(conf.database.clone());
     let pool = init_db_pool(conf.database.clone());

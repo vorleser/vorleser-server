@@ -53,7 +53,8 @@ pub struct Config {
     #[serde(default)] // Default to false
     pub register_web: bool,
     pub database: String,
-    pub web: WebConfig
+    pub web: WebConfig,
+    pub sentry_dsn: Option<String>,
 }
 
 #[derive(Deserialize, Clone)]

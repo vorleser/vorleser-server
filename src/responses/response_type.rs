@@ -1,5 +1,6 @@
 use std::io::Cursor;
-use rocket_contrib::json::{JsonValue, Json};
+use rocket_contrib::json::{Json};
+use rocket_contrib::Value;
 use rocket::request::Request;
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
@@ -12,7 +13,7 @@ use models::user::ErrorKind as UserErrorKind;
 #[derive(Debug)]
 pub struct APIResponse {
     pub(super) message: Option<String>,
-    pub(super) data: Option<JsonValue>,
+    pub(super) data: Option<Value>,
     pub(super) status: Status,
 }
 
@@ -24,7 +25,7 @@ impl APIResponse {
     }
 
     /// Change the data to the `Response`.
-    pub fn data(mut self, data: JsonValue) -> Self {
+    pub fn data(mut self, data: Value) -> Self {
         self.data = Some(data);
         self
     }

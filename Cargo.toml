@@ -1,18 +1,14 @@
 [package]
-authors = [
-    "Lukas Stabe <ahti333@gmail.com>",
-    "Hans Ole Hatzel <hhatzel@gmail.com>",
-]
+authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
 name = "vorleser-rust"
 version = "0.1.0"
-
 [[bin]]
 name = "vorleser_server_bin"
 path = "src/bin/main.rs"
 
 [dependencies]
 argon2rs = "0.2"
-base64 = "~0.9.0"
+base64 = "0.9.0"
 clap = "*"
 env_logger = "*"
 error-chain = "0.11.0"
@@ -22,7 +18,7 @@ lazy_static = "1"
 libc = "0.2"
 log = "*"
 regex = "0.2.1"
-ring = "0.13.0-alpha"
+ring = "~0.11"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
@@ -30,10 +26,25 @@ toml = "0.4.5"
 validator = "0.6"
 validator_derive = "0.6"
 walkdir = "2"
+rocket = "= 0.3.6"
+rocket_codegen = "= 0.3.6"
+
+[dependencies.sentry]
+features = ["with_error_chain"]
+version = "0.5"
+
+[dependencies.rocket_contrib]
+default-features = false
+features = ["json", "uuid"]
+version = "= 0.3.6"
 
 [dependencies.chrono]
 features = ["serde"]
 version = "0.4"
+
+[dependencies.diesel]
+features = ["sqlite", "uuid", "chrono", "serde_json", "r2d2", "unstable"]
+version = "~1.2"
 
 [dependencies.diesel_infer_schema]
 features = ["sqlite"]
@@ -43,50 +54,23 @@ version = "~1.2"
 features = ["sqlite"]
 version = "~1.2"
 
-[dependencies.diesel]
-features = [
-    "sqlite",
-    "uuid",
-    "chrono",
-    "serde_json",
-    "r2d2",
-    "unstable",
-]
-version = "~1.2"
-
 [dependencies.ffmpeg-sys]
 default-features = false
 features = ["avformat"]
 version = "~3.3"
 
-[dependencies.rocket]
-git = "https://github.com/SergioBenitez/Rocket.git"
-
-[dependencies.rocket_codegen]
-git = "https://github.com/SergioBenitez/Rocket.git"
-
-[dependencies.rocket_contrib]
-default-features = false
-features = [
-    "json",
-    "uuid",
-]
-git = "https://github.com/SergioBenitez/Rocket.git"
-
 [dependencies.uuid]
-features = [
-    "use_std",
-    "serde",
-    "v4",
-]
+features = ["use_std", "serde", "v4"]
 version = "0.5"
+
+[dev-dependencies]
 [dev-dependencies.stainless]
 git = "https://github.com/PSeitz/stainless"
 rev = "12f1d379bc722223868c037bc3b902ba3dc48d30"
 
+[features]
+webfrontend = []
+
 [lib]
 name = "vorleser_server"
 path = "src/lib.rs"
-
-[features]
-webfrontend = []

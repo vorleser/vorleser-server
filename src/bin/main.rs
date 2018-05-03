@@ -105,10 +105,12 @@ fn main() {
     }
     let mut conf = config_result.unwrap();
 
+    let mut sentry_guard: Option<sentry::ClientInitGuard> = None;
     if let Some(ref dsn) = conf.sentry_dsn {
-        let _sentry = sentry::init(dsn.as_str());
-        register_panic_handler();
+        sentry_guard = Some(sentry::init(dsn.as_str()));
     }
+    sentry::capture_message("This is a test", sentry::Level::Debug);
+    register_panic_handler();
 
     init_db(conf.database.clone());
     let pool = init_db_pool(conf.database.clone());

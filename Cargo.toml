@@ -1,11 +1,7 @@
 [package]
-authors = [
-    "Lukas Stabe <ahti333@gmail.com>",
-    "Hans Ole Hatzel <hhatzel@gmail.com>",
-]
+authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
 name = "vorleser-rust"
 version = "0.1.0"
-
 [[bin]]
 name = "vorleser_server_bin"
 path = "src/bin/main.rs"
@@ -31,9 +27,17 @@ validator = "0.6"
 validator_derive = "0.6"
 walkdir = "2"
 
+# [dependencies.sentry]
+# features = ["with_error_chain"]
+# version = "~0.3"
+
 [dependencies.chrono]
 features = ["serde"]
 version = "0.4"
+
+[dependencies.diesel]
+features = ["sqlite", "uuid", "chrono", "serde_json", "r2d2", "unstable"]
+version = "~1.2"
 
 [dependencies.diesel_infer_schema]
 features = ["sqlite"]
@@ -41,17 +45,6 @@ version = "~1.2"
 
 [dependencies.diesel_migrations]
 features = ["sqlite"]
-version = "~1.2"
-
-[dependencies.diesel]
-features = [
-    "sqlite",
-    "uuid",
-    "chrono",
-    "serde_json",
-    "r2d2",
-    "unstable",
-]
 version = "~1.2"
 
 [dependencies.ffmpeg-sys]
@@ -67,26 +60,21 @@ git = "https://github.com/SergioBenitez/Rocket.git"
 
 [dependencies.rocket_contrib]
 default-features = false
-features = [
-    "json",
-    "uuid",
-]
+features = ["json", "uuid"]
 git = "https://github.com/SergioBenitez/Rocket.git"
 
 [dependencies.uuid]
-features = [
-    "use_std",
-    "serde",
-    "v4",
-]
+features = ["use_std", "serde", "v4"]
 version = "0.5"
+
+[dev-dependencies]
 [dev-dependencies.stainless]
 git = "https://github.com/PSeitz/stainless"
 rev = "12f1d379bc722223868c037bc3b902ba3dc48d30"
 
+[features]
+webfrontend = []
+
 [lib]
 name = "vorleser_server"
 path = "src/lib.rs"
-
-[features]
-webfrontend = []

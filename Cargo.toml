@@ -8,7 +8,7 @@ path = "src/bin/main.rs"
 
 [dependencies]
 argon2rs = "0.2"
-base64 = "~0.9.0"
+base64 = "0.9.0"
 clap = "*"
 env_logger = "*"
 error-chain = "0.11.0"
@@ -18,7 +18,7 @@ lazy_static = "1"
 libc = "0.2"
 log = "*"
 regex = "0.2.1"
-ring = "0.13.0-alpha"
+ring = "~0.11"
 serde = "1"
 serde_derive = "1"
 serde_json = "1"
@@ -26,10 +26,17 @@ toml = "0.4.5"
 validator = "0.6"
 validator_derive = "0.6"
 walkdir = "2"
+rocket = "= 0.3.6"
+rocket_codegen = "= 0.3.6"
 
 # [dependencies.sentry]
 # features = ["with_error_chain"]
 # version = "~0.3"
+
+[dependencies.rocket_contrib]
+default-features = false
+features = ["json", "uuid"]
+version = "= 0.3.6"
 
 [dependencies.chrono]
 features = ["serde"]
@@ -51,17 +58,6 @@ version = "~1.2"
 default-features = false
 features = ["avformat"]
 version = "~3.3"
-
-[dependencies.rocket]
-git = "https://github.com/SergioBenitez/Rocket.git"
-
-[dependencies.rocket_codegen]
-git = "https://github.com/SergioBenitez/Rocket.git"
-
-[dependencies.rocket_contrib]
-default-features = false
-features = ["json", "uuid"]
-git = "https://github.com/SergioBenitez/Rocket.git"
 
 [dependencies.uuid]
 features = ["use_std", "serde", "v4"]

@@ -36,16 +36,12 @@ features = ["serde"]
 version = "0.4"
 
 [dependencies.diesel_infer_schema]
-features = [
-    "sqlite"
-]
-git = "https://github.com/diesel-rs/diesel.git"
+features = ["sqlite"]
+version = "~1.2"
 
 [dependencies.diesel_migrations]
-features = [
-    "sqlite"
-]
-git = "https://github.com/diesel-rs/diesel.git"
+features = ["sqlite"]
+version = "~1.2"
 
 [dependencies.diesel]
 features = [
@@ -56,8 +52,7 @@ features = [
     "r2d2",
     "unstable",
 ]
-# version = "1.1.1"
-git = "https://github.com/diesel-rs/diesel.git"
+version = "~1.2"
 
 [dependencies.ffmpeg-sys]
 default-features = false
@@ -87,6 +82,7 @@ features = [
 version = "0.5"
 [dev-dependencies.stainless]
 git = "https://github.com/PSeitz/stainless"
+rev = "12f1d379bc722223868c037bc3b902ba3dc48d30"
 
 [lib]
 name = "vorleser_server"
@@ -94,12 +90,3 @@ path = "src/lib.rs"
 
 [features]
 webfrontend = []
-
-[patch.crates-io]
-diesel = { git = "https://github.com/diesel-rs/diesel.git" }
-diesel_derives = { git = "https://github.com/diesel-rs/diesel.git" }
-diesel_derives2 = { git = "https://github.com/diesel-rs/diesel.git" }
-diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }
-migrations_internals = { git = "https://github.com/diesel-rs/diesel.git" }
-migrations_macros = { git = "https://github.com/diesel-rs/diesel.git" }
-infer_schema_macros = { git = "https://github.com/diesel-rs/diesel.git" }

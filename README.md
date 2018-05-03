@@ -15,7 +15,7 @@ For example the default regex is:
 `^[^/]+$` meaning anything without a slash will match.
 This means it will match any top level directory or file but won't match anything that is not top level.
 
-## Config file
+## Config File
 `default-config.toml` contains an example configuration file.
 We will explain some of the values in this document:
 
@@ -25,3 +25,11 @@ We will explain some of the values in this document:
 - The `[web]` section allows you to specify setting that affect the web server
     - `port` the port the web server should run on
     - `address` hostname or ip to serve the API on
+
+## Audio File Formats
+
+We have tested things with `mp3`, `m4a` and `m4b` files. However, since all audio handling is done by FFmpeg, any format supported by your FFmpeg installation should work.
+
+Using `mp3` files with variable bitrate encoding may (especially for multi-hour books) result in inaccurate chapter markers, book length and imprecise seeking.
+
+Clients may only support some audio formats, as we don't do server-side transcoding (yet?).

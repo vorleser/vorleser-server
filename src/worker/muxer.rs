@@ -51,12 +51,20 @@ impl NewMediaFile {
             let mut ctx = ptr::null_mut();
             try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
 
-            if CStr::from_ptr((*format).name) == &*CString::new("ipod").unwrap() {
-                let faststart = CString::new("movflags").unwrap();
-                let opt_true = CString::new("faststart").unwrap();
-                try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+            match CStr::from_ptr((*format).name).to_str().expect("ffmpeg format name not valid utf8 (╯°□°）╯︵ ┻━┻") {
+                "ipod" => {
+                    let faststart = CString::new("movflags").unwrap();
+                    let opt_true = CString::new("faststart").unwrap();
+                    try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+                }
+                "mp3" => {
+                    let write_xing = CString::new("write_xing").unwrap();
+                    let f = CString::new("0").unwrap();
+                    try!(check_av_result(av_opt_set((*ctx).priv_data, write_xing.as_ptr(), f.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+                }
+                _ => {}
             }
-            // (*ctx).oformat = format;
+
             let mut io_ctx = ptr::null_mut();
             try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), AVIO_FLAG_WRITE, ptr::null(), ptr::null_mut())));
             (*ctx).pb = io_ctx;
@@ -65,7 +73,6 @@ impl NewMediaFile {
             avcodec_parameters_copy((*stream).codecpar, codec);
             Ok(Self{ ctx: ctx })
         }
-        // avformat_new_stream(ctx, );
     }
 
     pub fn write_header(&mut self) -> Result<()> {
@@ -143,6 +150,3 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
     Ok(out)
     // Self::new()
 }
-
-
-

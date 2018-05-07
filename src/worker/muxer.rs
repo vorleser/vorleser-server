@@ -4,13 +4,16 @@ use ffmpeg::AVMediaType::AVMEDIA_TYPE_AUDIO;
 use std::ffi::{CString, CStr, OsStr};
 use std::mem;
 use std::ptr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use super::mediafile::MediaFile;
 use super::util::*;
+use helpers::mllt;
 use worker::error::*;
 
 pub struct NewMediaFile {
-    ctx: *mut AVFormatContext
+    ctx: *mut AVFormatContext,
+    is_mp3: bool,
+    path: PathBuf
 }
 
 impl NewMediaFile {
@@ -51,6 +54,7 @@ impl NewMediaFile {
             let mut ctx = ptr::null_mut();
             try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
 
+            let mut is_mp3 = false;
             match CStr::from_ptr((*format).name).to_str().expect("ffmpeg format name not valid utf8 (╯°□°）╯︵ ┻━┻") {
                 "ipod" => {
                     let faststart = CString::new("movflags").unwrap();
@@ -58,9 +62,10 @@ impl NewMediaFile {
                     try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
                 }
                 "mp3" => {
-                    let write_xing = CString::new("write_xing").unwrap();
-                    let f = CString::new("0").unwrap();
-                    try!(check_av_result(av_opt_set((*ctx).priv_data, write_xing.as_ptr(), f.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+                    // let write_xing = CString::new("write_xing").unwrap();
+                    // let f = CString::new("0").unwrap();
+                    // try!(check_av_result(av_opt_set((*ctx).priv_data, write_xing.as_ptr(), f.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+                    is_mp3 = true;
                 }
                 _ => {}
             }
@@ -71,7 +76,7 @@ impl NewMediaFile {
             let stream = ptr_to_opt_mut(avformat_new_stream(ctx, ptr::null())).unwrap();
             (*stream).time_base = time_base;
             avcodec_parameters_copy((*stream).codecpar, codec);
-            Ok(Self{ ctx: ctx })
+            Ok(Self{ ctx: ctx, is_mp3: is_mp3, path: file_name.to_owned() })
         }
     }
 
@@ -93,6 +98,9 @@ impl NewMediaFile {
     fn write_trailer(&mut self) -> Result<()> {
         unsafe {
             try!(check_av_result(av_write_trailer(self.ctx)));
+        }
+        if self.is_mp3 {
+            try!(mllt::mlltify(&self.path));
         }
         Ok(())
     }

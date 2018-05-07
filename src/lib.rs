@@ -33,6 +33,8 @@ extern crate walkdir;
 extern crate image;
 extern crate humanesort;
 extern crate toml;
+extern crate id3;
+extern crate mp3_metadata;
 
 pub mod api;
 pub mod validation;

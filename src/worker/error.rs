@@ -4,6 +4,7 @@ use ffmpeg::av_strerror;
 use std::os::raw::c_char;
 use walkdir;
 use diesel;
+use helpers;
 use std::io;
 use std::error::Error as StdError;
 use std::str;
@@ -16,6 +17,7 @@ error_chain! {
         Io(io::Error);
         Utf8Error(::std::str::Utf8Error);
         Fmt(::std::fmt::Error);
+        Mlltify(helpers::mllt::Error);
     }
 
     errors {

@@ -85,6 +85,11 @@ fn main() {
         )
         .get_matches();
 
+    if let Some(cmd) = matches.subcommand_matches("sample-config") {
+        print!(include_str!("../../vorleser-default.toml"));
+        std::process::exit(0);
+    }
+
     let config_result = if let Some(config_path) = matches.value_of("config") {
         config::load_config_from_path(&config_path)
     } else {
@@ -99,7 +104,7 @@ fn main() {
             Error(ErrorKind::Toml(e), _) => error_log!("Malformed configuration file: {}", e),
             _ => error_log!("Unknown error reading configuration file.")
         }
-        panic!("Error loading config. Try using --config to supply a valid configuration file.")
+        panic!("Error loading config. Try using --config to supply a valid configuration file.\nYou can get a default config file with the sample-config subcommand.")
     } else {
         info!("Succeeded loading config!")
     }
@@ -138,10 +143,6 @@ fn main() {
         }
         std::process::exit(0);
     };
-
-    if let Some(cmd) = matches.subcommand_matches("sample-config") {
-        print!(include_str!("../../vorleser-default.toml"));
-    }
 
     if let Some(scan) = matches.subcommand_matches("scan") {
         let db = &*pool.get().unwrap();

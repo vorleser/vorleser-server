@@ -14,7 +14,7 @@ use rocket::http::RawStr;
 use uuid;
 use std::str::FromStr;
 
-#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Clone, AsExpression, FromSqlRow)]
+#[derive(Debug, Hash, Eq, PartialEq, Serialize, Deserialize, Clone, Copy, AsExpression, FromSqlRow)]
 #[sql_type = "Text"]
 pub struct Uuid(uuid::Uuid);
 

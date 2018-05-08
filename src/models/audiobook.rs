@@ -69,7 +69,7 @@ impl Audiobook {
                 Some(b) => {
                     let mut updated = new_book.clone();
                     updated.id = b.id;
-                    diesel::update(audiobooks::table).set(&updated).execute(conn)?;
+                    diesel::update(audiobooks::dsl::audiobooks.filter(audiobooks::dsl::id.eq(&b.id))).set(&updated).execute(conn)?;
                     Ok(updated)
                 },
                 None => {

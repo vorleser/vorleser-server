@@ -191,12 +191,15 @@ impl Scanner {
         let mut recovered = 0;
         for book in Audiobook::belonging_to(&self.library).filter(dsl::deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
+            if !path.exists() { continue }
+
             info!("Recovering previously deleted book: {:?}", path);
             let hash = match path.is_dir() {
                 true => hashing::checksum_dir(&path)?,
                 false => hashing::checksum_file(&path)?
             };
-            if path.exists() && hash == book.hash {
+
+            if hash == book.hash {
                 use schema::audiobooks::dsl::*;
                 diesel::update(
                         Audiobook::belonging_to(&self.library)

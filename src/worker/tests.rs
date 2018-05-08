@@ -42,7 +42,7 @@ describe! worker_tests {
             let test_scanner = scanner::Scanner::new(
                 pool.clone(),
                 library.clone(),
-                config::load_config().unwrap()
+                config::load_config_from_path(&"test-data/test-config.toml").unwrap()
             );
         }
 

@@ -59,7 +59,6 @@ fn set_dates(times: Vec<(String, NaiveDate)>) {
 // To ensure this please name each test EXACTLY like the directory.
 describe! scanner_integration_tests {
     before_each {
-        config::load_config();
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 
@@ -77,7 +76,11 @@ describe! scanner_integration_tests {
             .values(&library)
             .execute(&*(pool.get().unwrap()))
             .unwrap();
-        let mut scanner = scanner::Scanner::new(pool.clone(), library, config::load_config().unwrap());
+        let mut scanner = scanner::Scanner::new(
+            pool.clone(),
+            library,
+            config::load_config_from_path(&"test-data/test-config.toml").unwrap()
+        );
     }
 
     it "simple" {

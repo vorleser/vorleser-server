@@ -44,7 +44,7 @@ describe! api_tests {
             .expect("Error saving user");
         println!("Before each {:?}", pool.state());
 
-        let rocket = helpers::rocket::factory(pool.clone(), config::load_config().unwrap()).unwrap();
+        let rocket = helpers::rocket::factory(pool.clone(), config::load_config_from_path(&"test-data/test-config.toml").unwrap()).unwrap();
         let client = Client::new(rocket).unwrap();
 
         let login_data = json!({"email": "test@test.com", "password": "lol"});
@@ -149,7 +149,7 @@ describe! api_tests {
                 regex: Regex::new(regex).unwrap(),
                 library: library,
                 pool: pool.clone(),
-                config: config::load_config().unwrap()
+                config: config::load_config_from_path(&"test-data/test-config.toml").unwrap()
             };
             scanner.incremental_scan();
         }

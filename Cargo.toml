@@ -31,6 +31,7 @@ validator_derive = "0.6"
 walkdir = "2"
 rocket = "= 0.3.6"
 rocket_codegen = "= 0.3.6"
+fs2 = "0.4.3"
 
 [dependencies.id3]
 git = "https://github.com/ahti/rust-id3"

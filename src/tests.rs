@@ -6,7 +6,7 @@ use rocket::local::{Client, LocalResponse};
 use rocket::Response;
 use rocket::http::{Status, Method, Header, ContentType};
 use serde_json::{self, Value};
-use worker::scanner::Scanner;
+use worker::scanner::{Scanner, LockingBehavior};
 use models::library::Library;
 use regex::Regex;
 use config;
@@ -151,7 +151,7 @@ describe! api_tests {
                 pool: pool.clone(),
                 config: config::load_config_from_path(&"test-data/test-config.toml").unwrap()
             };
-            scanner.incremental_scan();
+            scanner.incremental_scan(LockingBehavior::Dont);
         }
 
         it "get can some books" {

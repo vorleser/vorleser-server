@@ -24,8 +24,13 @@ error_chain! {
         InvalidUtf8 {
             description("Invalid Utf-8")
         }
+
         Other(t: &'static str) {
             description(t)
+        }
+
+        Locked {
+            description("Can't aquire lockfile, is there another scan runnning?")
         }
 
         MediaError(msg: String, code: i32) {

@@ -23,7 +23,7 @@ use clap::{Arg, App, SubCommand, ArgMatches};
 use regex::Regex;
 use log::error as error_log;
 
-use vorleser_server::worker::scanner::Scanner;
+use vorleser_server::worker::scanner::{Scanner, LockingBehavior};
 use vorleser_server::schema::libraries;
 use vorleser_server::schema::libraries::dsl::*;
 use vorleser_server::models::library::Library;
@@ -203,9 +203,9 @@ fn run_scan(command: &ArgMatches, pool: &Pool, config: &Config) {
         };
 
         let scan_result = if command.is_present("full") {
-            scanner.full_scan()
+            scanner.full_scan(LockingBehavior::Block)
         } else {
-            scanner.incremental_scan()
+            scanner.incremental_scan(LockingBehavior::Block)
         };
 
         if let Err(error) = scan_result {

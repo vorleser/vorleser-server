@@ -30,6 +30,7 @@ extern crate argon2rs;
 extern crate ffmpeg_sys as ffmpeg;
 extern crate regex;
 extern crate walkdir;
+extern crate fs2;
 extern crate image;
 extern crate humanesort;
 extern crate toml;

@@ -21,6 +21,7 @@ use chrono::prelude::*;
 use chrono::NaiveDateTime;
 use helpers::uuid::Uuid;
 use diesel::sqlite::SqliteConnection;
+use fs2::FileExt;
 
 use config::Config;
 use helpers::db::Pool;
@@ -51,6 +52,13 @@ struct ChapterCollection {
     pub length: f64,
 }
 
+#[derive(Eq, PartialEq)]
+pub enum LockingBehavior {
+    Block,
+    Error,
+    Dont,
+}
+
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub(super) struct Filetype {
     pub extension: OsString,
@@ -74,18 +82,41 @@ impl Scanner {
         }
     }
 
+    fn aquire_lock_file(&mut self, locking_behavior: LockingBehavior) -> Result<()> {
+        if locking_behavior == LockingBehavior::Dont { return Ok(()) }
+        let mut lock_file_path = PathBuf::from(self.config.data_directory.clone());
+        lock_file_path.push("scan.lock");
+        let lock_file = File::create(&lock_file_path)?;
+        match lock_file.try_lock_exclusive() {
+            Err(_) => {
+                println!(
+                    "It looks like another scan is currently running.\
+                    Remove the lockfile {:?} if you are sure no other instance is running.",
+                    lock_file_path
+                );
+                match locking_behavior {
+                    LockingBehavior::Block => lock_file.lock_exclusive().map_err(|e| e.into()),
+                    _ => Err(ErrorKind::Locked.into()),
+                }
+            }
+            Ok(_) => { return Ok(()) }
+        }
+    }
+
     /// Perform an incremental scan, this takes file change dates into account.
     /// As a result not all files are actually hashed. This should be the default behavior as it
     /// is much faster than hashing all files. If inconsistent situations arise a full scan might
     /// be able to fix the state, depending on what broke.
-    pub fn incremental_scan(&mut self) -> Result<()> {
+    pub fn incremental_scan(&mut self, block_on_lock: LockingBehavior) -> Result<()> {
+        self.aquire_lock_file(block_on_lock)?;
         self.scan_library(Scan::Incremental)
     }
 
     /// A full scan actually hashes each file that looks like an audiobook. This should only be run
     /// very sparingly. Maybe on specific user request or on a very long interval. This can easily
     /// keep the filesystem busy for a while if the library is sufficiently large.
-    pub fn full_scan(&mut self) -> Result<()> {
+    pub fn full_scan(&mut self, block_on_lock: LockingBehavior) -> Result<()> {
+        self.aquire_lock_file(block_on_lock)?;
         self.scan_library(Scan::Full)
     }
 

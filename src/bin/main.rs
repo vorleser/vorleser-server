@@ -19,7 +19,7 @@ use std::path::PathBuf;
 use sentry::integrations::panic::register_panic_handler;
 use sentry::integrations::failure::capture_error;
 use diesel::prelude::*;
-use clap::{Arg, App, SubCommand};
+use clap::{Arg, App, SubCommand, ArgMatches};
 use regex::Regex;
 use log::error as error_log;
 
@@ -38,7 +38,62 @@ static PATH_REGEX: &'static str = "^[^/]+$";
 fn main() {
     env_logger::init();
 
-    let matches = App::new(env!("CARGO_PKG_NAME"))
+    let command_parser = build_command_parser();
+    let matches = command_parser.get_matches();
+
+    if let Some(cmd) = matches.subcommand_matches("sample-config") {
+        print!(include_str!("../../vorleser-default.toml"));
+        std::process::exit(0);
+    }
+
+    let mut conf = load_config(&matches);
+
+    let sentry_guard = match conf.sentry_dsn {
+        Some(ref dsn) => Some(init_sentry(dsn)),
+        None => None,
+    };
+
+    init_db(conf.database.clone());
+    let pool = init_db_pool(conf.database.clone());
+
+    if let Some(new_command) = matches.subcommand_matches("create_library") {
+        let conn = &*pool.get().unwrap();
+        create_library(new_command, conn);
+    };
+
+    if let Some(scan_match) = matches.subcommand_matches("scan") {
+        run_scan(scan_match, &pool, &conf);
+    }
+
+    if let Some(create_user) = matches.subcommand_matches("create_user") {
+        let db = &*pool.get().unwrap();
+
+        let email = create_user.value_of("email").expect("a man has no name");
+        let pass = create_user.value_of("password").expect("a man has no password");
+        let user = User::create(&email, &pass, db).expect("Error saving user");
+    }
+
+    if let Some(serve) = matches.subcommand_matches("serve") {
+        if let Some(port_string) = serve.value_of("port") {
+            let port = port_string.parse::<u16>().expect("Invalid value for port.");
+            conf = Config {
+                web: WebConfig {
+                    port: port,
+                    .. conf.web
+                },
+                .. conf
+            };
+        }
+        match helpers::rocket::factory(pool, conf) {
+            Ok(r) => error_log!("{}", r.launch()),
+            Err(e) => error_log!("Invalid web-server configuration: {}", e)
+        };
+    }
+
+}
+
+fn build_command_parser<'a, 'b>() -> App<'a, 'b> {
+    App::new(env!("CARGO_PKG_NAME"))
         .about(env!("CARGO_PKG_DESCRIPTION"))
         .version(env!("CARGO_PKG_VERSION"))
         .subcommand(SubCommand::with_name("serve")
@@ -83,13 +138,15 @@ fn main() {
         .subcommand(SubCommand::with_name("sample-config")
             .about("Print the default configuration file to stdout.")
         )
-        .get_matches();
+}
 
-    if let Some(cmd) = matches.subcommand_matches("sample-config") {
-        print!(include_str!("../../vorleser-default.toml"));
-        std::process::exit(0);
-    }
+fn init_sentry(dsn: &str) -> sentry::ClientInitGuard {
+    let sentry_guard = sentry::init(dsn);
+    register_panic_handler();
+    return sentry_guard;
+}
 
+fn load_config(matches: &ArgMatches) -> Config {
     let config_result = if let Some(config_path) = matches.value_of("config") {
         config::load_config_from_path(&config_path)
     } else {
@@ -108,91 +165,54 @@ fn main() {
     } else {
         info!("Succeeded loading config!")
     }
-    let mut conf = config_result.unwrap();
+    config_result.unwrap()
+}
 
-    let mut sentry_guard: Option<sentry::ClientInitGuard> = None;
-    if let Some(ref dsn) = conf.sentry_dsn {
-        sentry_guard = Some(sentry::init(dsn.as_str()));
-    }
-    sentry::capture_message("This is a test", sentry::Level::Debug);
-    register_panic_handler();
-
-    init_db(conf.database.clone());
-    let pool = init_db_pool(conf.database.clone());
-
-    if let Some(new_command) = matches.subcommand_matches("create_library") {
-        let conn = &*pool.get().unwrap();
-        let input_path = PathBuf::from(
-            new_command.value_of("path").expect("Please provide a valid utf-8 path.")
-        );
-        let regex = new_command.value_of("regex").expect("Regex needs to be valid utf-8.");
-        let path = if input_path.is_absolute() {
-            input_path
-        } else {
-            std::env::current_dir().expect("No working directory.").join(input_path)
-        };
-        match Regex::new(regex) {
-            Ok(_) => {
-                match Library::create(path.to_string_lossy().into_owned(), regex.to_owned(), &*conn)
-                {
-                    Ok(lib) => info!("Successfully created library."),
-                    Err(error) => error_log!("Library creation failed: {:?}", error.description())
-                }
-            },
-            Err(e) => error_log!("Invalid regex: {:?}", e)
-        }
-        std::process::exit(0);
+fn create_library(command: &ArgMatches, conn: &SqliteConnection) {
+    let input_path = PathBuf::from(
+        command.value_of("path").expect("Please provide a valid utf-8 path.")
+    );
+    let regex = command.value_of("regex").expect("Regex needs to be valid utf-8.");
+    let path = if input_path.is_absolute() {
+        input_path
+    } else {
+        std::env::current_dir().expect("No working directory.").join(input_path)
     };
-
-    if let Some(scan) = matches.subcommand_matches("scan") {
-        let db = &*pool.get().unwrap();
-        let all_libraries = libraries.load::<Library>(db).unwrap();
-        for l in all_libraries {
-            let mut scanner = Scanner {
-                regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
-                library: l,
-                pool: pool.clone(),
-                config: conf.clone()
-            };
-
-            let scan_result = if scan.is_present("full") {
-                scanner.full_scan()
-            } else {
-                scanner.incremental_scan()
-            };
-
-            if let Err(error) = scan_result {
-                error_log!("Scan failed with error: {:?}", error.description());
-            } else {
-                info!("Scan succeeded!");
+    match Regex::new(regex) {
+        Ok(_) => {
+            match Library::create(path.to_string_lossy().into_owned(), regex.to_owned(), &*conn)
+            {
+                Ok(lib) => info!("Successfully created library."),
+                Err(error) => error_log!("Library creation failed: {:?}", error.description())
             }
-        }
-        std::process::exit(0);
+        },
+        Err(e) => error_log!("Invalid regex: {:?}", e)
     }
+    std::process::exit(0);
+}
 
-    if let Some(create_user) = matches.subcommand_matches("create_user") {
-        let db = &*pool.get().unwrap();
-
-        let email = create_user.value_of("email").expect("a man has no name");
-        let pass = create_user.value_of("password").expect("a man has no password");
-        let user = User::create(&email, &pass, db).expect("Error saving user");
-    }
-
-    if let Some(serve) = matches.subcommand_matches("serve") {
-        if let Some(port_string) = serve.value_of("port") {
-            let port = port_string.parse::<u16>().expect("Invalid value for port.");
-            conf = Config {
-                web: WebConfig {
-                    port: port,
-                    .. conf.web
-                },
-                .. conf
-            };
-        }
-        match helpers::rocket::factory(pool, conf) {
-            Ok(r) => error_log!("{}", r.launch()),
-            Err(e) => error_log!("Invalid web-server configuration: {}", e)
+fn run_scan(command: &ArgMatches, pool: &Pool, config: &Config) {
+    let conn = &*pool.get().unwrap();
+    let all_libraries = libraries.load::<Library>(conn).unwrap();
+    for l in all_libraries {
+        let mut scanner = Scanner {
+            regex: Regex::new(&l.is_audiobook_regex).expect("Invalid Regex!"),
+            library: l,
+            pool: pool.clone(),
+            config: config.clone()
         };
-    }
 
+        let scan_result = if command.is_present("full") {
+            scanner.full_scan()
+        } else {
+            scanner.incremental_scan()
+        };
+
+        if let Err(error) = scan_result {
+            error_log!("Scan failed with error: {:?}", error.description());
+        } else {
+            info!("Scan succeeded!");
+        }
+    }
+    std::process::exit(0);
 }

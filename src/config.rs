@@ -10,7 +10,10 @@ use rocket::{Request, State, Outcome};
 /// This module holds functions for loading config files.
 
 #[cfg(not(build = "release"))]
-static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser.toml", "/etc/vorleser.toml"];
+static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser-dev.toml", "/etc/vorleser.toml"];
+
+#[cfg(build = "release")]
+static CONFIG_LOCATIONS: &'static [&'static str] = &["/etc/vorleser.toml"];
 
 error_chain! {
     foreign_links {

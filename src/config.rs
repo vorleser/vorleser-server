@@ -54,14 +54,27 @@ pub struct Config {
     pub register_web: bool,
     pub database: String,
     pub web: WebConfig,
+    pub scan: ScanConfig,
     pub sentry_dsn: Option<String>,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct ScanConfig {
+    #[serde(default)] // default to false
+    pub enabled: bool,
+    #[serde(default= "default_scan_interval")]
+    pub interval: u64,
 }
 
 #[derive(Deserialize, Clone)]
 pub struct WebConfig {
-    #[serde(default = "default_data_directory")]
+    #[serde(default="default_data_directory")]
     pub address: String,
     pub port: u16,
+}
+
+fn default_scan_interval() -> u64 {
+    600
 }
 
 fn default_data_address() -> String {

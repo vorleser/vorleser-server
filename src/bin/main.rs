@@ -12,9 +12,13 @@ extern crate regex;
 extern crate vorleser_server;
 extern crate diesel;
 extern crate sentry;
+extern crate scheduled_thread_pool;
 
 use std::error::Error;
 use std::path::PathBuf;
+use std::panic;
+use std::panic::AssertUnwindSafe;
+use std::time::Duration;
 
 use sentry::integrations::panic::register_panic_handler;
 use sentry::integrations::failure::capture_error;
@@ -22,6 +26,7 @@ use diesel::prelude::*;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use regex::Regex;
 use log::error as error_log;
+use scheduled_thread_pool::ScheduledThreadPool;
 
 use vorleser_server::worker::scanner::{Scanner, LockingBehavior};
 use vorleser_server::schema::libraries;
@@ -59,10 +64,12 @@ fn main() {
     if let Some(new_command) = matches.subcommand_matches("create_library") {
         let conn = &*pool.get().unwrap();
         create_library(new_command, conn);
+        std::process::exit(0);
     };
 
     if let Some(scan_match) = matches.subcommand_matches("scan") {
-        run_scan(scan_match, &pool, &conf);
+        run_scan_command(scan_match, &pool, &conf);
+        std::process::exit(0);
     }
 
     if let Some(create_user) = matches.subcommand_matches("create_user") {
@@ -73,7 +80,20 @@ fn main() {
         let user = User::create(&email, &pass, db).expect("Error saving user");
     }
 
+
     if let Some(serve) = matches.subcommand_matches("serve") {
+        let scan_thread_pool = ScheduledThreadPool::new(1);
+        if conf.scan.enabled {
+            let scan_db_pool = pool.clone();
+            let scan_config = conf.clone();
+            scan_thread_pool.execute_with_fixed_delay(
+                Duration::new(10, 0),
+                Duration::new(conf.scan.interval, 0),
+                move || {
+                    scan_job(scan_db_pool.clone(), scan_config.clone());
+                }
+            );
+        }
         if let Some(port_string) = serve.value_of("port") {
             let port = port_string.parse::<u16>().expect("Invalid value for port.");
             conf = Config {
@@ -188,10 +208,13 @@ fn create_library(command: &ArgMatches, conn: &SqliteConnection) {
         },
         Err(e) => error_log!("Invalid regex: {:?}", e)
     }
-    std::process::exit(0);
 }
 
-fn run_scan(command: &ArgMatches, pool: &Pool, config: &Config) {
+fn run_scan_command(command: &ArgMatches, pool: &Pool, config: &Config) {
+    run_scan(pool, config, command.is_present("full"));
+}
+
+fn run_scan(pool: &Pool, config: &Config, full_scan: bool) {
     let conn = &*pool.get().unwrap();
     let all_libraries = libraries.load::<Library>(conn).unwrap();
     for l in all_libraries {
@@ -202,7 +225,7 @@ fn run_scan(command: &ArgMatches, pool: &Pool, config: &Config) {
             config: config.clone()
         };
 
-        let scan_result = if command.is_present("full") {
+        let scan_result = if full_scan {
             scanner.full_scan(LockingBehavior::Block)
         } else {
             scanner.incremental_scan(LockingBehavior::Block)
@@ -210,9 +233,16 @@ fn run_scan(command: &ArgMatches, pool: &Pool, config: &Config) {
 
         if let Err(error) = scan_result {
             error_log!("Scan failed with error: {:?}", error.description());
+            error_log!("Backtrace: {:?}", error.backtrace());
         } else {
             info!("Scan succeeded!");
         }
     }
-    std::process::exit(0);
+}
+
+fn scan_job(pool: Pool, config: Config) {
+    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+        run_scan(&pool, &config, false);
+    }));
+    info!("Completed scan, result is: {:?}", result);
 }

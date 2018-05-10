@@ -2,6 +2,10 @@ database = "/var/lib/vorleser/vorleser.sqlite"
 data_directory = "/var/lib/vorleser"
 register_web = false
 
+[scan]
+enabled = true
+interval = 600
+
 [web]
 address = "localhost"
 port = 8000

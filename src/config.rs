@@ -6,14 +6,15 @@ use std::io;
 use std::io::{Write, Read};
 use toml;
 use rocket::request::{self, FromRequest};
+use simplelog::LevelFilter;
 use rocket::{Request, State, Outcome};
 /// This module holds functions for loading config files.
 
-#[cfg(not(build = "release"))]
-static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser-dev.toml", "/etc/vorleser.toml"];
-
 #[cfg(build = "release")]
 static CONFIG_LOCATIONS: &'static [&'static str] = &["/etc/vorleser.toml"];
+
+#[cfg(not(build = "release"))]
+static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser-dev.toml"];
 
 error_chain! {
     foreign_links {
@@ -34,7 +35,7 @@ pub fn load_config() -> Result<Config> {
     for ref location in CONFIG_LOCATIONS.iter() {
         let conf = load_config_from_path(&location);
         if conf.is_ok() {
-            info!("Using config from: {}", location);
+            println!("Using config from: {}", location);
             return conf;
         }
     }
@@ -59,6 +60,14 @@ pub struct Config {
     pub web: WebConfig,
     pub scan: ScanConfig,
     pub sentry_dsn: Option<String>,
+    pub logging: LoggingConfig,
+}
+
+#[derive(Deserialize, Clone, Debug)]
+pub struct LoggingConfig {
+    pub level: String,
+    #[serde(default= "default_log_location")]
+    pub file: Option<String>,
 }
 
 #[derive(Deserialize, Clone, Debug)]
@@ -76,6 +85,10 @@ pub struct WebConfig {
     pub port: u16,
 }
 
+fn default_log_level() -> String {
+    "info".to_owned()
+}
+
 fn default_scan_interval() -> u64 {
     600
 }
@@ -86,6 +99,12 @@ fn default_data_address() -> String {
 
 fn default_data_directory() -> String {
     "data".to_owned()
+}
+
+fn default_log_location() -> Option<String> {
+    let mut path = default_data_directory();
+    path.push_str("/vorleser.log");
+    Some(path)
 }
 
 impl<'a, 'r> FromRequest<'a, 'r> for Config {

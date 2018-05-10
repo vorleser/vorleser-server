@@ -6,6 +6,10 @@ register_web = false
 enabled = true
 interval = 600
 
+[logging]
+file = "lol.log"
+level = "info"
+
 [web]
 address = "localhost"
 port = 8000

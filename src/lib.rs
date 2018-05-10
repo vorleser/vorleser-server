@@ -11,10 +11,9 @@
 #[macro_use] extern crate error_chain;
 #[macro_use(log, info, debug, warn, trace)]
 extern crate log;
-
+extern crate simplelog;
 
 extern crate base64;
-extern crate env_logger;
 extern crate ring;
 extern crate uuid;
 extern crate rocket;

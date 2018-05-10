@@ -2,6 +2,9 @@ database = "data/vorleser.sqlite"
 data_directory = "data"
 register_web = false
 
+[scan]
+enabled = false
+
 [web]
 address = "localhost"
 port = 8000

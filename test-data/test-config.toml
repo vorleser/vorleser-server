@@ -5,6 +5,9 @@ register_web = false
 [scan]
 enabled = false
 
+[logging]
+level = "info"
+
 [web]
 address = "localhost"
 port = 8000

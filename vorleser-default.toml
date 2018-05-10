@@ -6,6 +6,11 @@ register_web = false
 enabled = true
 interval = 600
 
+[logging]
+# Uncomment the following line to write to a log file, the directory needs to exist
+# file = "/var/log/vorleser/vorleser.toml"
+level = "info"
+
 [web]
 address = "localhost"
 port = 8000

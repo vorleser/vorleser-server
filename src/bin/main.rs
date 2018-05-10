@@ -50,7 +50,11 @@ fn main() {
         print!(include_str!("../../vorleser-default.toml"));
         std::process::exit(0);
     }
+
     let mut conf = load_config(&matches);
+    if let Some(level) = matches.value_of("log-level") {
+        conf.logging.level = level.to_owned();
+    }
 
     let sentry_guard = match conf.sentry_dsn {
         Some(ref dsn) => Some(init_sentry(dsn)),
@@ -154,6 +158,11 @@ fn build_command_parser<'a, 'b>() -> App<'a, 'b> {
                 .short("c")
                 .long("config")
                 .value_name("FILE")
+                .takes_value(true)
+        ).arg(Arg::with_name("log-level")
+                .short("l")
+                .long("log-level")
+                .value_name("LOG_LEVEL")
                 .takes_value(true)
         )
         .subcommand(SubCommand::with_name("sample-config")

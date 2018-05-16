@@ -84,8 +84,8 @@ describe! mediafile_tests {
             );
         match invalid_file {
             Err(me) => {
-                println!("{:?}", me.description());
-                assert!(me.description().starts_with("No such file"));
+                println!("{}", format!("{}", me));
+                assert!(format!("{}", me).contains("No such file"));
             },
             Ok(_) => panic!("We expect a Media Error here.")
         }

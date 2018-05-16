@@ -83,6 +83,9 @@ fn main() {
         .subcommand(SubCommand::with_name("sample-config")
             .about("Print the default configuration file to stdout.")
         )
+        .subcommand(SubCommand::with_name("mlltify")
+            .arg(Arg::with_name("file").index(1))
+        )
         .get_matches();
 
     if let Some(cmd) = matches.subcommand_matches("sample-config") {
@@ -193,6 +196,13 @@ fn main() {
             Ok(r) => error_log!("{}", r.launch()),
             Err(e) => error_log!("Invalid web-server configuration: {}", e)
         };
+    }
+
+    if let Some(cmd) = matches.subcommand_matches("mlltify") {
+        let path_str = cmd.value_of("file").expect("gib file");
+        let path = std::path::Path::new(path_str);
+        let res = helpers::mllt::mlltify(path);
+        println!("{:?}", res);
     }
 
 }

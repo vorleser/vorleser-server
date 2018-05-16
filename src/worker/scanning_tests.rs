@@ -11,7 +11,7 @@ use helpers::db::init_test_db_pool;
 use helpers::db::Pool;
 use models::library::Library;
 use models::audiobook::Audiobook;
-use worker::scanner::Scanner;
+use worker::scanner::{Scanner, LockingBehavior};
 use helpers::uuid::Uuid;
 use config;
 
@@ -88,7 +88,7 @@ describe! scanner_integration_tests {
         let base = String::from("integration-tests/simple/01");
         scanner.library.location = base.clone();
         set_date(&(base + "/book.mp3"), &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         assert_eq!(1, count_books(&scanner, &pool));
     }
 
@@ -98,14 +98,14 @@ describe! scanner_integration_tests {
         let mut base = String::from("integration-tests/simple_deletion/01");
         scanner.library.location = base.clone();
         set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.incremental_scan().unwrap();
+        scanner.incremental_scan(LockingBehavior::Dont).unwrap();
         assert_eq!(1, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
 
         println!("============Step 2!============");
         // Time step 02:
         base = String::from("integration-tests/simple_deletion/02");
         scanner.library.location = base.clone();
-        scanner.incremental_scan().unwrap();
+        scanner.incremental_scan(LockingBehavior::Dont).unwrap();
         use schema::audiobooks::dsl::deleted;
         assert_eq!(0, count_books(&scanner, &pool));
     }
@@ -114,7 +114,7 @@ describe! scanner_integration_tests {
         // Time step 01:
         let base = String::from("integration-tests/ignore_other_files/01");
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         assert_eq!(0, count_books(&scanner, &pool));
     }
 
@@ -124,7 +124,7 @@ describe! scanner_integration_tests {
         let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");
         scanner.library.location = base.clone();
         set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         let book_1 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
@@ -133,14 +133,14 @@ describe! scanner_integration_tests {
         // Time step 02:
         base = String::from("integration-tests/recovers_deleted_same_timestamp/02");
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         assert_eq!(0, count_books(&scanner, &pool));
 
         // Time step 03:
         base = String::from("integration-tests/recovers_deleted_same_timestamp/03");
         set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         let book_2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
@@ -153,7 +153,7 @@ describe! scanner_integration_tests {
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/works_with_moved_files/01");
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         let book = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
@@ -166,7 +166,7 @@ describe! scanner_integration_tests {
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         assert_eq!(1, count_books(&scanner, &pool));
         assert_eq!(book.id, book2.id);
     }
@@ -181,7 +181,7 @@ describe! scanner_integration_tests {
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/works_with_moved_files_same_name/01");
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         let book = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
@@ -195,7 +195,7 @@ describe! scanner_integration_tests {
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
         scanner.library.location = base.clone();
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         assert_eq!(2, count_books(&scanner, &pool));
         assert_eq!(book.id, book2.id);
         assert_eq!(book2.location, "book.mp3");
@@ -206,7 +206,7 @@ describe! scanner_integration_tests {
         println!("============Step 1!============");
         let mut base = String::from("integration-tests/content_changed/01");
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         let book = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
@@ -221,7 +221,7 @@ describe! scanner_integration_tests {
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
         assert!(!data_file(&book2).exists());
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         assert_eq!(1, count_books(&scanner, &pool));
         assert_eq!(book.id, book2.id);
     }
@@ -232,7 +232,7 @@ describe! scanner_integration_tests {
         let mut base = String::from("integration-tests/content_changed_multifile/01");
         set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
         let book = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))
             .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
@@ -246,7 +246,7 @@ describe! scanner_integration_tests {
         let mut base = String::from("integration-tests/content_changed_multifile/02");
         set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
         scanner.library.location = base.clone();
-        scanner.incremental_scan();
+        scanner.incremental_scan(LockingBehavior::Dont);
 
         let book2 = Audiobook::belonging_to(&scanner.library)
             .filter(deleted.eq(false))

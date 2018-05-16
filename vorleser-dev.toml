@@ -3,9 +3,11 @@ data_directory = "data"
 register_web = false
 
 [scan]
-enabled = false
+enabled = true
+interval = 600
 
 [logging]
+file = "lol.log"
 level = "info"
 
 [web]

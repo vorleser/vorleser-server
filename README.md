@@ -1,6 +1,6 @@
 # Vorleser - A Server Based Audiobook Application
 
-[![Build Status](https://travis-ci.org/hatzel/vorleser-server.svg?branch=master)](https://travis-ci.org/hatzel/vorleser-server)
+[![Build Status](https://travis-ci.org/vorleser/vorleser-server.svg?branch=master)](https://travis-ci.org/vorleser/vorleser-server)
 ## Library
 The library directory will contain your audiobooks.
 Simply follow these simple rules when copying audiobooks to the directory:

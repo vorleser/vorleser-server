@@ -22,7 +22,6 @@ use std::time::Duration;
 use std::fs::OpenOptions;
 
 use sentry::integrations::panic::register_panic_handler;
-use sentry::integrations::error_chain::capture_error_chain;
 use sentry::integrations::failure::capture_error;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand, ArgMatches};
@@ -195,14 +194,8 @@ fn load_config(matches: &ArgMatches) -> Config {
     };
 
     if let Err(e) = config_result {
-        use config::Error as Error;
-        use config::ErrorKind;
-        match e {
-            Error(ErrorKind::Io(e), _) => error_log!("IO error reading configuration file: {}", e),
-            Error(ErrorKind::Toml(e), _) => error_log!("Malformed configuration file: {}", e),
-            _ => error_log!("Unknown error reading configuration file.")
-        }
-        panic!("Error loading config. Try using --config to supply a valid configuration file.\nYou can get a default config file with the sample-config subcommand.")
+        error_log!("Error loading config: {}", e);
+        panic!("Error loading config. Try using --config to supply a valid configuration file.\nYou can get a default config file with the sample-config subcommand.");
     } else {
         println!("Succeeded loading config!")
     }

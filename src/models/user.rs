@@ -14,6 +14,7 @@ use diesel;
 use diesel::result::QueryResult;
 use base64;
 use ring::rand::{SystemRandom, SecureRandom};
+use failure::Error;
 
 use schema::{users, api_tokens};
 use schema;
@@ -31,22 +32,18 @@ pub struct User {
     pub password_hash: String,
 }
 
+type Result<T> = StdResult<T, Error>;
+
 #[derive(Debug, Serialize, Deserialize)]
 struct UserLoginToken {
     user_id: Uuid,
 }
 
-error_chain! {
-    foreign_links {
-        Db(diesel::result::Error);
-        UuidParse(uuid::ParseError);
-    }
-
-    errors {
-        UserExists(user: String) {
-            description("User already exists."),
-            display("User {} already exists", user)
-        }
+#[derive(Debug, Fail)]
+pub enum UserError {
+    #[fail(display = "The user {} already exists", user_name)]
+    AlreadyExists {
+        user_name: String
     }
 }
 
@@ -102,7 +99,9 @@ impl User {
         let results = dsl::users.filter(dsl::email.eq(email.as_ref().clone()))
             .first::<User>(&*conn);
         if results.is_ok() {
-            return Err(ErrorKind::UserExists(email.as_ref().to_owned()).into());
+            return Err(UserError::AlreadyExists{
+                user_name: email.as_ref().to_owned()
+            }.into());
         }
         conn.exclusive_transaction(|| -> _ {
             debug!("Start transaction creating user.");
@@ -120,7 +119,7 @@ impl User {
             }
             debug!("End transaction creating user.");
             Ok(user)
-        }).map_err(|e| ErrorKind::Db(e).into())
+        })
     }
 
     pub fn verify_password(&self, candidate_password: &str) -> bool {

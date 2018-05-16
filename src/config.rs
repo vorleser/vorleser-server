@@ -8,6 +8,7 @@ use toml;
 use rocket::request::{self, FromRequest};
 use simplelog::LevelFilter;
 use rocket::{Request, State, Outcome};
+use failure::Error;
 /// This module holds functions for loading config files.
 
 #[cfg(build = "release")]
@@ -16,22 +17,15 @@ static CONFIG_LOCATIONS: &'static [&'static str] = &["/etc/vorleser.toml"];
 #[cfg(not(build = "release"))]
 static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser-dev.toml"];
 
-error_chain! {
-    foreign_links {
-        Io(io::Error);
-        Toml(toml::de::Error);
-    }
-
-    errors {
-        Other(t: &'static str) {
-            description(t)
-        }
-    }
+#[derive(Debug, Fail)]
+enum ConfigError {
+    #[fail(display = "Could not read any config files")]
+    NoReadableConfig
 }
 
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
-pub fn load_config() -> Result<Config> {
+pub fn load_config() -> Result<Config, Error> {
     for ref location in CONFIG_LOCATIONS.iter() {
         let conf = load_config_from_path(&location);
         if conf.is_ok() {
@@ -39,10 +33,10 @@ pub fn load_config() -> Result<Config> {
             return conf;
         }
     }
-    Err(ErrorKind::Other("Could not read any config files.").into())
+    Err(ConfigError::NoReadableConfig.into())
 }
 
-pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<Config> {
+pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<Config, Error> {
     let mut file = File::open(config_path)?;
     let mut content: Vec<u8> = Vec::new();
     file.read_to_end(&mut content);

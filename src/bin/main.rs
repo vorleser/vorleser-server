@@ -23,6 +23,7 @@ use std::fs::OpenOptions;
 
 use sentry::integrations::panic::register_panic_handler;
 use sentry::integrations::error_chain::capture_error_chain;
+use sentry::integrations::failure::capture_error;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use regex::Regex;
@@ -252,9 +253,9 @@ fn run_scan(pool: &Pool, config: &Config, full_scan: bool) {
         };
 
         if let Err(error) = scan_result {
-            capture_error_chain(&error);
-            error_log!("Scan failed with error: {:?}", error.description());
-            error_log!("Backtrace: {:?}", error.backtrace());
+            capture_error(&error);
+            error_log!("Scan failed with error: {}", error);
+            error_log!("Backtrace: {}", error.backtrace());
         } else {
             info!("Scan succeeded!");
         }

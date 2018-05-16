@@ -33,7 +33,7 @@ use schema::chapters;
 use schema::libraries;
 use worker::mediafile::MediaFile;
 use worker::muxer;
-use worker::error::*;
+use worker::error::{Result, WorkerError};
 use diesel::BelongingToDsl;
 use worker::util;
 use worker::mediafile::Image;
@@ -96,7 +96,7 @@ impl Scanner {
                 );
                 match locking_behavior {
                     LockingBehavior::Block => lock_file.lock_exclusive().map_err(|e| e.into()),
-                    _ => Err(ErrorKind::Locked.into()),
+                    _ => Err(WorkerError::Locked.into()),
                 }
             }
             Ok(_) => { return Ok(()) }
@@ -204,12 +204,12 @@ impl Scanner {
         if path.as_ref().is_dir() {
             match self.create_multifile_audiobook(conn, path) {
                 Ok(_) => (),
-                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e.description())
+                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e)
             };
         } else {
             match self.create_audiobook(conn, path) {
                 Ok(_) => (),
-                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e.description())
+                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e)
             };
         }
     }
@@ -304,7 +304,7 @@ impl Scanner {
 
         let file = MediaFile::read_file(path.as_ref())?;
         if !file.has_audio_track() {
-            return Err(ErrorKind::Other("Not an audio file!").into())
+            return Err(WorkerError::NotAnAudioFile.into())
         }
         let file_extension = path.as_ref().extension().map(|s| {
             s.to_string_lossy().into_owned()
@@ -474,14 +474,14 @@ impl Scanner {
 
         let filetype = match probable_audio_filetype(&path)? {
             Some(e) => e,
-            None => return Err(ErrorKind::Other("No valid file extensions found.").into())
+            None => return Err(WorkerError::NoValidFileExtensions.into())
         };
 
         debug!("decided on file type {:?}", filetype);
 
         let title = match path.as_ref().file_name().map(|el| el.to_string_lossy()) {
             Some(s) => s.into_owned(),
-            None => return Err(ErrorKind::InvalidUtf8.into())
+            None => return Err(WorkerError::InvalidUtf8.into())
         };
 
         let mut default_book = Audiobook {
@@ -544,8 +544,8 @@ impl Scanner {
 
     fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
         match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
-            Err(_) => Err(ErrorKind::Other("Path is not inside library.").into()),
-            Ok(None) => Err(ErrorKind::Other("Path is not a valid utf-8 String.").into()),
+            Err(_) => Err(WorkerError::OutsideLibrary.into()),
+            Ok(None) => Err(WorkerError::InvalidUtf8.into()),
             Ok(Some(p)) => Ok(p)
         }
     }

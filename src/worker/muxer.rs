@@ -9,6 +9,7 @@ use super::mediafile::MediaFile;
 use super::util::*;
 use helpers::mllt;
 use worker::error::*;
+use std::error::Error;
 
 pub struct NewMediaFile {
     ctx: *mut AVFormatContext,
@@ -33,7 +34,7 @@ impl NewMediaFile {
         let c_file_name = CString::new(
                 match file_name.to_str() {
                     Some(s) => s,
-                    None => return Err(ErrorKind::InvalidUtf8.into())
+                    None => return Err(WorkerError::InvalidUtf8.into())
                 }).unwrap();
         let ipod_short_name = CString::new("ipod").unwrap();
         unsafe {
@@ -49,7 +50,7 @@ impl NewMediaFile {
             debug!("decided on short_name {:?}", short_name);
             let format = match ptr_to_opt_mut(av_guess_format(short_name, c_file_name.as_ptr(), ptr::null())) {
                 Some(f) => f,
-                None => return Err(ErrorKind::Other("No Format could be guessed").into())
+                None => return Err(WorkerError::UnkownFormat.into())
             };
             let mut ctx = ptr::null_mut();
             try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
@@ -109,7 +110,11 @@ impl NewMediaFile {
 pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile> {
     // TODO: check in_files length
     // TODO: check that formats are actually compatible
-    if in_files.is_empty() { return Err(ErrorKind::Other("No Mediafiles").into()); };
+    if in_files.is_empty() {
+        return Err(WorkerError::Other{
+            description: "No Mediafiles".to_owned()
+        }.into());
+    }
     let mut out = {
         let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
         try!(NewMediaFile::from_stream(path.as_ref(), stream))

@@ -33,6 +33,7 @@ rocket = "= 0.3.6"
 rocket_codegen = "= 0.3.6"
 fs2 = "0.4.3"
 scheduled-thread-pool = "0.2.0"
+failure = "0.1.1"
 
 [dependencies.id3]
 git = "https://github.com/ahti/rust-id3"

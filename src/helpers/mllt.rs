@@ -4,23 +4,17 @@ use std::mem::transmute;
 
 use std::cmp::{min, max};
 
+use failure::Error;
 use id3::{Tag, Frame, Version};
 use id3::frame::Content;
 use id3;
 
 use mp3_metadata;
 
-error_chain! {
-    foreign_links {
-        Id3(id3::Error);
-        Metadata(mp3_metadata::Error);
-    }
-
-    errors {
-        IncalculableDuration {
-            description("couldn't calculate mp3 frame duration")
-        }
-    }
+#[derive(Debug, Fail)]
+enum MlltError {
+    #[fail(display = "Could not calculate mp3 frame duration")]
+    IncalculableDuration
 }
 
 trait DurationExt {
@@ -73,7 +67,7 @@ macro_rules! dump{
 // millis
 const DESIRED_ACCURACY: u64 = 1000;
 
-fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>> {
+fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
     let meta = mp3_metadata::read_from_file(&file)?;
 
     let mut num_frames: u64 = 0;
@@ -87,7 +81,8 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>> {
 
     for frame in &meta.frames {
         num_frames += 1;
-        duration += frame.duration.ok_or(ErrorKind::IncalculableDuration)?;
+        duration += frame.duration.ok_or::<MlltError>(
+            MlltError::IncalculableDuration.into())?;
         size += frame.size as u64;
         smallest_frame = min(smallest_frame, frame.size);
         biggest_frame = max(biggest_frame, frame.size);
@@ -167,7 +162,7 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>> {
 }
 
 
-pub fn mlltify<P: AsRef<Path>>(file: P) -> Result<()> {
+pub fn mlltify<P: AsRef<Path>>(file: P) -> Result<(), Error> {
     let mut tag = Tag::read_from_path(&file)?;
 
     // don't do unnecessary work if there already is a mllt tag

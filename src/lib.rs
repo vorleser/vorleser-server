@@ -9,6 +9,7 @@
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate error_chain;
+#[macro_use] extern crate failure;
 #[macro_use(log, info, debug, warn, trace)]
 extern crate log;
 extern crate simplelog;

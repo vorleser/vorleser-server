@@ -29,7 +29,7 @@ use super::util::*;
 use std::collections::HashMap;
 use std::fmt::{Formatter, Debug};
 use std::str::Split;
-use worker::error::*;
+use worker::error::{Result, WorkerError};
 use worker::util::string_from_ptr;
 use std::fmt;
 use std::error;
@@ -124,7 +124,7 @@ impl MediaFile {
     pub fn read_file(file_name: &Path) -> Result<Self> {
         let file_name_str = match file_name.to_str() {
             Some(s) => s,
-            None => return Err(ErrorKind::InvalidUtf8.into())
+            None => return Err(WorkerError::InvalidUtf8.into())
         };
         unsafe {
             ensure_av_register_all();
@@ -154,7 +154,7 @@ impl MediaFile {
         };
         let c_file_name = CString::new(self.path.to_str()
                                        .unwrap_or({
-                                           return Err(ErrorKind::InvalidUtf8.into())
+                                           return Err(WorkerError::InvalidUtf8.into())
                                        })).expect("Null byte in filename");
         let mut probe_data = AVProbeData {
             filename: c_file_name.as_ptr(),
@@ -185,8 +185,17 @@ impl MediaFile {
         unsafe {
             let mut pkt = mem::uninitialized::<AVPacket>();
             match check_av_result(av_read_frame(self.ctx, &mut pkt)) {
-                Err(Error(ErrorKind::MediaError(_, AVERROR_EOF), _)) => Ok(None),
-                Err(e) => Err(e),
+                Err(e) => {
+                    if let Some(worker_error) = e.downcast_ref::<WorkerError>() {
+                        match worker_error {
+                            &WorkerError::MediaError {code: AVERROR_EOF, ..} => {
+                                return Ok(None)
+                            }
+                            _ => (),
+                        }
+                    }
+                    return Err(e)
+                }
                 _ => Ok(Some(pkt))
             }
         }

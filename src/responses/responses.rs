@@ -1,4 +1,4 @@
-use super::response_type::APIResponse;
+use super::response_type::{APIResponse, APIError};
 use rocket::http::Status;
 
 pub fn ok() -> APIResponse {

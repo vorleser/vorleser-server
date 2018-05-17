@@ -2,6 +2,7 @@ use rocket_contrib::Json;
 use validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;
+use failure::Error;
 
 use config::Config;
 use responses;
@@ -9,7 +10,7 @@ use models::user::{User, NewUser, ApiToken};
 use schema::users;
 use schema::users::dsl::*;
 use helpers::db::DB;
-use responses::{APIResponse, ok, created, conflict, unauthorized, internal_server_error};
+use responses::{APIError, APIResponse, ok, created, conflict, unauthorized, internal_server_error};
 use rocket::Outcome;
 use rocket::http::Status;
 use validation::token::TokenSerializer;
@@ -36,7 +37,8 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIRe
 }
 
 #[post("/register", data = "<user>", format = "application/json")]
-pub fn register(user: Json<UserSerializer>, db: DB, config: Config) -> Result<APIResponse, APIResponse> {
+pub fn register(user: Json<UserSerializer>, db: DB, config: Config) -> Result<APIResponse, APIError> {
+    return Err(format_err!("LOLOLOLOL").into());
     if config.register_web {
         let new_user = User::create(&user.email, &user.password, &*db)?;
 

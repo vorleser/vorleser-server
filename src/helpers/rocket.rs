@@ -6,6 +6,7 @@ use rocket::{Request, Response};
 use rocket::config::{Config, Environment};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::{Header, ContentType, Method};
+use responses::error_catchers;
 use std::io::Cursor;
 use std::path::PathBuf;
 
@@ -89,5 +90,9 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> rocket::co
                api::auth::logout_all,
                api::auth::register,
                api::auth::whoami,
-        ]))
+        ])
+        .catch(vec![
+               error_catchers::bad_request,
+        ])
+    )
 }

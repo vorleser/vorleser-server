@@ -284,6 +284,7 @@ fn init_logging(config: &LoggingConfig) {
         let file = OpenOptions::new()
             .write(true)
             .append(true)
+            .create(true)
             .open(file_path)
             .expect("Unable to open log file for writing.");
         loggers.push(

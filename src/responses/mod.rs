@@ -1,5 +1,7 @@
 pub mod responses;
-pub mod response_type;
+pub mod error_response;
+pub mod success_response;
 pub mod error_catchers;
 pub use self::responses::*;
-pub use self::response_type::{APIResponse, APIError};
+pub use self::success_response::APIResponse;
+pub use self::error_response::APIError;

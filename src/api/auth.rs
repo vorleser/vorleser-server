@@ -40,13 +40,12 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIRe
 #[post("/register", data = "<user_data>", format = "application/json")]
 pub fn register(user_data: Result<Json<UserSerializer>, SerdeError>, db: DB, config: Config) -> Result<APIResponse, APIError> {
     let user = user_data?;
-    return Err(format_err!("LOLOLOLOL").into());
     if config.register_web {
         let new_user = User::create(&user.email, &user.password, &*db)?;
-
         Ok(created().message("User created.").data(json!(&new_user)))
     } else {
-        Ok(responses::unauthorized().message("Registration is disabled."))
+        Ok(responses::unauthorized().message("Registration is disabled. Create a user via the commandline or enable user\
+                                             creation in the config file."))
     }
 }
 

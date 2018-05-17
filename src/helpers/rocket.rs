@@ -6,7 +6,6 @@ use rocket::{Request, Response};
 use rocket::config::{Config, Environment};
 use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::{Header, ContentType, Method};
-use responses::error_catchers;
 use std::io::Cursor;
 use std::path::PathBuf;
 
@@ -92,6 +91,12 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> rocket::co
             api::auth::whoami,
         ])
         .catch(errors![
+            handlers::bad_request_handler,
+            handlers::unauthorized_handler,
+            handlers::forbidden_handler,
+            handlers::not_found_handler,
+            handlers::internal_server_error_handler,
+            handlers::service_unavailable_handler,
         ])
     )
 }

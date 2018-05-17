@@ -8,8 +8,8 @@ use diesel;
 use diesel::prelude::*;
 use helpers::uuid::Uuid;
 use helpers::db::DB;
-use responses::{APIResponse, bad_request, unauthorized, forbidden, not_found, internal_server_error,
-                service_unavailable};
+use responses::{APIResponse, APIError, bad_request, unauthorized, forbidden, not_found,
+                internal_server_error, service_unavailable};
 
 
 
@@ -75,4 +75,34 @@ impl<'a, 'r> FromRequest<'a, 'r> for ApiToken {
             Outcome::Failure((Status::BadRequest, ()))
         }
     }
+}
+
+#[error(400)]
+fn bad_request_handler() -> APIError {
+    bad_request()
+}
+
+#[error(401)]
+fn unauthorized_handler() -> APIError {
+    unauthorized()
+}
+
+#[error(403)]
+fn forbidden_handler() -> APIError {
+    forbidden()
+}
+
+#[error(404)]
+fn not_found_handler() -> APIError {
+    not_found()
+}
+
+#[error(500)]
+fn internal_server_error_handler() -> APIError {
+    internal_server_error()
+}
+
+#[error(503)]
+fn service_unavailable_handler() -> APIError {
+    service_unavailable()
 }

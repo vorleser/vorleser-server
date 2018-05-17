@@ -77,6 +77,8 @@ pub struct WebConfig {
     #[serde(default="default_data_directory")]
     pub address: String,
     pub port: u16,
+    #[serde(default)] // default to false
+    pub debug: bool,
 }
 
 fn default_log_level() -> String {

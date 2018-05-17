@@ -1,6 +1,7 @@
 use std::io::Cursor;
 use failure::Error;
 use rocket::Request;
+use rocket::Outcome;
 use rocket::response::{Response, Responder};
 use rocket::request::FromRequest;
 use rocket::http::{Status, ContentType};
@@ -56,27 +57,32 @@ impl From<SerdeError> for APIError {
     }
 }
 
+fn backtrace_list(err: &Error) -> Vec<String> {
+    format!("{}", err.backtrace())
+        .lines()
+        .map(|s| s.to_owned())
+        .collect::<Vec<String>>()
+}
+
 impl<'r> Responder<'r> for APIError {
     fn respond_to(self, request: &Request) -> Result<Response<'r>, Status> {
-        let debug = true;
+        let config_outcome = Config::from_request(request);
+        let debug = match config_outcome {
+            Outcome::Success(conf) => conf.web.debug,
+            _ => false,
+        };
 
-        // TODO: use debug from config
-        let config = Config::from_request(request);
         let body = match (debug, self.message, &self.error.as_ref()) {
             (false, Some(msg), _) => json!({"message": msg}),
             (false, None, _) => json!({}),
             (true, None, err) => json!({
                 "error": err.map(|err| err.to_string()),
-                "backtrace": err.map(|err|
-                    format!("{}", err.backtrace())
-                ),
+                "backtrace": err.map(backtrace_list),
             }),
             (true, Some(msg), err) => json!({
                 "message": msg,
                 "error": err.map(|err| err.to_string()),
-                "backtrace": err.map(|err|
-                    format!("{}", err.backtrace())
-                ),
+                "backtrace": err.map(backtrace_list),
             })
         };
 

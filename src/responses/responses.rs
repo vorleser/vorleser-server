@@ -43,12 +43,9 @@ pub fn bad_request() -> APIResponse {
     }
 }
 
-pub fn unauthorized() -> APIResponse {
-    APIResponse {
-        message: Some("Unauthorized".to_string()),
-        data: None,
-        status: Status::Unauthorized,
-    }
+pub fn unauthorized() -> APIError {
+    APIError::new(Status::Unauthorized)
+        .message("Unauthorized")
 }
 
 pub fn forbidden() -> APIResponse {

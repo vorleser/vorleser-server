@@ -16,34 +16,22 @@ pub struct APIError {
 }
 
 impl APIError {
-    pub fn builder(status: Status) -> APIErrorBuilder {
-        APIErrorBuilder::new(status)
-    }
-}
-
-pub struct APIErrorBuilder(APIError);
-
-impl APIErrorBuilder {
     pub fn new(status: Status) -> Self {
-        APIErrorBuilder(APIError {
+        Self {
             message: None,
             error: None,
             status: status,
-        })
+        }
     }
 
-    pub fn message(mut self, msg: String) -> Self {
-        self.0.message = Some(msg);
+    pub fn message(mut self, msg: &str) -> Self {
+        self.message = Some(msg.to_owned());
         self
     }
 
     pub fn error(mut self, err: Error) -> Self {
-        self.0.error = Some(err);
+        self.error = Some(err);
         self
-    }
-
-    pub fn build(self) -> APIError {
-        self.0
     }
 }
 

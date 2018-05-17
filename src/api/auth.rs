@@ -11,23 +11,24 @@ use models::user::{User, NewUser, ApiToken};
 use schema::users;
 use schema::users::dsl::*;
 use helpers::db::DB;
-use responses::{APIError, APIResponse, ok, created, conflict, unauthorized, internal_server_error};
-use rocket::Outcome;
+use responses::{APIError, APIResponse, APIResult, ok, created, conflict, unauthorized, internal_server_error};
 use rocket::http::Status;
 use validation::token::TokenSerializer;
+use helpers::JsonResult;
 
-#[post("/login", data = "<user_in>", format = "application/json")]
-pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIResponse>  {
+#[post("/login", data = "<user_in_result>", format = "application/json")]
+pub fn login(user_in_result: JsonResult<UserSerializer>, db: DB) -> APIResult {
+    let user_in = user_in_result?;
     let results = users.filter(email.eq(user_in.email.clone()))
         .first::<User>(&*db);
 
     if results.is_err() {
-        return Ok(unauthorized().message("Username or password incorrect."));
+        return Err(unauthorized().message("Username or password incorrect."));
     }
 
     let user = results.unwrap();
     if !user.verify_password(user_in.password.as_str()) {
-        return Ok(unauthorized().message("Username or password incorrect."));
+        return Err(unauthorized().message("Username or password incorrect."));
     }
 
     let token = user.generate_api_token(db)?;
@@ -38,14 +39,14 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIRe
 }
 
 #[post("/register", data = "<user_data>", format = "application/json")]
-pub fn register(user_data: Result<Json<UserSerializer>, SerdeError>, db: DB, config: Config) -> Result<APIResponse, APIError> {
+pub fn register(user_data: JsonResult<UserSerializer>, db: DB, config: Config) -> APIResult {
     let user = user_data?;
     if config.register_web {
         let new_user = User::create(&user.email, &user.password, &*db)?;
         Ok(created().message("User created.").data(json!(&new_user)))
     } else {
-        Ok(responses::unauthorized().message("Registration is disabled. Create a user via the commandline or enable user\
-                                             creation in the config file."))
+        Err(responses::unauthorized().message("Registration is disabled. Create a user via the commandline or enable user \
+                                               creation in the config file."))
     }
 }
 

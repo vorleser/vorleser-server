@@ -26,21 +26,13 @@ pub fn accepted() -> APIResponse {
     }
 }
 
-pub fn no_content() -> APIResponse {
-    APIResponse {
-        message: Some("No Content".to_string()),
-        data: None,
-        status: Status::NoContent,
-    }
+pub fn no_content() -> APIError {
+    APIError::new(Status::NoContent).message("No Content")
 }
 
 
-pub fn bad_request() -> APIResponse {
-    APIResponse {
-        message: Some("Bad Request".to_string()),
-        data: None,
-        status: Status::BadRequest,
-    }
+pub fn bad_request() -> APIError {
+    APIError::new(Status::BadRequest).message("Bad Request")
 }
 
 pub fn unauthorized() -> APIError {
@@ -48,20 +40,12 @@ pub fn unauthorized() -> APIError {
         .message("Unauthorized")
 }
 
-pub fn forbidden() -> APIResponse {
-    APIResponse {
-        message: Some("Forbidden".to_string()),
-        data: None,
-        status: Status::Forbidden,
-    }
+pub fn forbidden() -> APIError {
+    APIError::new(Status::Forbidden).message("Forbidden")
 }
 
-pub fn not_found() -> APIResponse {
-    APIResponse {
-        message: Some("Not Found".to_string()),
-        data: None,
-        status: Status::NotFound,
-    }
+pub fn not_found() -> APIError {
+    APIError::new(Status::NotFound).message("Not Found")
 }
 
 pub fn method_not_allowed() -> APIResponse {
@@ -88,12 +72,8 @@ pub fn unprocessable_entity() -> APIResponse {
     }
 }
 
-pub fn internal_server_error() -> APIResponse {
-    APIResponse {
-        message: Some("Internal Server Error".to_string()),
-        data: None,
-        status: Status::InternalServerError,
-    }
+pub fn internal_server_error() -> APIError {
+    APIError::new(Status::InternalServerError).message("Internal Server Error")
 }
 
 pub fn service_unavailable() -> APIResponse {

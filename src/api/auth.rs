@@ -57,7 +57,7 @@ pub fn whoami(current_user: User) -> APIResponse {
 }
 
 #[post("/logout")]
-pub fn logout(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIResponse> {
+pub fn logout(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIError> {
     use schema::api_tokens::table;
     use schema::api_tokens::dsl::id;
 
@@ -67,7 +67,7 @@ pub fn logout(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse
 }
 
 #[post("/logout_all")]
-pub fn logout_all(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIResponse> {
+pub fn logout_all(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIError> {
     use schema::api_tokens::table;
     use schema::api_tokens::dsl::user_id;
 

@@ -13,12 +13,12 @@ use api::ranged_file::RangedFile;
 use std::fs;
 use std::io;
 use schema::audiobooks::dsl::{audiobooks, self};
-use responses::{APIResponse, self, ok, internal_server_error};
+use responses::{APIResponse, APIError, self, ok, internal_server_error};
 use rocket::response::NamedFile;
 use config::Config;
 
 #[get("/data/<book_id>")]
-pub fn get_data_file(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<RangedFile, APIResponse> {
+pub fn get_data_file(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<RangedFile, APIError> {
     match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(_) => (),
         None => return Err(responses::not_found())
@@ -37,7 +37,7 @@ pub fn get_data_file(current_user: User, db: DB, book_id: Uuid, config: Config) 
 }
 
 #[get("/coverart/<book_id>")]
-pub fn get_coverart(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<NamedFile, APIResponse> {
+pub fn get_coverart(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<NamedFile, APIError> {
     use schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,
@@ -56,18 +56,18 @@ pub fn get_coverart(current_user: User, db: DB, book_id: Uuid, config: Config) -
 }
 
 #[get("/audiobooks")]
-pub fn get_audiobooks(current_user: User, db: DB) -> Result<APIResponse, APIResponse> {
+pub fn get_audiobooks(current_user: User, db: DB) -> Result<APIResponse, APIError> {
     use schema::libraries::dsl::*;
     let user_books = current_user.accessible_audiobooks(&*db)?;
     Ok(ok().data(json!(user_books)))
 }
 
 #[get("/audiobooks/<book_id>")]
-pub fn get_audiobook(current_user: User, db: DB, book_id: Uuid) -> Result<APIResponse, APIResponse> {
+pub fn get_audiobook(current_user: User, db: DB, book_id: Uuid) -> Result<APIResponse, APIError> {
     use schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,
-        None => return Ok(responses::not_found())
+        None => return Err(responses::not_found())
     };
     Ok(ok().data(json!(book)))
 }

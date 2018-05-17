@@ -6,10 +6,9 @@ use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
 use super::responses::*;
 use config::Config;
-use diesel;
-use uuid;
 use models::user::UserError;
 use failure::Error;
+use diesel;
 
 #[derive(Debug)]
 pub struct APIResponse {
@@ -49,45 +48,11 @@ impl<'r> Responder<'r> for APIResponse {
     }
 }
 
-impl From<uuid::ParseError> for APIResponse {
-    fn from(error: uuid::ParseError) -> Self {
-        bad_request()
-    }
-}
-
-impl From<Error> for APIResponse {
-    fn from(error: Error) -> Self {
-        if let Some(err) = error.downcast_ref::<UserError>() {
-            return err.into()
-        }
-        if let Some(err) = error.downcast_ref::<diesel::result::Error>() {
-            return err.into()
-        }
-        return internal_server_error()
-    }
-}
-
 impl<'a> From<&'a UserError> for APIResponse {
     fn from(error: &UserError) -> Self {
         match error {
             &UserError::AlreadyExists{ ref user_name } =>
                 conflict().message(&format!("{}", user_name))
-        }
-    }
-}
-
-impl From<diesel::result::Error> for APIResponse {
-    fn from(error: diesel::result::Error) -> Self {
-        APIResponse::from(&error)
-    }
-}
-
-impl<'a> From<&'a diesel::result::Error> for APIResponse {
-    fn from(error: &diesel::result::Error) -> Self {
-        use diesel::result::Error;
-        match error {
-            &Error::NotFound => not_found(),
-            _ => internal_server_error()
         }
     }
 }

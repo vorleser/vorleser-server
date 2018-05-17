@@ -3,8 +3,12 @@ use failure::Error;
 use rocket::Request;
 use rocket::response::{Response, Responder};
 use rocket::request::FromRequest;
-use serde_json::error::Error as SerdeError;
 use rocket::http::{Status, ContentType};
+use models::user::UserError;
+use uuid;
+use responses::responses::{bad_request, not_found, internal_server_error};
+use serde_json::error::Error as SerdeError;
+use diesel;
 
 use config::Config;
 
@@ -35,22 +39,19 @@ impl APIError {
     }
 }
 
+impl From<uuid::ParseError> for APIError {
+    fn from(error: uuid::ParseError) -> Self {
+        bad_request()
+    }
+}
+
+
 impl From<SerdeError> for APIError {
     fn from(error: SerdeError) -> Self {
         APIError {
             message: Some(format!("Error parsing input: {}", error)),
             error: Some(Error::from(error)),
             status: Status::BadRequest
-        }
-    }
-}
-
-impl From<Error> for APIError {
-    fn from(error: Error) -> Self {
-        APIError {
-            message: None,
-            error: Some(error),
-            status: Status::InternalServerError
         }
     }
 }
@@ -86,3 +87,39 @@ impl<'r> Responder<'r> for APIError {
             .ok()
     }
 }
+
+impl From<diesel::result::Error> for APIError {
+    fn from(error: diesel::result::Error) -> Self {
+        APIError::from(&error)
+    }
+}
+
+impl<'a> From<&'a diesel::result::Error> for APIError {
+    fn from(error: &diesel::result::Error) -> Self {
+        use diesel::result::Error;
+        match error {
+            &Error::NotFound => not_found(),
+            _ => internal_server_error()
+        }
+    }
+}
+
+impl From<Error> for APIError {
+    fn from(error: Error) -> Self {
+        if let Some(err) = error.downcast_ref::<UserError>() {
+            match err {
+                &UserError::AlreadyExists {user_name: ref name} =>
+                    return APIError::new(Status::Conflict).message("This user already exists")
+            }
+        }
+        if let Some(err) = error.downcast_ref::<diesel::result::Error>() {
+            return err.into()
+        }
+        APIError {
+            message: None,
+            error: Some(error),
+            status: Status::InternalServerError
+        }
+    }
+}
+

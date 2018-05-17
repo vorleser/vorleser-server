@@ -48,38 +48,22 @@ pub fn not_found() -> APIError {
     APIError::new(Status::NotFound).message("Not Found")
 }
 
-pub fn method_not_allowed() -> APIResponse {
-    APIResponse {
-        message: Some("Method Not Allowed".to_string()),
-        data: None,
-        status: Status::MethodNotAllowed,
-    }
+pub fn method_not_allowed() -> APIError {
+    APIError::new(Status::MethodNotAllowed).message("Method Not Allowed")
 }
 
-pub fn conflict() -> APIResponse {
-    APIResponse {
-        message: Some("Conflict".to_string()),
-        data: None,
-        status: Status::Conflict,
-    }
+pub fn conflict() -> APIError {
+    APIError::new(Status::Conflict).message("Conflict")
 }
 
-pub fn unprocessable_entity() -> APIResponse {
-    APIResponse {
-        message: Some("Unprocessable Entity".to_string()),
-        data: None,
-        status: Status::UnprocessableEntity,
-    }
+pub fn unprocessable_entity() -> APIError {
+    APIError::new(Status::UnprocessableEntity).message("Unprocessable Entity")
 }
 
 pub fn internal_server_error() -> APIError {
     APIError::new(Status::InternalServerError).message("Internal Server Error")
 }
 
-pub fn service_unavailable() -> APIResponse {
-    APIResponse {
-        message: Some("Service Unavailable".to_string()),
-        data: None,
-        status: Status::ServiceUnavailable,
-    }
+pub fn service_unavailable() -> APIError {
+    APIError::new(Status::ServiceUnavailable).message("Service Unavailable")
 }

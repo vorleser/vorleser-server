@@ -6,7 +6,7 @@ use rocket::request::FromRequest;
 use rocket::http::{Status, ContentType};
 use models::user::UserError;
 use uuid;
-use responses::responses::{bad_request, not_found, internal_server_error};
+use responses::responses::{bad_request, not_found, internal_server_error, conflict};
 use serde_json::error::Error as SerdeError;
 use diesel;
 
@@ -108,8 +108,11 @@ impl From<Error> for APIError {
     fn from(error: Error) -> Self {
         if let Some(err) = error.downcast_ref::<UserError>() {
             match err {
-                &UserError::AlreadyExists {user_name: ref name} =>
-                    return APIError::new(Status::Conflict).message("This user already exists")
+                &UserError::AlreadyExists {user_name: ref name} => {
+                    let mut conflict_resp = conflict();
+                    conflict_resp.message = Some(format!("The {} already exists", name));
+                    return conflict_resp;
+                }
             }
         }
         if let Some(err) = error.downcast_ref::<diesel::result::Error>() {

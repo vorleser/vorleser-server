@@ -47,12 +47,3 @@ impl<'r> Responder<'r> for APIResponse {
             .ok()
     }
 }
-
-impl<'a> From<&'a UserError> for APIResponse {
-    fn from(error: &UserError) -> Self {
-        match error {
-            &UserError::AlreadyExists{ ref user_name } =>
-                conflict().message(&format!("{}", user_name))
-        }
-    }
-}

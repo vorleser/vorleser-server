@@ -3,6 +3,8 @@ use validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;
 
+use config::Config;
+use responses;
 use models::user::{User, NewUser, ApiToken};
 use schema::users;
 use schema::users::dsl::*;
@@ -34,10 +36,14 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIRe
 }
 
 #[post("/register", data = "<user>", format = "application/json")]
-pub fn register(user: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIResponse> {
-    let new_user = User::create(&user.email, &user.password, &*db)?;
+pub fn register(user: Json<UserSerializer>, db: DB, config: Config) -> Result<APIResponse, APIResponse> {
+    if config.register_web {
+        let new_user = User::create(&user.email, &user.password, &*db)?;
 
-    Ok(created().message("User created.").data(json!(&new_user)))
+        Ok(created().message("User created.").data(json!(&new_user)))
+    } else {
+        Ok(responses::unauthorized().message("Registration is disabled."))
+    }
 }
 
 

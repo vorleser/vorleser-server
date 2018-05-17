@@ -12,3 +12,10 @@ pub fn bad_request(e: RocketError) -> APIError {
         .message("Bad Request!".to_string())
         .build()
 }
+
+#[error(404)]
+pub fn not_found(e: RocketError) -> APIError {
+    APIError::builder(Status::NotFound)
+        .message("No such route".to_string())
+        .build()
+}

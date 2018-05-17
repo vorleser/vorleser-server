@@ -10,6 +10,7 @@ use diesel;
 use uuid;
 use models::user::UserError;
 use failure::Error;
+use serde_json::error::Error as SerdeError;
 
 #[derive(Debug)]
 pub struct APIResponse {
@@ -54,6 +55,16 @@ impl APIErrorBuilder {
 
     pub fn build(self) -> APIError {
         self.0
+    }
+}
+
+impl From<SerdeError> for APIError {
+    fn from(error: SerdeError) -> Self {
+        APIError {
+            message: Some(format!("Error parsing input: {}", error)),
+            error: Some(Error::from(error)),
+            status: Status::BadRequest
+        }
     }
 }
 

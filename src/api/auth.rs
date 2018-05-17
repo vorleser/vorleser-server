@@ -3,6 +3,7 @@ use validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;
 use failure::Error;
+use serde_json::error::Error as SerdeError;
 
 use config::Config;
 use responses;
@@ -36,8 +37,9 @@ pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIRe
     )))
 }
 
-#[post("/register", data = "<user>", format = "application/json")]
-pub fn register(user: Json<UserSerializer>, db: DB, config: Config) -> Result<APIResponse, APIError> {
+#[post("/register", data = "<user_data>", format = "application/json")]
+pub fn register(user_data: Result<Json<UserSerializer>, SerdeError>, db: DB, config: Config) -> Result<APIResponse, APIError> {
+    let user = user_data?;
     return Err(format_err!("LOLOLOLOL").into());
     if config.register_web {
         let new_user = User::create(&user.email, &user.password, &*db)?;

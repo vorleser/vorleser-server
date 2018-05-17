@@ -50,13 +50,13 @@ pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config:
     use ::static_files;
     Ok(base_factory(pool, config)?
         .mount("/", routes![
-               static_files::get_index,
-               static_files::get_elmjs,
-               static_files::get_sessionjs,
-               static_files::get_audiojs,
-               static_files::get_appcss,
-               static_files::get_robotocss,
-               static_files::get_materialcss,
+             static_files::get_index,
+             static_files::get_elmjs,
+             static_files::get_sessionjs,
+             static_files::get_audiojs,
+             static_files::get_appcss,
+             static_files::get_robotocss,
+             static_files::get_materialcss,
         ]))
 }
 
@@ -85,14 +85,13 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> rocket::co
             api::audiobooks::get_audiobooks,
         ])
         .mount("/api/auth/", routes![
-               api::auth::login,
-               api::auth::logout,
-               api::auth::logout_all,
-               api::auth::register,
-               api::auth::whoami,
+            api::auth::login,
+            api::auth::logout,
+            api::auth::logout_all,
+            api::auth::register,
+            api::auth::whoami,
         ])
-        .catch(vec![
-               error_catchers::bad_request,
+        .catch(errors![
         ])
     )
 }

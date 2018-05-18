@@ -60,7 +60,7 @@ pub struct Config {
 #[derive(Deserialize, Clone, Debug)]
 pub struct LoggingConfig {
     pub level: String,
-    #[serde(default= "default_log_location")]
+    #[serde(default)]
     pub file: Option<String>,
 }
 

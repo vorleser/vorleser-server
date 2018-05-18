@@ -23,6 +23,7 @@ use std::fs::OpenOptions;
 
 use sentry::integrations::panic::register_panic_handler;
 use sentry::integrations::failure::capture_error;
+use sentry::integrations::log::LoggerOptions;
 use diesel::prelude::*;
 use clap::{Arg, App, SubCommand, ArgMatches};
 use regex::Regex;
@@ -294,6 +295,11 @@ fn init_logging(config: &LoggingConfig) {
     let combined = CombinedLogger::new(loggers);
     sentry::integrations::log::init(
         Some(combined),
-        Default::default()
+        LoggerOptions {
+            global_filter: None,
+            filter: LevelFilter::Info,
+            emit_breadcrumbs: true,
+            emit_error_events: false,
+        }
     );
 }

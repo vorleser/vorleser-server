@@ -80,3 +80,6 @@ webfrontend = []
 [lib]
 name = "vorleser_server"
 path = "src/lib.rs"
+
+[profile.release]
+debug = true

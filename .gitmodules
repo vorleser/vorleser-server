@@ -1,0 +1,3 @@
+[submodule "vorleser-web"]
+	path = vorleser-web
+	url = https://github.com/vorleser/vorleser-web.git

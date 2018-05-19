@@ -5,6 +5,12 @@
 ## Building
 Run `cargo build`, you will need a somewhat recent version of FFmpeg, including headerfiles, installed on your system.
 
+**Optionally** if you want to include the web interface in your build:
+
+- Init the web frontend submodule `git submodule update --recursive --remote`
+- Build the frontend according to the instructions in [vorleser-web/README.md](vorleser-web/README.md)
+- Run `cargo build --features webfrontend`
+
 ## Library
 The library directory will contain your audiobooks.
 Simply follow these simple rules when copying audiobooks to the directory:

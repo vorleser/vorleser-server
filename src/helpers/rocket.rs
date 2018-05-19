@@ -8,6 +8,7 @@ use rocket::fairing::{Fairing, Info, Kind};
 use rocket::http::{Header, ContentType, Method};
 use std::io::Cursor;
 use std::path::PathBuf;
+use rocket::config::Result;
 
 use config;
 pub struct CORS();
@@ -44,27 +45,44 @@ fn options_handler<'a>(path: PathBuf) -> Response<'a> {
         .finalize()
 }
 
+fn add_catchers(rocket_result: Result<Rocket>) -> Result<Rocket> {
+    rocket_result.map(|rocket|
+        rocket.catch(errors![
+            handlers::bad_request_handler,
+            handlers::unauthorized_handler,
+            handlers::forbidden_handler,
+            handlers::not_found_handler,
+            handlers::internal_server_error_handler,
+            handlers::service_unavailable_handler,
+        ])
+    )
+}
+
+
 #[cfg(feature = "webfrontend")]
-pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
+pub fn factory(pool: super::db::Pool, config: config::Config) -> Result<Rocket> {
     use ::static_files;
-    Ok(base_factory(pool, config)?
-        .mount("/", routes![
-             static_files::get_index,
-             static_files::get_elmjs,
-             static_files::get_sessionjs,
-             static_files::get_audiojs,
-             static_files::get_appcss,
-             static_files::get_robotocss,
-             static_files::get_materialcss,
-        ]))
+    add_catchers(
+        base_factory(pool, config).map(|r|
+            r.mount("/", routes![
+                 static_files::get_index,
+                 static_files::get_elmjs,
+                 static_files::get_sessionjs,
+                 static_files::get_audiojs,
+                 static_files::get_appcss,
+                 static_files::get_robotocss,
+                 static_files::get_materialcss,
+            ])
+        )
+    )
 }
 
 #[cfg(not(feature = "webfrontend"))]
-pub fn factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
-    base_factory(pool, config)
+pub fn factory(pool: super::db::Pool, config: config::Config) -> Result<Rocket> {
+    add_catchers(base_factory(pool, config))
 }
 
-pub fn base_factory(pool: super::db::Pool, config: config::Config) -> rocket::config::Result<Rocket> {
+pub fn base_factory(pool: super::db::Pool, config: config::Config) -> Result<Rocket> {
     let rocket_config = Config::build(Environment::Production)
         .address(config.web.address.clone())
         .port(config.web.port.clone())
@@ -89,14 +107,6 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> rocket::co
             api::auth::logout_all,
             api::auth::register,
             api::auth::whoami,
-        ])
-        .catch(errors![
-            handlers::bad_request_handler,
-            handlers::unauthorized_handler,
-            handlers::forbidden_handler,
-            handlers::not_found_handler,
-            handlers::internal_server_error_handler,
-            handlers::service_unavailable_handler,
         ])
     )
 }

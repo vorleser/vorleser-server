@@ -8,7 +8,7 @@ interval = 600
 
 [logging]
 # Uncomment the following line to write to a log file, the directory needs to exist
-# file = "/var/log/vorleser/vorleser.toml"
+# file = "/var/log/vorleser/vorleser.log"
 level = "info"
 
 [web]

@@ -67,7 +67,7 @@ fn main() {
     init_db(conf.database.clone());
     let pool = init_db_pool(conf.database.clone());
 
-    if let Some(new_command) = matches.subcommand_matches("create_library") {
+    if let Some(new_command) = matches.subcommand_matches("create-library") {
         let conn = &*pool.get().unwrap();
         create_library(new_command, conn);
         std::process::exit(0);
@@ -78,7 +78,7 @@ fn main() {
         std::process::exit(0);
     }
 
-    if let Some(create_user) = matches.subcommand_matches("create_user") {
+    if let Some(create_user) = matches.subcommand_matches("create-user") {
         let db = &*pool.get().unwrap();
 
         let email = create_user.value_of("email").expect("a man has no name");
@@ -142,7 +142,7 @@ fn build_command_parser<'a, 'b>() -> App<'a, 'b> {
                  .help("Perform a full scan, not an incremental one")
             )
         )
-        .subcommand(SubCommand::with_name("create_user")
+        .subcommand(SubCommand::with_name("create-user")
             .arg(Arg::with_name("email")
                 .takes_value(true)
                 .required(true)
@@ -152,7 +152,7 @@ fn build_command_parser<'a, 'b>() -> App<'a, 'b> {
                 .required(true)
             )
         )
-        .subcommand(SubCommand::with_name("create_library")
+        .subcommand(SubCommand::with_name("create-library")
             .about("Create a new Library")
             .arg(Arg::with_name("path")
                 .takes_value(true)

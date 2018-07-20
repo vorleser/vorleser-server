@@ -111,7 +111,7 @@ speculate! {
             assert_eq!(0, count_books(&scanner, &pool));
         }
 
-        it "ignore_other_files" {
+        it "ignores other files" {
             // Time step 01:
             let base = String::from("integration-tests/ignore_other_files/01");
             scanner.library.location = base.clone();
@@ -119,7 +119,7 @@ speculate! {
             assert_eq!(0, count_books(&scanner, &pool));
         }
 
-        it "recovers_deleted_same_timestamp" {
+        it "recovers deleted books with the same timestamp" {
             use schema::audiobooks::dsl::deleted;
             // Time step 01:
             let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");

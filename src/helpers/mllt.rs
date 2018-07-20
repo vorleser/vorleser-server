@@ -17,16 +17,6 @@ enum MlltError {
     IncalculableDuration
 }
 
-trait DurationExt {
-    fn as_millis(&self) -> u64;
-}
-
-impl DurationExt for Duration {
-    fn as_millis(&self) -> u64 {
-        self.as_secs() * 1000 + (self.subsec_nanos() as u64) / 1_000_000
-    }
-}
-
 trait U8VecExt {
     fn push_i16(&mut self, int: i16);
     fn push_u16(&mut self, int: u16);
@@ -90,7 +80,9 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
 
     dump!(num_frames, duration, size, smallest_frame, biggest_frame);
 
-    let millis = duration.as_millis();
+    // FFmpeg needs u64s and we just assume audiobooks to be smaller than this
+    // This still allows for audiobooks that are billions of days in length
+    let millis = duration.as_millis() as u64;
 
     let avg_frame_millis = millis / num_frames;
     let frames_per_ref = (DESIRED_ACCURACY / avg_frame_millis) as u16;
@@ -141,7 +133,7 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
         dump!(chunk_duration, millis_per_ref);
         running_estimated_duration += Duration::from_millis(millis_per_ref as u64);
         running_duration += chunk_duration;
-        let millis_offset = (running_duration - running_estimated_duration).as_millis();
+        let millis_offset = (running_duration - running_estimated_duration).as_millis() as u64;
         if millis_offset > 0 {
             running_estimated_duration += Duration::from_millis(millis_offset);
         }

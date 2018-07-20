@@ -24,7 +24,7 @@ pub fn all_the_things(current_user: User, db: DB) -> APIResponse {
     let books = current_user.accessible_audiobooks(&*db).unwrap();
     let chapters: Vec<Chapter> = books.clone().into_iter().flat_map(|b| Chapter::belonging_to(&b).load::<Chapter>(&*db).unwrap()).collect();
     let playstates: Vec<_> = Playstate::belonging_to(&current_user).load::<Playstate>(&*db)
-                                .unwrap().into_iter().map(|p| p.into_api_playstate()).collect();
+                                .unwrap().into_iter().map(|p| p.to_api_playstate()).collect();
     ok().data(json!({
         "libraries": libs,
         "books": books,
@@ -38,10 +38,10 @@ pub fn update_playstates(playstate: Json<Vec<ApiPlaystate>>, current_user: User,
     use diesel;
     // TODO: Don't ignore errors here
     db.exclusive_transaction(|| -> Result<(), diesel::result::Error> {
-        let res = for state in playstate.into_inner() {
-            state.into_playstate(&current_user)
-                .upsert(&*db)?.into_api_playstate();
-        };
+        for state in playstate.into_inner() {
+            state.to_playstate(&current_user)
+                .upsert(&*db)?.to_api_playstate();
+        }
         Ok(())
     });
     ok().data(json!({}))

@@ -25,7 +25,7 @@ impl APIError {
         Self {
             message: None,
             error: None,
-            status: status,
+            status,
         }
     }
 
@@ -103,8 +103,8 @@ impl From<diesel::result::Error> for APIError {
 impl<'a> From<&'a diesel::result::Error> for APIError {
     fn from(error: &diesel::result::Error) -> Self {
         use diesel::result::Error;
-        match error {
-            &Error::NotFound => not_found(),
+        match *error {
+            Error::NotFound => not_found(),
             _ => internal_server_error()
         }
     }
@@ -113,8 +113,8 @@ impl<'a> From<&'a diesel::result::Error> for APIError {
 impl From<Error> for APIError {
     fn from(error: Error) -> Self {
         if let Some(err) = error.downcast_ref::<UserError>() {
-            match err {
-                &UserError::AlreadyExists {user_name: ref name} => {
+            match *err {
+                UserError::AlreadyExists {user_name: ref name} => {
                     let mut conflict_resp = conflict();
                     conflict_resp.message = Some(format!("The {} already exists", name));
                     return conflict_resp;

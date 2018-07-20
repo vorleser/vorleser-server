@@ -27,10 +27,10 @@ impl Playstate {
         Ok(self.clone())
     }
 
-    pub fn into_api_playstate(&self) -> ApiPlaystate {
+    pub fn to_api_playstate(&self) -> ApiPlaystate {
         ApiPlaystate {
-            audiobook_id: self.audiobook_id.clone(),
-            position: self.position.clone(),
+            audiobook_id: self.audiobook_id,
+            position: self.position,
             timestamp: DateTime::<Utc>::from_utc(self.timestamp, Utc),
         }
     }
@@ -46,10 +46,10 @@ pub struct ApiPlaystate {
 use models::user::User;
 
 impl ApiPlaystate {
-    pub fn into_playstate(&self, user: &User) -> Playstate {
+    pub fn to_playstate(&self, user: &User) -> Playstate {
         Playstate {
-            audiobook_id: self.audiobook_id.clone(),
-            user_id: user.id.clone(),
+            audiobook_id: self.audiobook_id,
+            user_id: user.id,
             position: self.position,
             timestamp: self.timestamp.naive_utc(),
         }

@@ -77,7 +77,7 @@ impl NewMediaFile {
             let stream = ptr_to_opt_mut(avformat_new_stream(ctx, ptr::null())).unwrap();
             (*stream).time_base = time_base;
             avcodec_parameters_copy((*stream).codecpar, codec);
-            Ok(Self{ ctx: ctx, is_mp3: is_mp3, path: file_name.to_owned() })
+            Ok(Self{ ctx, is_mp3, path: file_name.to_owned() })
         }
     }
 
@@ -147,11 +147,11 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
                     if pkt.pts < 0 || pkt.dts < 0 {
                         println!("foo");
                     }
-                    let res = try!(out.write_frame(&mut pkt));
+                    out.write_frame(&mut pkt)?;
                     unsafe {
                         av_free_packet(&mut pkt);
                     }
-                    res
+                    ()
                 },
                 None => break
             }

@@ -71,8 +71,9 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
 
     for frame in &meta.frames {
         num_frames += 1;
-        duration += frame.duration.ok_or::<MlltError>(
-            MlltError::IncalculableDuration.into())?;
+        duration += frame.duration.ok_or_else(
+            || MlltError::IncalculableDuration
+        )?;
         size += frame.size as u64;
         smallest_frame = min(smallest_frame, frame.size);
         biggest_frame = max(biggest_frame, frame.size);
@@ -150,7 +151,7 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
 
     dump!(running_duration, running_estimated_duration, count);
 
-    return Ok(res);
+    Ok(res)
 }
 
 
@@ -168,5 +169,5 @@ pub fn mlltify<P: AsRef<Path>>(file: P) -> Result<(), Error> {
 
     tag.write_to_path(&file, Version::Id3v23)?;
 
-    return Ok(());
+    Ok(())
 }

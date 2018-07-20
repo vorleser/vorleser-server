@@ -48,7 +48,7 @@ pub fn new_media_error(code: i32) -> WorkerError {
         msg += cmsg;
         WorkerError::MediaError{
             description: msg,
-            code: code,
+            code,
         }
     }
 }

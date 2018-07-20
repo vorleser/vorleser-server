@@ -21,8 +21,8 @@ pub struct LibraryPermission {
 impl LibraryPermission {
     pub fn permit(user: &User, library: &Library, db: &db::Connection) -> Result<Self, diesel::result::Error> {
         let permission = Self {
-            library_id: library.id.clone(),
-            user_id: user.id.clone(),
+            library_id: library.id,
+            user_id: user.id,
         };
         diesel::insert_into(library_permissions::table)
             .values(&permission).execute(&*db)?;

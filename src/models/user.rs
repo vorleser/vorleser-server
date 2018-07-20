@@ -96,7 +96,7 @@ impl User {
         use schema::users;
         use schema::users::dsl;
         let new_password_hash = User::make_password_hash(password);
-        let results = dsl::users.filter(dsl::email.eq(email.as_ref().clone()))
+        let results = dsl::users.filter(dsl::email.eq(email.as_ref()))
             .first::<User>(&*conn);
         if results.is_ok() {
             return Err(UserError::AlreadyExists{
@@ -114,7 +114,7 @@ impl User {
             };
             diesel::insert_into(users::table).values(&user).execute(&*conn)?;
             let libraries: Vec<Library> = schema::libraries::table.load(&*conn)?;
-            for l in libraries.iter() {
+            for l in &libraries {
                 LibraryPermission::permit(&user, &l, &*conn)?;
             }
             debug!("End transaction creating user.");
@@ -133,7 +133,7 @@ impl User {
     pub fn generate_api_token(&self, db: DB) -> Result<ApiToken> {
         let token = ApiToken {
             id: Uuid::new_v4(),
-            user_id: self.id.clone(),
+            user_id: self.id,
             created_at: Utc::now().naive_utc(),
         };
         diesel::insert_into(api_tokens::table)

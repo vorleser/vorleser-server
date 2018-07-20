@@ -28,7 +28,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
                     .first::<User>(&*db)
                     .unwrap()),
             Outcome::Failure(err) => Outcome::Failure(err),
-            Outcome::Forward(f) => Outcome::Forward(f)
+            Outcome::Forward(()) => Outcome::Forward(())
         }
     }
 }

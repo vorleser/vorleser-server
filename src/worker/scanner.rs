@@ -76,9 +76,9 @@ impl Scanner {
     pub fn new(conn_pool: Pool, library: Library, config: Config) -> Self {
         Self {
             regex: Regex::new(library.is_audiobook_regex.as_str()).expect("Invalid Regex!"),
-            library: library,
+            library,
             pool: conn_pool,
-            config: config
+            config
         }
     }
 
@@ -99,7 +99,7 @@ impl Scanner {
                     _ => Err(WorkerError::Locked.into()),
                 }
             }
-            Ok(_) => { return Ok(()) }
+            Ok(_) => { Ok(()) }
         }
     }
 
@@ -225,9 +225,10 @@ impl Scanner {
             if !path.exists() { continue }
 
             info!("Recovering previously deleted book: {:?}", path);
-            let hash = match path.is_dir() {
-                true => hashing::checksum_dir(&path)?,
-                false => hashing::checksum_file(&path)?
+            let hash = if path.is_dir() {
+                hashing::checksum_dir(&path)?
+            } else {
+                hashing::checksum_file(&path)?
             };
 
             if hash == book.hash {
@@ -318,9 +319,9 @@ impl Scanner {
             artist: metadata.metadata.get("artist").cloned(),
             length: metadata.length,
             location: relative_path.to_owned(),
-            library_id: self.library.id.clone(),
-            hash: hash,
-            file_extension: file_extension.unwrap_or("".to_owned()),
+            library_id: self.library.id,
+            hash,
+            file_extension: file_extension.unwrap_or_else(|| "".to_owned()),
             deleted: false,
         };
 
@@ -340,7 +341,7 @@ impl Scanner {
             let new_chapters: Vec<Chapter> = chapters.iter().enumerate().map(|(i, chapter)| {
                 Chapter {
                     id: Uuid::new_v4(),
-                    audiobook_id: book.id.clone(),
+                    audiobook_id: book.id,
                     start_time: chapter.start,
                     title: chapter.title.clone(),
                     number: i as i64
@@ -400,7 +401,7 @@ impl Scanner {
                 Ok(file) => {
                     if file.path().is_dir() { continue };
                     match file.path().extension() {
-                        Some(ext) => if &(ext.to_string_lossy()) != &book.file_extension { continue },
+                        Some(ext) => if (ext.to_string_lossy()) != book.file_extension { continue },
                         None => { continue }
                     };
                     let media = match MediaFile::read_file(file.path()) {
@@ -423,8 +424,8 @@ impl Scanner {
                                 let new_chapter = Chapter {
                                     id: Uuid::new_v4(),
                                     title: Some(info.title),
-                                    start_time: start_time,
-                                    audiobook_id: book.id.clone(),
+                                    start_time,
+                                    audiobook_id: book.id,
                                     number: chapter_index
                                 };
                                 chapter_index += 1;
@@ -433,7 +434,7 @@ impl Scanner {
                             start_time += info.length;
                             f
                         }
-                        Err(e) => return Err(e.into())
+                        Err(e) => return Err(e)
                     };
                     mediafiles.push(media)
                 },
@@ -487,11 +488,11 @@ impl Scanner {
         let mut default_book = Audiobook {
             id: Uuid::new_v4(),
             length: 0.0,
-            library_id: self.library.id.clone(),
+            library_id: self.library.id,
             location: relative_path.clone(),
-            title: title,
+            title,
             artist: None,
-            hash: hash,
+            hash,
             file_extension: filetype.to_owned().into_string().unwrap(),
             deleted: false
         };

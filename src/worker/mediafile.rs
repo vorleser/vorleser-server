@@ -77,8 +77,8 @@ impl Chapter {
         let d = dict_to_map(av.metadata as *mut Dictionary);
         let title = d.get("title").cloned();
         Chapter {
-            start: start,
-            title: title,
+            start,
+            title,
             metadata: d,
         }
     }
@@ -194,7 +194,7 @@ impl MediaFile {
                             _ => (),
                         }
                     }
-                    return Err(e)
+                    Err(e)
                 }
                 _ => Ok(Some(pkt))
             }
@@ -226,7 +226,7 @@ impl MediaFile {
                         if pkt.stream_index == best_image.index {
                             return Ok(Some(
                                 Image {
-                                    image_type: image_type,
+                                    image_type,
                                     data: slice::from_raw_parts(
                                         pkt.data, pkt.size as usize
                                         ).to_owned()

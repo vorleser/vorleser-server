@@ -85,7 +85,7 @@ pub fn factory(pool: super::db::Pool, config: config::Config) -> Result<Rocket> 
 pub fn base_factory(pool: super::db::Pool, config: config::Config) -> Result<Rocket> {
     let rocket_config = Config::build(Environment::Production)
         .address(config.web.address.clone())
-        .port(config.web.port.clone())
+        .port(config.web.port)
         .finalize()?;
     Ok(rocket::custom(rocket_config)
         .attach(CORS())

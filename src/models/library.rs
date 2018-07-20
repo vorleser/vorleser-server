@@ -29,7 +29,7 @@ impl Library {
             debug!("Start transaction creating library.");
             let lib = Library{
                 id: Uuid::new_v4(),
-                location: location,
+                location,
                 is_audiobook_regex: audiobook_regex,
                 last_scan: None
             };

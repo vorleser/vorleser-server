@@ -20,7 +20,7 @@ pub struct Uuid(uuid::Uuid);
 
 impl Uuid {
     pub fn parse_str(input: &str) -> Result<Self, uuid::ParseError> {
-        uuid::Uuid::parse_str(input).map(|v| Uuid(v))
+        uuid::Uuid::parse_str(input).map(Uuid)
     }
 
     pub fn new_v4() -> Self {
@@ -57,6 +57,6 @@ impl<'a> FromParam<'a> for Uuid {
     type Error = uuid::ParseError;
 
     fn from_param(param: &'a RawStr) -> Result<Self, Self::Error> {
-        param.parse().map(|v| Uuid(v))
+        param.parse().map(Uuid)
     }
 }

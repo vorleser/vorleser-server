@@ -26,7 +26,7 @@ enum ConfigError {
 /// Load a configuration, this checks xdg config paths.
 /// `load_config_from_path` should be used when manually loading a specific file.
 pub fn load_config() -> Result<Config, Error> {
-    for ref location in CONFIG_LOCATIONS.iter() {
+    for location in CONFIG_LOCATIONS.iter() {
         let conf = load_config_from_path(&location);
         if conf.is_ok() {
             println!("Using config from: {}", location);

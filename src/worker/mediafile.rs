@@ -73,7 +73,7 @@ impl Image {
 
 impl Chapter {
     fn from_av_chapter(av: &AVChapter) -> Chapter {
-        let start = apply_timebase(av.start, &av.time_base);
+        let start = apply_timebase(av.start, av.time_base);
         let d = dict_to_map(av.metadata as *mut Dictionary);
         let title = d.get("title").cloned();
         Chapter {
@@ -241,7 +241,7 @@ impl MediaFile {
     fn av_chapter_slice(&self) -> &[&AVChapter] {
         unsafe {
             slice::from_raw_parts(
-                mem::transmute((*self.ctx).chapters),
+                (*self.ctx).chapters as *const &AVChapter,
                 (*self.ctx).nb_chapters as usize
                 )
         }
@@ -255,7 +255,7 @@ impl MediaFile {
                     &(*self.path.file_name().unwrap().to_string_lossy()).to_owned()
                 ).to_owned(),
                 chapters: self.get_chapters(),
-                length: apply_timebase((*self.ctx).duration, &AV_TIME_BASE_Q),
+                length: apply_timebase((*self.ctx).duration, AV_TIME_BASE_Q),
                 metadata: md
             }
         }
@@ -265,7 +265,10 @@ impl MediaFile {
 impl MediaFile {
     pub fn get_streams(&self) -> &[&AVStream] {
         unsafe {
-            slice::from_raw_parts(mem::transmute((*self.ctx).streams), (*self.ctx).nb_streams as usize)
+            slice::from_raw_parts(
+                (*self.ctx).streams as *const &AVStream,
+                (*self.ctx).nb_streams as usize
+            )
         }
     }
 
@@ -277,7 +280,7 @@ impl MediaFile {
             //         return Some(s)
             //     }
             // }
-            let stream_index = try!(check_av_result(av_find_best_stream(self.ctx, media_type, -1, -1, ptr::null_mut(), 0)));
+            let stream_index = check_av_result(av_find_best_stream(self.ctx, media_type, -1, -1, ptr::null_mut(), 0))?;
             Ok(self.get_streams()[stream_index as usize])
         }
     }

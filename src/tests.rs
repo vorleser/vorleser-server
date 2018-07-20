@@ -37,8 +37,8 @@ fn get<'a>(client: &'a Client, url: &'a str, auth: Option<&str>) -> LocalRespons
     }
 }
 
-describe! api_tests {
-    before_each {
+speculate! {
+    before {
         let pool = init_test_db_pool();
         let user = User::create(&"test@test.com", &"lol", &*pool.get().unwrap())
             .expect("Error saving user");
@@ -53,95 +53,97 @@ describe! api_tests {
         let auth_token = &auth_data.get("secret").expect("no auth token").as_str().expect("not valid utf8");
     }
 
-    it "should let you login" {
-        let data = json!({"email": "test@test.com", "password": "lol"});
-        println!("{}", data.to_string());
-        let mut res = post(&client, "/api/auth/login", &data, None);
-        assert_eq!(res.status(), Status::Ok);
-
-        let data: Value = serde_json::from_str(&res.body_string().expect("no body string")).expect("JSON failed");
-        let secret = &data.get("secret").expect("no auth token").as_str().expect("not valid utf8");
-        let res2 = get(&client, "/api/auth/whoami", Some(secret));
-        assert_eq!(res2.status(), Status::Ok);
-    }
-
-    it "should not let you in with the wrong username or password" {
-        let data = json!({"email": "test@test.com", "password": "lola"});
-        let mut res = post(&client, "/api/auth/login", &data, None);
-        assert_eq!(res.status(), Status::Unauthorized);
-        let data = json!({"email": "test@testa.com", "password": "lol"});
-        let mut res2 = post(&client, "/api/auth/login", &data, None);
-        assert_eq!(res2.status(), Status::Unauthorized);
-    }
-
-    it "should not work with a wrong auth token" {
-        let res = get(&client, "/api/auth/whoami", Some("secret"));
-        assert_eq!(res.status(), Status::BadRequest);
-        let res2 = get(&client, "/api/auth/whoami", Some("de362999-55a1-4d91-9adc-b2ca2c013c97"));
-        assert_eq!(res2.status(), Status::Unauthorized);
-    }
-
-    it "should log you out" {
-        let second_auth_token = {
+    describe "login" {
+        it "should let you login" {
             let data = json!({"email": "test@test.com", "password": "lol"});
-            let mut login_resp = post(&client, "/api/auth/login", &data, None);
+            println!("{}", data.to_string());
+            let mut res = post(&client, "/api/auth/login", &data, None);
+            assert_eq!(res.status(), Status::Ok);
 
-            let data: Value = serde_json::from_str(
-                &login_resp.body_string()
-                    .expect("no body string")
-            ).expect("JSON failed");
-            &data.get("secret")
-                .expect("no auth token")
-                .as_str()
-                .expect("not valid utf8")
-                .to_owned()
-        };
+            let data: Value = serde_json::from_str(&res.body_string().expect("no body string")).expect("JSON failed");
+            let secret = &data.get("secret").expect("no auth token").as_str().expect("not valid utf8");
+            let res2 = get(&client, "/api/auth/whoami", Some(secret));
+            assert_eq!(res2.status(), Status::Ok);
+        }
 
-        let logout_resp = post(
-            &client, "/api/auth/logout", &serde_json::Value::Null, Some(auth_token)
-        );
-        assert_eq!(logout_resp.status(), Status::Ok);
-        let whoami_resp = get(&client, "/api/auth/whoami", Some(auth_token));
-        assert_eq!(whoami_resp.status(), Status::Unauthorized);
+        it "should not let you in with the wrong username or password" {
+            let data = json!({"email": "test@test.com", "password": "lola"});
+            let mut res = post(&client, "/api/auth/login", &data, None);
+            assert_eq!(res.status(), Status::Unauthorized);
+            let data = json!({"email": "test@testa.com", "password": "lol"});
+            let mut res2 = post(&client, "/api/auth/login", &data, None);
+            assert_eq!(res2.status(), Status::Unauthorized);
+        }
 
-        let whoami_resp_second = get(&client, "/api/auth/whoami", Some(second_auth_token));
-        assert_eq!(whoami_resp_second.status(), Status::Ok);
+        it "should not work with a wrong auth token" {
+            let res = get(&client, "/api/auth/whoami", Some("secret"));
+            assert_eq!(res.status(), Status::BadRequest);
+            let res2 = get(&client, "/api/auth/whoami", Some("de362999-55a1-4d91-9adc-b2ca2c013c97"));
+            assert_eq!(res2.status(), Status::Unauthorized);
+        }
+
+        it "should log you out" {
+            let second_auth_token = {
+                let data = json!({"email": "test@test.com", "password": "lol"});
+                let mut login_resp = post(&client, "/api/auth/login", &data, None);
+
+                let data: Value = serde_json::from_str(
+                    &login_resp.body_string()
+                        .expect("no body string")
+                ).expect("JSON failed");
+                &data.get("secret")
+                    .expect("no auth token")
+                    .as_str()
+                    .expect("not valid utf8")
+                    .to_owned()
+            };
+
+            let logout_resp = post(
+                &client, "/api/auth/logout", &serde_json::Value::Null, Some(auth_token)
+            );
+            assert_eq!(logout_resp.status(), Status::Ok);
+            let whoami_resp = get(&client, "/api/auth/whoami", Some(auth_token));
+            assert_eq!(whoami_resp.status(), Status::Unauthorized);
+
+            let whoami_resp_second = get(&client, "/api/auth/whoami", Some(second_auth_token));
+            assert_eq!(whoami_resp_second.status(), Status::Ok);
+        }
+
+        it "should logout everyone" {
+            let second_auth_token = {
+                let data = json!({"email": "test@test.com", "password": "lol"});
+                let mut login_resp = post(&client, "/api/auth/login", &data, None);
+
+                let data: Value = serde_json::from_str(
+                    &login_resp.body_string()
+                        .expect("no body string")
+                ).expect("JSON failed");
+                &data.get("secret")
+                    .expect("no auth token")
+                    .as_str()
+                    .expect("not valid utf8")
+                    .to_owned()
+            };
+
+            let logout_resp = post(
+                &client, "/api/auth/logout_all", &serde_json::Value::Null, Some(auth_token)
+            );
+
+            assert_eq!(logout_resp.status(), Status::Ok);
+            let whoami_resp = get(&client, "/api/auth/whoami", Some(auth_token));
+            assert_eq!(whoami_resp.status(), Status::Unauthorized);
+            let whoami_resp = get(&client, "/api/auth/whoami", Some(second_auth_token));
+            assert_eq!(whoami_resp.status(), Status::Unauthorized);
+        }
+
+        it "should show libraries" {
+            let res = get(&client, "/api/libraries", Some(auth_token));
+            assert_eq!(res.status(), Status::Ok);
+        }
     }
 
-    it "should logout everyone" {
-        let second_auth_token = {
-            let data = json!({"email": "test@test.com", "password": "lol"});
-            let mut login_resp = post(&client, "/api/auth/login", &data, None);
-
-            let data: Value = serde_json::from_str(
-                &login_resp.body_string()
-                    .expect("no body string")
-            ).expect("JSON failed");
-            &data.get("secret")
-                .expect("no auth token")
-                .as_str()
-                .expect("not valid utf8")
-                .to_owned()
-        };
-
-        let logout_resp = post(
-            &client, "/api/auth/logout_all", &serde_json::Value::Null, Some(auth_token)
-        );
-
-        assert_eq!(logout_resp.status(), Status::Ok);
-        let whoami_resp = get(&client, "/api/auth/whoami", Some(auth_token));
-        assert_eq!(whoami_resp.status(), Status::Unauthorized);
-        let whoami_resp = get(&client, "/api/auth/whoami", Some(second_auth_token));
-        assert_eq!(whoami_resp.status(), Status::Unauthorized);
-    }
-
-    it "should show libraries" {
-        let res = get(&client, "/api/libraries", Some(auth_token));
-        assert_eq!(res.status(), Status::Ok);
-    }
-
-    describe! libraries {
-        before_each {
+    describe "read_books_from_api" {
+        before {
             let path = "data";
             let regex = "^[^/]+$";
             let mut library = Library::create(path.to_owned(), regex.to_owned(), &*pool.get().unwrap()).unwrap();

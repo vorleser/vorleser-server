@@ -17,15 +17,15 @@ use ::worker::util;
 use config;
 use helpers::uuid::Uuid;
 
-describe! worker_tests {
-    before_each {
+speculate! {
+    before {
         let mut pool = init_test_db_pool();
         let conn = pool.get().unwrap();
         util::shut_up_ffmpeg();
     }
 
-    describe! scanner_tests {
-        before_each {
+    describe "scanner_tests" {
+        before {
             use models::library::Library;
             use schema::libraries;
             use worker::scanner;
@@ -59,67 +59,66 @@ describe! worker_tests {
         }
 
     }
-}
 
-
-describe! mediafile_tests {
-    before_each {
+    before {
         util::shut_up_ffmpeg();
         let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
     }
 
-    it "can be probed" {
-        file.probe_format();
-    }
+    describe "mediafile_basics" {
+        it "can be probed" {
+            file.probe_format();
+        }
 
-    it "can guess the format" {
-        let format = file.guess_format().unwrap();
-        println!("{:?}", format.name);
-        println!("{:?}", format.mime_type);
-    }
+        it "can guess the format" {
+            let format = file.guess_format().unwrap();
+            println!("{:?}", format.name);
+            println!("{:?}", format.mime_type);
+        }
 
-    it "handles non existing files" {
-        let invalid_file = MediaFile::read_file(
-            Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
-            );
-        match invalid_file {
-            Err(me) => {
-                println!("{}", format!("{}", me));
-                assert!(format!("{}", me).contains("No such file"));
-            },
-            Ok(_) => panic!("We expect a Media Error here.")
+        it "handles non existing files" {
+            let invalid_file = MediaFile::read_file(
+                Path::new("ifyoucreatedthisyouonlyhaveyourselftoblame.mp3")
+                );
+            match invalid_file {
+                Err(me) => {
+                    println!("{}", format!("{}", me));
+                    assert!(format!("{}", me).contains("No such file"));
+                },
+                Ok(_) => panic!("We expect a Media Error here.")
+            }
+        }
+
+        it "reads chapters" {
+            let chapters = file.get_chapters();
+            assert_eq!(chapters.len(), 4);
+            assert_eq!(chapters[2].clone().title.unwrap(), "3 - Otpluva lekii cheln...");
+            assert_eq!(chapters[2].clone().start.floor() as usize, 91);
+            println!("{:?}", chapters);
+        }
+
+        it "get's the length right" {
+            assert_eq!(file.get_mediainfo().length.floor() as usize,  165);
+        }
+
+        it "reads the title" {
+            let mi = file.get_mediainfo();
+            assert_eq!("[Bulgarian]Stihotvorenia", mi.title)
+        }
+
+        it "has metadata" {
+            let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
+            assert_eq!(file.get_mediainfo().metadata.get("artist").unwrap(), "Mara Belcheva");
+        }
+
+        it "has defaults for file without metadata" {
+            let file = MediaFile::read_file(Path::new("test-data/no_metadata.mp3")).unwrap();
+            assert_eq!(file.get_mediainfo().title, "no_metadata.mp3");
         }
     }
 
-    it "reads chapters" {
-        let chapters = file.get_chapters();
-        assert_eq!(chapters.len(), 4);
-        assert_eq!(chapters[2].clone().title.unwrap(), "3 - Otpluva lekii cheln...");
-        assert_eq!(chapters[2].clone().start.floor() as usize, 91);
-        println!("{:?}", chapters);
-    }
-
-    it "get's the length right" {
-        assert_eq!(file.get_mediainfo().length.floor() as usize,  165);
-    }
-
-    it "reads the title" {
-        let mi = file.get_mediainfo();
-        assert_eq!("[Bulgarian]Stihotvorenia", mi.title)
-    }
-
-    it "has metadata" {
-        let file = MediaFile::read_file(Path::new("test-data/all.m4b")).unwrap();
-        assert_eq!(file.get_mediainfo().metadata.get("artist").unwrap(), "Mara Belcheva");
-    }
-
-    it "has defaults for file without metadata" {
-        let file = MediaFile::read_file(Path::new("test-data/no_metadata.mp3")).unwrap();
-        assert_eq!(file.get_mediainfo().title, "no_metadata.mp3");
-    }
-
-    describe! multi_files {
-        before_each {
+    describe "multi_files" {
+        before {
             let files = read_files();
         }
 

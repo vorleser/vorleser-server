@@ -57,8 +57,8 @@ fn set_dates(times: Vec<(String, NaiveDate)>) {
 // directory.
 //
 // To ensure this please name each test EXACTLY like the directory.
-describe! scanner_integration_tests {
-    before_each {
+speculate! {
+    before {
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 
@@ -83,185 +83,187 @@ describe! scanner_integration_tests {
         );
     }
 
-    it "simple" {
-        // Time step 01:
-        let base = String::from("integration-tests/simple/01");
-        scanner.library.location = base.clone();
-        set_date(&(base + "/book.mp3"), &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.incremental_scan(LockingBehavior::Dont);
-        assert_eq!(1, count_books(&scanner, &pool));
-    }
+    describe "scanner_integration_tests" {
+        it "discovers books" {
+            // Time step 01:
+            let base = String::from("integration-tests/simple/01");
+            scanner.library.location = base.clone();
+            set_date(&(base + "/book.mp3"), &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            assert_eq!(1, count_books(&scanner, &pool));
+        }
 
-    it "simple_deletion" {
-        // Time step 01:
-        println!("============Step 1!============");
-        let mut base = String::from("integration-tests/simple_deletion/01");
-        scanner.library.location = base.clone();
-        set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.incremental_scan(LockingBehavior::Dont).unwrap();
-        assert_eq!(1, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
+        it "can delete books" {
+            // Time step 01:
+            println!("============Step 1!============");
+            let mut base = String::from("integration-tests/simple_deletion/01");
+            scanner.library.location = base.clone();
+            set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont).unwrap();
+            assert_eq!(1, Audiobook::belonging_to(&scanner.library).count().first::<i64>(&*(pool.get().unwrap())).unwrap());
 
-        println!("============Step 2!============");
-        // Time step 02:
-        base = String::from("integration-tests/simple_deletion/02");
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont).unwrap();
-        use schema::audiobooks::dsl::deleted;
-        assert_eq!(0, count_books(&scanner, &pool));
-    }
+            println!("============Step 2!============");
+            // Time step 02:
+            base = String::from("integration-tests/simple_deletion/02");
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont).unwrap();
+            use schema::audiobooks::dsl::deleted;
+            assert_eq!(0, count_books(&scanner, &pool));
+        }
 
-    it "ignore_other_files" {
-        // Time step 01:
-        let base = String::from("integration-tests/ignore_other_files/01");
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        assert_eq!(0, count_books(&scanner, &pool));
-    }
+        it "ignore_other_files" {
+            // Time step 01:
+            let base = String::from("integration-tests/ignore_other_files/01");
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            assert_eq!(0, count_books(&scanner, &pool));
+        }
 
-    it "recovers_deleted_same_timestamp" {
-        use schema::audiobooks::dsl::deleted;
-        // Time step 01:
-        let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");
-        scanner.library.location = base.clone();
-        set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.incremental_scan(LockingBehavior::Dont);
-        let book_1 = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert_eq!(1, count_books(&scanner, &pool));
+        it "recovers_deleted_same_timestamp" {
+            use schema::audiobooks::dsl::deleted;
+            // Time step 01:
+            let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");
+            scanner.library.location = base.clone();
+            set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book_1 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert_eq!(1, count_books(&scanner, &pool));
 
-        // Time step 02:
-        base = String::from("integration-tests/recovers_deleted_same_timestamp/02");
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        assert_eq!(0, count_books(&scanner, &pool));
+            // Time step 02:
+            base = String::from("integration-tests/recovers_deleted_same_timestamp/02");
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            assert_eq!(0, count_books(&scanner, &pool));
 
-        // Time step 03:
-        base = String::from("integration-tests/recovers_deleted_same_timestamp/03");
-        set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        let book_2 = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert_eq!(1, count_books(&scanner, &pool));
-        assert_eq!(book_1.id, book_2.id);
-    }
+            // Time step 03:
+            base = String::from("integration-tests/recovers_deleted_same_timestamp/03");
+            set_date(&base, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book_2 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert_eq!(1, count_books(&scanner, &pool));
+            assert_eq!(book_1.id, book_2.id);
+        }
 
-    it "works_with_moved_files" {
-        use schema::audiobooks::dsl::deleted;
-        println!("============Step 1!============");
-        let mut base = String::from("integration-tests/works_with_moved_files/01");
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        let book = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert_eq!(1, count_books(&scanner, &pool));
+        it "works_with_moved_files" {
+            use schema::audiobooks::dsl::deleted;
+            println!("============Step 1!============");
+            let mut base = String::from("integration-tests/works_with_moved_files/01");
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert_eq!(1, count_books(&scanner, &pool));
 
-        println!("============Step 2!============");
-        let mut base = String::from("integration-tests/works_with_moved_files/02");
-        scanner.library.location = base.clone();
-        let book2 = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan(LockingBehavior::Dont);
-        assert_eq!(1, count_books(&scanner, &pool));
-        assert_eq!(book.id, book2.id);
-    }
+            println!("============Step 2!============");
+            let mut base = String::from("integration-tests/works_with_moved_files/02");
+            scanner.library.location = base.clone();
+            let book2 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            assert_eq!(1, count_books(&scanner, &pool));
+            assert_eq!(book.id, book2.id);
+        }
 
-    it "works_with_moved_files_same_name" {
-        // This tests introduces another file of the same name in the second step
-        // The file from the first step is still moved
-        // We don't feel strongly about how this behaves we would just like to know when it changes
-        // Currently the filename takes precedence over the files hash.
-        // We want this behavior because
-        use schema::audiobooks::dsl::deleted;
-        println!("============Step 1!============");
-        let mut base = String::from("integration-tests/works_with_moved_files_same_name/01");
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        let book = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert_eq!(book.location, "book.mp3");
-        assert_eq!(1, count_books(&scanner, &pool));
+        it "works_with_moved_files_same_name" {
+            // This tests introduces another file of the same name in the second step
+            // The file from the first step is still moved
+            // We don't feel strongly about how this behaves we would just like to know when it changes
+            // Currently the filename takes precedence over the files hash.
+            // We want this behavior because
+            use schema::audiobooks::dsl::deleted;
+            println!("============Step 1!============");
+            let mut base = String::from("integration-tests/works_with_moved_files_same_name/01");
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert_eq!(book.location, "book.mp3");
+            assert_eq!(1, count_books(&scanner, &pool));
 
-        println!("============Step 2!============");
-        let mut base = String::from("integration-tests/works_with_moved_files_same_name/02");
-        let book2 = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        scanner.library.location = base.clone();
-        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan(LockingBehavior::Dont);
-        assert_eq!(2, count_books(&scanner, &pool));
-        assert_eq!(book.id, book2.id);
-        assert_eq!(book2.location, "book.mp3");
-    }
+            println!("============Step 2!============");
+            let mut base = String::from("integration-tests/works_with_moved_files_same_name/02");
+            let book2 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            scanner.library.location = base.clone();
+            set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            assert_eq!(2, count_books(&scanner, &pool));
+            assert_eq!(book.id, book2.id);
+            assert_eq!(book2.location, "book.mp3");
+        }
 
-    it "content_changed" {
-        use schema::audiobooks::dsl::deleted;
-        println!("============Step 1!============");
-        let mut base = String::from("integration-tests/content_changed/01");
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        let book = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert_eq!(book.location, "book.mp3");
-        assert_eq!(1, count_books(&scanner, &pool));
+        it "content_changed" {
+            use schema::audiobooks::dsl::deleted;
+            println!("============Step 1!============");
+            let mut base = String::from("integration-tests/content_changed/01");
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert_eq!(book.location, "book.mp3");
+            assert_eq!(1, count_books(&scanner, &pool));
 
-        println!("============Step 2!============");
-        let mut base = String::from("integration-tests/content_changed/02");
-        scanner.library.location = base.clone();
-        let book2 = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        assert!(!data_file(&book2).exists());
-        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.incremental_scan(LockingBehavior::Dont);
-        assert_eq!(1, count_books(&scanner, &pool));
-        assert_eq!(book.id, book2.id);
-    }
+            println!("============Step 2!============");
+            let mut base = String::from("integration-tests/content_changed/02");
+            scanner.library.location = base.clone();
+            let book2 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert!(!data_file(&book2).exists());
+            set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            assert_eq!(1, count_books(&scanner, &pool));
+            assert_eq!(book.id, book2.id);
+        }
 
-    it "content_changed_multifile" {
-        use schema::audiobooks::dsl::deleted;
-        println!("============Step 1!============");
-        let mut base = String::from("integration-tests/content_changed_multifile/01");
-        set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
-        let book = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        let file_1 = File::open(&data_file(&book)).unwrap();
-        let changed_1 = file_1.metadata().unwrap().modified().unwrap();
-        assert!(data_file(&book).exists());
-        assert_eq!(book.location, "book");
-        assert_eq!(1, count_books(&scanner, &pool));
+        it "content_changed_multifile" {
+            use schema::audiobooks::dsl::deleted;
+            println!("============Step 1!============");
+            let mut base = String::from("integration-tests/content_changed_multifile/01");
+            set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            let file_1 = File::open(&data_file(&book)).unwrap();
+            let changed_1 = file_1.metadata().unwrap().modified().unwrap();
+            assert!(data_file(&book).exists());
+            assert_eq!(book.location, "book");
+            assert_eq!(1, count_books(&scanner, &pool));
 
-        println!("============Step 2!============");
-        let mut base = String::from("integration-tests/content_changed_multifile/02");
-        set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
-        scanner.library.location = base.clone();
-        scanner.incremental_scan(LockingBehavior::Dont);
+            println!("============Step 2!============");
+            let mut base = String::from("integration-tests/content_changed_multifile/02");
+            set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
 
-        let book2 = Audiobook::belonging_to(&scanner.library)
-            .filter(deleted.eq(false))
-            .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
-        println!("{:?}", book2);
+            let book2 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            println!("{:?}", book2);
 
-        // Make sure the file was remuxed again
-        let file_2 = File::open(&data_file(&book2)).unwrap();
-        let changed_2 = file_2.metadata().unwrap().modified().unwrap();
+            // Make sure the file was remuxed again
+            let file_2 = File::open(&data_file(&book2)).unwrap();
+            let changed_2 = file_2.metadata().unwrap().modified().unwrap();
 
-        assert_ne!(book.length, book2.length);
-        println!("{:?} > {:?}", changed_2, changed_1);
-        assert!(changed_2 > changed_1);
+            assert_ne!(book.length, book2.length);
+            println!("{:?} > {:?}", changed_2, changed_1);
+            assert!(changed_2 > changed_1);
 
-        assert_eq!(1, count_books(&scanner, &pool));
-        assert_eq!(book.id, book2.id);
+            assert_eq!(1, count_books(&scanner, &pool));
+            assert_eq!(book.id, book2.id);
+        }
     }
 }

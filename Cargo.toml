@@ -69,9 +69,7 @@ features = ["use_std", "serde", "v4"]
 version = "0.5"
 
 [dev-dependencies]
-[dev-dependencies.stainless]
-git = "https://github.com/PSeitz/stainless"
-rev = "12f1d379bc722223868c037bc3b902ba3dc48d30"
+speculate = "0.0.26"
 
 [features]
 webfrontend = []

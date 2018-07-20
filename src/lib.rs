@@ -1,6 +1,6 @@
 #![feature(custom_attribute, plugin, non_ascii_idents, attr_literals)]
 #![plugin(rocket_codegen)]
-#![cfg_attr(test, plugin(stainless))]
+#![cfg_attr(test, plugin(speculate))]
 #![allow(dead_code, unused)]
 #![feature(decl_macro)]
 // We need the atomic mutex for locking ffmepg initialization

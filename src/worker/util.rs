@@ -57,7 +57,7 @@ pub(super) fn av_dict_vec(dict: &Dictionary) -> &[AVDictionaryEntry] {
 }
 
 pub(super) fn apply_timebase(time: i64, timebase: &AVRational) -> f64 {
-    time as f64 * (timebase.num as f64 / timebase.den as f64)
+    time as f64 * (f64::from(timebase.num) / f64::from(timebase.den))
 }
 
 pub(super) fn check_av_result(num: i32) -> Result<i32> {

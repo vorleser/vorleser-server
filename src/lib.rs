@@ -5,7 +5,8 @@
 #![feature(decl_macro)]
 // We need the atomic mutex for locking ffmepg initialization
 // pass by value is handy for use in rocket routes
-#![cfg_attr(feature = "cargo-clippy", allow(mutex_atomic, needless_pass_by_value))]
+// print literal will also warn in rocket routes
+#![cfg_attr(feature = "cargo-clippy", allow(mutex_atomic, needless_pass_by_value, print_literal))]
 
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate failure;

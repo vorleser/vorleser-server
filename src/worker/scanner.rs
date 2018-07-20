@@ -277,12 +277,11 @@ impl Scanner {
     /// Save cover art to directory
     fn save_coverart(&self, book: &Audiobook, image: &Image) -> Result<()> {
         let mut dest = PathBuf::from(format!("{}/img", self.config.data_directory));
-        match create_dir(dest.clone()) {
-            Err(e) => match e.kind() {
+        if let Err(e) = create_dir(dest.clone()) {
+            match e.kind() {
                 io::ErrorKind::AlreadyExists => (),
                 _ => Err(e)?
-            },
-            Ok(_) => ()
+            };
         };
         dest.push(&book.id.hyphenated().to_string());
         image.save(&dest)?;

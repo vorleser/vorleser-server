@@ -168,7 +168,7 @@ impl MediaFile {
         Ok(())
     }
 
-    pub fn guess_format<'a>(&'a self) -> Result<Format> {
+    pub fn guess_format(&self) -> Result<Format> {
         unsafe{
             let iformat = *(*self.ctx).iformat;
             Ok(Format {
@@ -186,13 +186,10 @@ impl MediaFile {
             let mut pkt = mem::uninitialized::<AVPacket>();
             match check_av_result(av_read_frame(self.ctx, &mut pkt)) {
                 Err(e) => {
-                    if let Some(worker_error) = e.downcast_ref::<WorkerError>() {
-                        match worker_error {
-                            &WorkerError::MediaError {code: AVERROR_EOF, ..} => {
-                                return Ok(None)
-                            }
-                            _ => (),
-                        }
+                    if let Some(
+                        WorkerError::MediaError {code: AVERROR_EOF, ..}
+                        ) = e.downcast_ref::<WorkerError>() {
+                        return Ok(None)
                     }
                     Err(e)
                 }
@@ -215,27 +212,22 @@ impl MediaFile {
                 Ok(stream) => stream
             };
             let codec = (*best_image.codecpar).codec_id;
-            loop {
-                match try!(self.read_packet()) {
-                    Some(ref pkt) => {
-                        let image_type = match codec {
-                            AVCodecID::AV_CODEC_ID_PNG => ImageType::PNG,
-                            AVCodecID::AV_CODEC_ID_MJPEG => ImageType::JPG,
-                            _ => return Ok(None)
-                        };
-                        if pkt.stream_index == best_image.index {
-                            return Ok(Some(
-                                Image {
-                                    image_type,
-                                    data: slice::from_raw_parts(
-                                        pkt.data, pkt.size as usize
-                                        ).to_owned()
-                                }))
-                        } else {
-                            continue;
-                        }
-                    },
-                    None => break
+            while let Some(ref pkt) = self.read_packet()? {
+                let image_type = match codec {
+                    AVCodecID::AV_CODEC_ID_PNG => ImageType::PNG,
+                    AVCodecID::AV_CODEC_ID_MJPEG => ImageType::JPG,
+                    _ => return Ok(None)
+                };
+                if pkt.stream_index == best_image.index {
+                    return Ok(Some(
+                        Image {
+                            image_type,
+                            data: slice::from_raw_parts(
+                                pkt.data, pkt.size as usize
+                                ).to_owned()
+                        }))
+                } else {
+                    continue;
                 }
             };
             Ok(None)

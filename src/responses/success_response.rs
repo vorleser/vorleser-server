@@ -1,6 +1,6 @@
 use std::io::Cursor;
 use rocket_contrib::json::{Json};
-use rocket_contrib::Value;
+use rocket_contrib::JsonValue;
 use rocket::request::{Request, FromRequest};
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
@@ -13,7 +13,7 @@ use diesel;
 #[derive(Debug)]
 pub struct APIResponse {
     pub(super) message: Option<String>,
-    pub(super) data: Option<Value>,
+    pub(super) data: Option<JsonValue>,
     pub(super) status: Status,
 }
 
@@ -26,7 +26,7 @@ impl APIResponse {
     }
 
     /// Change the data to the `Response`.
-    pub fn data(mut self, data: Value) -> Self {
+    pub fn data(mut self, data: JsonValue) -> Self {
         self.data = Some(data);
         self
     }

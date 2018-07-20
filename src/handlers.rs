@@ -77,32 +77,32 @@ impl<'a, 'r> FromRequest<'a, 'r> for ApiToken {
     }
 }
 
-#[error(400)]
+#[catch(400)]
 fn bad_request_handler() -> APIError {
     bad_request()
 }
 
-#[error(401)]
+#[catch(401)]
 fn unauthorized_handler() -> APIError {
     unauthorized()
 }
 
-#[error(403)]
+#[catch(403)]
 fn forbidden_handler() -> APIError {
     forbidden()
 }
 
-#[error(404)]
+#[catch(404)]
 fn not_found_handler() -> APIError {
     not_found()
 }
 
-#[error(500)]
+#[catch(500)]
 fn internal_server_error_handler() -> APIError {
     internal_server_error()
 }
 
-#[error(503)]
+#[catch(503)]
 fn service_unavailable_handler() -> APIError {
     service_unavailable()
 }

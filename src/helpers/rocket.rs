@@ -47,7 +47,7 @@ fn options_handler<'a>(path: PathBuf) -> Response<'a> {
 
 fn add_catchers(rocket_result: Result<Rocket>) -> Result<Rocket> {
     rocket_result.map(|rocket|
-        rocket.catch(errors![
+        rocket.catch(catchers![
             handlers::bad_request_handler,
             handlers::unauthorized_handler,
             handlers::forbidden_handler,
@@ -87,7 +87,7 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> Result<Roc
         .address(config.web.address.clone())
         .port(config.web.port.clone())
         .finalize()?;
-    Ok(rocket::custom(rocket_config, true)
+    Ok(rocket::custom(rocket_config)
         .attach(CORS())
         .manage(pool)
         .manage(config.clone())

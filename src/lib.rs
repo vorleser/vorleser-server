@@ -1,4 +1,4 @@
-#![feature(custom_attribute, plugin, non_ascii_idents, use_extern_macros)]
+#![feature(custom_attribute, plugin, non_ascii_idents, attr_literals)]
 #![plugin(rocket_codegen)]
 #![cfg_attr(test, plugin(stainless))]
 #![allow(dead_code, unused)]
@@ -16,7 +16,7 @@ extern crate simplelog;
 extern crate base64;
 extern crate ring;
 extern crate uuid;
-extern crate rocket;
+#[macro_use] extern crate rocket;
 extern crate clap;
 #[macro_use] extern crate rocket_contrib;
 extern crate serde_json; #[macro_use] extern crate serde_derive;

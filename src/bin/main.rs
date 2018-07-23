@@ -181,7 +181,7 @@ fn build_command_parser<'a, 'b>() -> App<'a, 'b> {
         )
 }
 
-fn init_sentry(dsn: &str) -> sentry::ClientInitGuard {
+fn init_sentry(dsn: &str) -> sentry::internals::ClientInitGuard {
     let sentry_guard = sentry::init(dsn);
     register_panic_handler();
     return sentry_guard;
@@ -300,6 +300,7 @@ fn init_logging(config: &LoggingConfig) {
             filter: LevelFilter::Info,
             emit_breadcrumbs: true,
             emit_error_events: false,
+            emit_warning_events: false,
         }
     );
 }

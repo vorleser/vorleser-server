@@ -3,7 +3,12 @@ services:
 before_install:
   - docker pull hatzel/vorleser-test
 script:
-  - docker run -v $(pwd):/root/code -w /root/code -i hatzel/vorleser-test cargo tarpaulin
+  - |
+    docker run \
+      -v $(pwd):/root/code \
+      -w /root/code \
+      -i hatzel/vorleser-test \
+      cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 cache:
   directories:
     - target

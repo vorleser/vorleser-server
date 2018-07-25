@@ -1,6 +1,7 @@
 # Vorleser - A Server Based Audiobook Application
 
 [![Build Status](https://travis-ci.org/vorleser/vorleser-server.svg?branch=master)](https://travis-ci.org/vorleser/vorleser-server)
+[![Coverage Status](https://coveralls.io/repos/github/vorleser/vorleser-server/badge.svg?branch=master)](https://coveralls.io/github/vorleser/vorleser-server?branch=master)
 
 ## Building
 Run `cargo build`, you will need a somewhat recent version of FFmpeg, including headerfiles, installed on your system.

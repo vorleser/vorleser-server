@@ -14,7 +14,9 @@ use mp3_metadata;
 #[derive(Debug, Fail)]
 enum MlltError {
     #[fail(display = "Could not calculate mp3 frame duration")]
-    IncalculableDuration
+    IncalculableDuration,
+    #[fail(display = "File contained non-mp3 frames or corrupt data")]
+    NonMp3Frame,
 }
 
 trait U8VecExt {
@@ -58,6 +60,7 @@ macro_rules! dump{
 const DESIRED_ACCURACY: u64 = 1000;
 
 fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
+    dump!(file.as_ref());
     let meta = mp3_metadata::read_from_file(&file)?;
 
     let mut num_frames: u64 = 0;
@@ -69,6 +72,12 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
     dump!(meta.frames.len());
 
     for frame in &meta.frames {
+        // if there are truncated frames in the middle of the file (after concatenating)
+        // mp3_metadata tends to pick up sample data as frame headers with garbage fields
+        if frame.version != mp3_metadata::Version::MPEG1 || frame.layer != mp3_metadata::Layer::Layer3 {
+            dump!(num_frames, frame, size);
+            Err(MlltError::NonMp3Frame)?;
+        }
         num_frames += 1;
         duration += frame.duration.ok_or_else(
             || MlltError::IncalculableDuration
@@ -77,16 +86,11 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
         smallest_frame = min(smallest_frame, frame.size);
         biggest_frame = max(biggest_frame, frame.size);
     }
-
     dump!(num_frames, duration, size, smallest_frame, biggest_frame);
 
-    // FFmpeg needs u64s and we just assume audiobooks to be smaller than this
-    // This still allows for audiobooks that are billions of days in length
-    let millis = duration.as_millis() as u64;
-
-    let avg_frame_millis = millis / num_frames;
-    let frames_per_ref = (DESIRED_ACCURACY / avg_frame_millis) as u16;
-    dump!(millis, avg_frame_millis, frames_per_ref);
+    let frame_millis = duration / num_frames as u32;
+    let frames_per_ref = (DESIRED_ACCURACY / frame_millis.as_millis() as u64) as u16;
+    dump!(duration, frame_millis, frames_per_ref);
     let mut num_refs = num_frames / frames_per_ref as u64;
     if num_frames % u64::from(frames_per_ref) != 0 { num_refs += 1 }
 
@@ -94,7 +98,7 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
     let min_bytes_per_ref = (smallest_frame * u32::from(frames_per_ref));
     // this rounds down, so when building the refs we'll need to keep track
     // of time and add a millisecond every now and then
-    let millis_per_ref = (millis / num_refs) as u32;
+    let millis_per_ref = (duration / num_frames as u32 * frames_per_ref as u32).as_millis() as u32;
 
     dump!(num_refs, min_bytes_per_ref, millis_per_ref);
 
@@ -130,7 +134,6 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
 
         // millis
         let chunk_duration = chunk.iter().map(|frame| frame.duration.unwrap()).sum::<Duration>();
-        dump!(chunk_duration, millis_per_ref);
         running_estimated_duration += Duration::from_millis(u64::from(millis_per_ref));
         running_duration += chunk_duration;
         let millis_offset = (running_duration - running_estimated_duration).as_millis() as u64;

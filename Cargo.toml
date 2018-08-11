@@ -13,7 +13,7 @@ clap = "*"
 simplelog = "0.5.1"
 error-chain = "0.11.0"
 humanesort = "0.1.0-alpha"
-#id3 = "0.2.3"
+id3 = "0.2.4"
 image = "0.18.0"
 lazy_static = "1"
 libc = "0.2"
@@ -34,9 +34,6 @@ fs2 = "0.4.3"
 scheduled-thread-pool = "0.2.0"
 failure = "0.1.1"
 sentry = "0.7"
-
-[dependencies.id3]
-git = "https://github.com/ahti/rust-id3"
 
 [dependencies.rocket_contrib]
 default-features = false
@@ -86,3 +83,5 @@ diesel_derives = { git = "https://github.com/diesel-rs/diesel.git" }
 diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }
 migrations_internals = { git = "https://github.com/diesel-rs/diesel.git" }
 migrations_macros = { git = "https://github.com/diesel-rs/diesel.git" }
+# pending https://github.com/GuillaumeGomez/mp3-metadata/pull/17
+mp3-metadata = { git = "https://github.com/ahti/mp3-metadata.git" }

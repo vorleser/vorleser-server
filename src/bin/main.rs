@@ -297,7 +297,7 @@ fn init_logging(config: &LoggingConfig) {
         Some(combined),
         LoggerOptions {
             global_filter: None,
-            filter: LevelFilter::Info,
+            filter: level,
             emit_breadcrumbs: true,
             emit_error_events: false,
             emit_warning_events: false,

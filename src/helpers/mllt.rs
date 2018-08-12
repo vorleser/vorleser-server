@@ -13,10 +13,8 @@ use mp3_metadata;
 
 #[derive(Debug, Fail)]
 enum MlltError {
-    #[fail(display = "Could not calculate mp3 frame duration")]
+    #[fail(display = "Could not calculate mp3 frame duration. Try checking the files with mp3val.")]
     IncalculableDuration,
-    #[fail(display = "File contained non-mp3 frames or corrupt data")]
-    NonMp3Frame,
 }
 
 trait U8VecExt {
@@ -72,12 +70,6 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
     dump!(meta.frames.len());
 
     for frame in &meta.frames {
-        // if there are truncated frames in the middle of the file (after concatenating)
-        // mp3_metadata tends to pick up sample data as frame headers with garbage fields
-        if frame.version != mp3_metadata::Version::MPEG1 || frame.layer != mp3_metadata::Layer::Layer3 {
-            dump!(num_frames, frame, size);
-            Err(MlltError::NonMp3Frame)?;
-        }
         num_frames += 1;
         duration += frame.duration.ok_or_else(
             || MlltError::IncalculableDuration

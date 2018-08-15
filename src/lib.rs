@@ -3,6 +3,7 @@
 #![cfg_attr(test, plugin(speculate))]
 #![allow(dead_code, unused)]
 #![feature(decl_macro)]
+#![feature(core_intrinsics)]
 // We need the atomic mutex for locking ffmepg initialization
 // pass by value is handy for use in rocket routes
 // print literal will also warn in rocket routes

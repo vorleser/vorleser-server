@@ -29,10 +29,14 @@ fn set_date(file: &str, date: &NaiveDate) {
     }
 }
 
+fn data_cover_file(book: &Audiobook) -> PathBuf {
+    PathBuf::from(format!("data/img/{}", &book.id.hyphenated()))
+}
+
 fn data_file(book: &Audiobook) -> PathBuf {
-    let path_str = "data/".to_owned() + &book.id.hyphenated().to_string() + "." + &book.file_extension;
-    let path = PathBuf::from(path_str);
-    path
+    PathBuf::from(
+        format!("data/{}.{}", &book.id.hyphenated(), &book.file_extension)
+    )
 }
 
 fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
@@ -48,6 +52,24 @@ fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
 fn set_dates(times: Vec<(String, NaiveDate)>) {
     for (ref path, ref date) in times {
         set_date(path, date);
+    }
+}
+
+macro_rules! function {
+    () => {{
+        fn f() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            extern crate core;
+            unsafe { core::intrinsics::type_name::<T>() }
+        }
+        let name = type_name_of(f);
+        &name[6..name.len() - 4]
+    }}
+}
+
+macro_rules! data_path{
+    ($name: expr) => {
+        format!("integration-tests/{}/{}", function!().split("::").last().unwrap(), $name)
     }
 }
 
@@ -264,6 +286,33 @@ speculate! {
 
             assert_eq!(1, count_books(&scanner, &pool));
             assert_eq!(book.id, book2.id);
+        }
+
+        it "cover_changed_multifile" {
+            use schema::audiobooks::dsl::deleted;
+            println!("============Step 1!============");
+            let mut base = data_path!("01");
+            println!("{}", base);
+            set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            assert!(!data_cover_file(&book).exists());
+
+            println!("============Step 2!============");
+            let mut base = data_path!("02");
+            set_date(&base, &NaiveDate::from_ymd(2050, 1, 1));
+            scanner.library.location = base.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            let book2 = Audiobook::belonging_to(&scanner.library)
+                .filter(deleted.eq(false))
+                .first::<Audiobook>(&*(pool.get().unwrap())).unwrap();
+            println!("{:?}", book2);
+
+            assert!(data_cover_file(&book).exists());
         }
     }
 }

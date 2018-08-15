@@ -46,10 +46,11 @@ pub struct Scanner {
     pub config: Config
 }
 
-struct ChapterCollection {
+struct MultifileMetadata {
     pub media_files: Vec<MediaFile>,
     pub chapters: Vec<Chapter>,
     pub length: f64,
+    pub cover: Option<Image>,
 }
 
 #[derive(Eq, PartialEq)]
@@ -382,7 +383,7 @@ impl Scanner {
     }
 
 
-    fn multifile_extract_chapters(&self, book: &mut Audiobook) -> Result<ChapterCollection> {
+    fn multifile_extract_chapters(&self, book: &mut Audiobook) -> Result<MultifileMetadata> {
         let book_path = Path::new(&self.library.location).join(book.location.clone());
         let walker = WalkDir::new(book_path)
             .follow_links(true)
@@ -394,6 +395,7 @@ impl Scanner {
         let mut mediafiles = Vec::new();
         let mut start_time = 0.0;
         let mut chapter_index = 0;
+        let mut cover: Option<Image> = None;
 
         for entry in walker {
             match entry {
@@ -415,9 +417,7 @@ impl Scanner {
                                     book.artist = Some(new_artist.to_owned());
                                 }
                                 let m = MediaFile::read_file(file.path()).unwrap();
-                                if let Some(image) = m.get_coverart()? {
-                                    self.save_coverart(&book, &image);
-                                }
+                                cover = m.get_coverart()?;
                             };
                             if Some(&info.title) != all_chapters.last().and_then(|c| c.title.as_ref() ) {
                                 let new_chapter = Chapter {
@@ -441,10 +441,11 @@ impl Scanner {
             };
         };
 
-        Ok(ChapterCollection {
+        Ok(MultifileMetadata {
             media_files: mediafiles,
             chapters: all_chapters,
             length: start_time,
+            cover: cover,
         })
     }
 
@@ -499,6 +500,7 @@ impl Scanner {
         let temp_target_path = self.build_target_path(
             &self.config.data_directory, &default_book.id, &filetype
         );
+
         let collection = self.multifile_extract_chapters(&mut default_book)?;
         debug!("muxing files into {:?}", temp_target_path);
         muxer::merge_files(
@@ -512,6 +514,11 @@ impl Scanner {
             let mut book = Audiobook::ensure_exists_in(
                 &relative_path, &self.library, &default_book, conn
             )?;
+
+            if let Some(img) = collection.cover {
+                self.save_coverart(&book, &img);
+            }
+
             book.length = collection.length;
             book.delete_all_chapters(conn);
             for new_chapter in collection.chapters {

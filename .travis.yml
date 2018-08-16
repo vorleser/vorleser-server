@@ -8,7 +8,7 @@ script:
       -v $(pwd):/root/code \
       -w /root/code \
       -i hatzel/vorleser-test \
-      cargo tarpaulin --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
+      cargo tarpaulin -v --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
 cache:
   directories:
     - target

@@ -150,15 +150,19 @@ impl Scanner {
             let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
             if relative_path.components().count() == 0 { continue };
             if is_audiobook(relative_path, &self.regex) {
+                use schema::audiobooks::dsl::location;
+
                 match scan_type {
                     Scan::Incremental => {
-                        if should_scan(path, last_scan)? {
+                        let preexisting_book = Audiobook::belonging_to(&self.library)
+                            .filter(location.eq(&relative_path.to_string_lossy()))
+                            .first::<Audiobook>(conn).optional()?;
+                        if should_scan(path, last_scan)? || preexisting_book.is_none() {
                             self.process_audiobook(&path, conn);
                         }
                     },
                     Scan::Full => self.process_audiobook(&path, conn)
                 }
-                use schema::audiobooks::dsl::location;
                 let mut book_result = Audiobook::belonging_to(&self.library)
                     .filter(location.eq(&relative_path.to_string_lossy()))
                     .get_result::<Audiobook>(&*conn);

@@ -55,6 +55,13 @@ fn set_dates(times: Vec<(String, NaiveDate)>) {
     }
 }
 
+fn all_books(scanner: &Scanner, pool: &Pool) -> Vec<Audiobook> {
+    use schema::audiobooks::dsl::deleted;
+    Audiobook::belonging_to(&scanner.library)
+        .filter(deleted.eq(false))
+        .load(&pool.get().unwrap()).unwrap()
+}
+
 macro_rules! function {
     () => {{
         fn f() {}
@@ -223,6 +230,29 @@ speculate! {
             assert_eq!(book.id, book2.id);
             // todo: this doesn't behave like we want it to. fix and update test
             assert_ne!(book2.location, "book.mp3");
+        }
+
+        it "works_with_moved_multifile" {
+            let s1 = data_path!("01");
+
+            scanner.library.location = s1.clone();
+            set_date(&s1, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            assert_eq!(count_books(&scanner, &pool), 1);
+            let book = all_books(&scanner, &pool).first().unwrap().clone();
+
+
+            let s2 = data_path!("02");
+
+            scanner.library.location = s2.clone();
+            set_date(&s2, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book_moved = all_books(&scanner, &pool).first().unwrap().clone();
+
+            assert_eq!(count_books(&scanner, &pool), 1);
+            assert_eq!(book_moved.location, "book_moved");
+            assert_eq!(book_moved.id, book.id);
         }
 
         it "content_changed" {

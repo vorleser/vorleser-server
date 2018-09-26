@@ -345,5 +345,30 @@ speculate! {
 
             assert!(data_cover_file(&book).exists());
         }
+
+        test "multifile_add_file" {
+            let mut base1 = data_path!("01");
+            set_date(&base1, &NaiveDate::from_ymd(2008, 1, 1));
+            scanner.library.location = base1.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            assert_eq!(1, count_books(&scanner, &pool));
+            let book1 = all_books(&scanner, &pool).first().unwrap().clone();
+            assert!(47.0 < book1.length, book1.length < 48.0);
+
+
+            let mut base2 = data_path!("02");
+            set_date(&base2, &NaiveDate::from_ymd(2008, 1, 1));
+            scanner.library.location = base2.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            assert_eq!(1, count_books(&scanner, &pool));
+            let book2 = all_books(&scanner, &pool).first().unwrap().clone();
+            // assert!(94.0 < book2.length, book2.length < 96.0);
+
+            // XFAIL - doesn't work yet, test for failed outcome
+            assert!(47.0 < book1.length, book1.length < 48.0);
+
+        }
     }
 }

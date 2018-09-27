@@ -1,4 +1,4 @@
-#![feature(custom_attribute, plugin, non_ascii_idents, attr_literals, duration_as_u128)]
+#![feature(custom_attribute, plugin, non_ascii_idents, attr_literals, duration_as_u128, proc_macro_non_items)]
 #![plugin(rocket_codegen)]
 #![cfg_attr(test, plugin(speculate))]
 #![allow(dead_code, unused)]

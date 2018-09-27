@@ -33,7 +33,7 @@ rocket_codegen = {git = "https://github.com/SergioBenitez/Rocket.git"}
 fs2 = "0.4.3"
 scheduled-thread-pool = "0.2.0"
 failure = "0.1.1"
-sentry = "0.7"
+sentry = "0.12"
 
 [dependencies.rocket_contrib]
 default-features = false
@@ -58,11 +58,12 @@ git = "https://github.com/diesel-rs/diesel.git"
 [dependencies.ffmpeg-sys]
 default-features = false
 features = ["avformat"]
-version = "~3.3"
+git = "https://github.com/hatzel/rust-ffmpeg-sys"
+version = "~3.4"
 
 [dependencies.uuid]
-features = ["use_std", "serde", "v4"]
-version = "0.5"
+features = ["serde", "v4"]
+version = "~0.7"
 
 [dev-dependencies]
 speculate = "0.0.26"

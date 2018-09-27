@@ -159,9 +159,9 @@ fn common_extension() {
     assert_eq!(ft.unwrap().unwrap(), OsString::from("mp3")) }
 
 #[test]
-fn get_thumbnail_jpg() {
+fn get_thumbnail_jpg() -> Option<()> {
     let j = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
-    let jpeg_image = j.get_coverart().unwrap().unwrap();
+    let jpeg_image = j.get_coverart().unwrap();
     assert_eq!(jpeg_image.image_type, ImageType::JPG);
     let mut jpeg_decoder = JPEGDecoder::new(Cursor::new(jpeg_image.data));
     let jpeg_dims = jpeg_decoder.dimensions().unwrap();

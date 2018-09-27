@@ -47,7 +47,7 @@ fn options_handler<'a>(path: PathBuf) -> Response<'a> {
 
 fn add_catchers(rocket_result: Result<Rocket>) -> Result<Rocket> {
     rocket_result.map(|rocket|
-        rocket.catch(catchers![
+        rocket.register(catchers![
             handlers::bad_request_handler,
             handlers::unauthorized_handler,
             handlers::forbidden_handler,

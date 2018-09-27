@@ -40,8 +40,8 @@ impl APIError {
     }
 }
 
-impl From<uuid::ParseError> for APIError {
-    fn from(error: uuid::ParseError) -> Self {
+impl From<uuid::parser::ParseError> for APIError {
+    fn from(error: uuid::parser::ParseError) -> Self {
         bad_request()
     }
 }

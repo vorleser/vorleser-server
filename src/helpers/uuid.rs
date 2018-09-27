@@ -19,7 +19,7 @@ use std::str::FromStr;
 pub struct Uuid(uuid::Uuid);
 
 impl Uuid {
-    pub fn parse_str(input: &str) -> Result<Self, uuid::ParseError> {
+    pub fn parse_str(input: &str) -> Result<Self, uuid::parser::ParseError> {
         uuid::Uuid::parse_str(input).map(Uuid)
     }
 
@@ -27,8 +27,8 @@ impl Uuid {
         Uuid(uuid::Uuid::new_v4())
     }
 
-    pub fn hyphenated(&self) -> uuid::Hyphenated {
-        self.0.hyphenated()
+    pub fn hyphenated(&self) -> uuid::adapter::Hyphenated {
+        self.0.to_hyphenated()
     }
 }
 
@@ -37,7 +37,7 @@ impl ToSql<Text, Sqlite> for Uuid {
         &self,
         out: &mut serialize::Output<W, Sqlite>,
     ) -> serialize::Result {
-        let hyphenated = self.0.hyphenated().to_string();
+        let hyphenated = self.0.to_hyphenated().to_string();
         ToSql::<VarChar, Sqlite>::to_sql(&hyphenated, out)
     }
 }
@@ -54,7 +54,7 @@ impl FromSql<VarChar, Sqlite> for Uuid where {
 }
 
 impl<'a> FromParam<'a> for Uuid {
-    type Error = uuid::ParseError;
+    type Error = uuid::parser::ParseError;
 
     fn from_param(param: &'a RawStr) -> Result<Self, Self::Error> {
         param.parse().map(Uuid)

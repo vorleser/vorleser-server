@@ -16,9 +16,8 @@ use rocket::http::Status;
 use validation::token::TokenSerializer;
 use helpers::JsonResult;
 
-#[post("/login", data = "<user_in_result>", format = "application/json")]
-pub fn login(user_in_result: JsonResult<UserSerializer>, db: DB) -> APIResult {
-    let user_in = user_in_result?;
+#[post("/login", data = "<user_in>", format = "application/json")]
+pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIError> {
     let results = users.filter(email.eq(user_in.email.clone()))
         .first::<User>(&*db);
 
@@ -38,9 +37,8 @@ pub fn login(user_in_result: JsonResult<UserSerializer>, db: DB) -> APIResult {
     )))
 }
 
-#[post("/register", data = "<user_data>", format = "application/json")]
-pub fn register(user_data: JsonResult<UserSerializer>, db: DB, config: Config) -> APIResult {
-    let user = user_data?;
+#[post("/register", data = "<user>", format = "application/json")]
+pub fn register(user: Json<UserSerializer>, db: DB, config: Config) -> APIResult {
     if config.register_web {
         let new_user = User::create(&user.email, &user.password, &*db)?;
         Ok(created().message("User created.").data(json!(&new_user)))

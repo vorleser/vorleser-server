@@ -55,6 +55,13 @@ fn set_dates(times: Vec<(String, NaiveDate)>) {
     }
 }
 
+fn all_books(scanner: &Scanner, pool: &Pool) -> Vec<Audiobook> {
+    use schema::audiobooks::dsl::deleted;
+    Audiobook::belonging_to(&scanner.library)
+        .filter(deleted.eq(false))
+        .load(&pool.get().unwrap()).unwrap()
+}
+
 macro_rules! function {
     () => {{
         fn f() {}
@@ -225,6 +232,29 @@ speculate! {
             assert_ne!(book2.location, "book.mp3");
         }
 
+        it "works_with_moved_multifile" {
+            let s1 = data_path!("01");
+
+            scanner.library.location = s1.clone();
+            set_date(&s1, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            assert_eq!(count_books(&scanner, &pool), 1);
+            let book = all_books(&scanner, &pool).first().unwrap().clone();
+
+
+            let s2 = data_path!("02");
+
+            scanner.library.location = s2.clone();
+            set_date(&s2, &NaiveDate::from_ymd(1990, 1, 1));
+            scanner.incremental_scan(LockingBehavior::Dont);
+            let book_moved = all_books(&scanner, &pool).first().unwrap().clone();
+
+            assert_eq!(count_books(&scanner, &pool), 1);
+            assert_eq!(book_moved.location, "book_moved");
+            assert_eq!(book_moved.id, book.id);
+        }
+
         it "content_changed" {
             use schema::audiobooks::dsl::deleted;
             println!("============Step 1!============");
@@ -314,6 +344,31 @@ speculate! {
             println!("{:?}", book2);
 
             assert!(data_cover_file(&book).exists());
+        }
+
+        test "multifile_add_file" {
+            let mut base1 = data_path!("01");
+            set_date(&base1, &NaiveDate::from_ymd(2008, 1, 1));
+            scanner.library.location = base1.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            assert_eq!(1, count_books(&scanner, &pool));
+            let book1 = all_books(&scanner, &pool).first().unwrap().clone();
+            assert!(47.0 < book1.length, book1.length < 48.0);
+
+
+            let mut base2 = data_path!("02");
+            set_date(&base2, &NaiveDate::from_ymd(2008, 1, 1));
+            scanner.library.location = base2.clone();
+            scanner.incremental_scan(LockingBehavior::Dont);
+
+            assert_eq!(1, count_books(&scanner, &pool));
+            let book2 = all_books(&scanner, &pool).first().unwrap().clone();
+            // assert!(94.0 < book2.length, book2.length < 96.0);
+
+            // XFAIL - doesn't work yet, test for failed outcome
+            assert!(47.0 < book1.length, book1.length < 48.0);
+
         }
     }
 }

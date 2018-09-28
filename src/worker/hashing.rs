@@ -36,17 +36,19 @@ pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
             |first, second| first.path().to_string_lossy().humane_cmp(&second.path().to_string_lossy())
         );
     let mut ctx = digest::Context::new(&digest::SHA256);
-    for entry in walker {
+    // skip the root dir so it's name doesn't get hashed, only the contents
+    for entry in walker.into_iter().skip(1) {
+        println!("entry {:?}", entry);
         if let Ok(e) = entry {
             let p = e.path();
             if e.file_type().is_file() {
                 update_hash_from_file(&mut ctx, &p)?;
             }
-            ctx.update(p.to_string_lossy().as_bytes());
+            let relative_path = p.strip_prefix(path.as_ref())?;
+            ctx.update(relative_path.to_string_lossy().as_bytes());
         }
     }
     let mut res = Vec::new();
     res.extend_from_slice(ctx.finish().as_ref());
     Ok(res)
 }
-

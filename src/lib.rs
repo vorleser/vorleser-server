@@ -1,6 +1,5 @@
 #![feature(custom_attribute, plugin, non_ascii_idents, duration_as_u128, proc_macro_non_items)]
 #![plugin(rocket_codegen)]
-#![cfg_attr(test, plugin(speculate))]
 #![allow(dead_code, unused)]
 #![feature(decl_macro)]
 #![feature(core_intrinsics)]
@@ -37,6 +36,8 @@ extern crate humanesort;
 extern crate toml;
 extern crate id3;
 extern crate mp3_metadata;
+
+#[cfg(test)] #[macro_use] extern crate speculate;
 
 pub mod api;
 pub mod validation;

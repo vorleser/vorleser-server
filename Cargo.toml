@@ -66,7 +66,8 @@ features = ["serde", "v4"]
 version = "~0.7"
 
 [dev-dependencies]
-speculate = "0.0.26"
+# speculate = "0.0.26"
+speculate = {git = "https://github.com/utkarshkukreti/speculate.rs.git"}
 
 [features]
 webfrontend = []

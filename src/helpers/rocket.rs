@@ -93,7 +93,7 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> Result<Roc
         .manage(config.clone())
         .mount("/", routes![options_handler])
         .mount("/", routes![api::audiobooks::get_data_file])
-        .mount("/api/", routes![
+        .mount("/api", routes![
             api::libraries::libraries,
             api::libraries::all_the_things,
             api::libraries::update_playstates,
@@ -101,7 +101,7 @@ pub fn base_factory(pool: super::db::Pool, config: config::Config) -> Result<Roc
             api::audiobooks::get_audiobook,
             api::audiobooks::get_audiobooks,
         ])
-        .mount("/api/auth/", routes![
+        .mount("/api/auth", routes![
             api::auth::login,
             api::auth::logout,
             api::auth::logout_all,

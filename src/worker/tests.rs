@@ -161,7 +161,7 @@ fn common_extension() {
 #[test]
 fn get_thumbnail_jpg() {
     let j = MediaFile::read_file(Path::new("test-data/1.mp3")).unwrap();
-    let jpeg_image = j.get_coverart().unwrap();
+    let jpeg_image = j.get_coverart().unwrap().unwrap();
     assert_eq!(jpeg_image.image_type, ImageType::JPG);
     let mut jpeg_decoder = JPEGDecoder::new(Cursor::new(jpeg_image.data));
     let jpeg_dims = jpeg_decoder.dimensions().unwrap();

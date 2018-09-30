@@ -76,7 +76,7 @@ macro_rules! function {
 
 macro_rules! data_path{
     ($name: expr) => {
-        format!("integration-tests/{}/{}", function!().split("::").last().unwrap(), $name)
+        format!("integration-tests/{}/{}", function!().split("::").last().unwrap()[5..].to_owned(), $name)
     }
 }
 

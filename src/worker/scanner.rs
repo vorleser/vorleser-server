@@ -66,6 +66,7 @@ pub(super) struct Filetype {
     pub format: String
 }
 
+#[derive(Clone)]
 enum Scan {
     Incremental,
     Full
@@ -140,6 +141,21 @@ impl Scanner {
         self.recover_deleted(conn)?;
         let mut walker = WalkDir::new(&self.library.location).follow_links(true).into_iter();
 
+        self.walk_books(scan_type, walker, last_scan, conn);
+
+        let deleted = self.delete_not_in_fs(conn)?;
+        info!("Deleted {} audiobooks because their files are no longer present.", deleted);
+
+        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(&self.library.id)))
+            .set(&self.library)
+            .execute(conn) {
+                Ok(_) => Ok(()),
+                Err(e) => Err(e.into())
+            }
+    }
+
+    fn walk_books(&self, scan_type: Scan, mut walker: walkdir::IntoIter,
+                  last_scan: Option<chrono::NaiveDateTime>, conn: &SqliteConnection) -> Result<()> {
         loop {
             let entry = match walker.next() {
                 None => break,
@@ -150,59 +166,55 @@ impl Scanner {
             let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
             if relative_path.components().count() == 0 { continue };
             if is_audiobook(relative_path, &self.regex) {
-                use schema::audiobooks::dsl::location;
-
-                match scan_type {
-                    Scan::Incremental => {
-                        let preexisting_book = Audiobook::belonging_to(&self.library)
-                            .filter(location.eq(&relative_path.to_string_lossy()))
-                            .first::<Audiobook>(conn).optional()?;
-                        if should_scan(path, last_scan)? || preexisting_book.is_none() {
-                            self.process_audiobook(&path, conn);
-                        }
-                    },
-                    Scan::Full => self.process_audiobook(&path, conn)
-                }
-                let mut book_result = Audiobook::belonging_to(&self.library)
-                    .filter(location.eq(&relative_path.to_string_lossy()))
-                    .get_result::<Audiobook>(&*conn);
-                debug!("book: {:?}", book_result);
-                // Ensure cached file exists here no need to check if its current, that is ensured
-                // above
-                if let Ok(mut book) = book_result {
-                    if path.is_dir() && !self.data_path_of(&book).exists() {
-                        debug!("No remuxed version of {}, remuxing!", book.title);
-                        match self.multifile_remux(&mut book) {
-                            Ok(_) => info!("Successfully remuxed {}", book.title),
-                            Err(e) => info!("Error {:?} while remuxing {}", e, book.title),
-                        }
-                    } else if !self.data_path_of(&book).exists() {
-                        debug!("No remuxed version of {}, linking!", book.title);
-                        match self.link_audiobook(&book) {
-                            Ok(_) => info!("Successfully linked {} into collection", book.title),
-                            Err(e) => info!("Error {:?} while linking {}", e, book.title),
-                        }
-                    }
-                }
-
+                self.handle_book_at_path(conn, scan_type.clone(), path, relative_path, last_scan);
 
                 // Since we are in an audiobook we don't continue searching deeper in the dir tree from here
                 if path.is_dir() {
                     walker.skip_current_dir();
                 }
             };
-
             ()
-        };
-        let deleted = self.delete_not_in_fs(conn)?;
-        info!("Deleted {} audiobooks because their files are no longer present.", deleted);
+        }
+        Ok(())
+    }
 
-        match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(&self.library.id)))
-            .set(&self.library)
-            .execute(conn) {
-                Ok(_) => Ok(()),
-                Err(e) => Err(e.into())
+    fn handle_book_at_path(&self, conn: &SqliteConnection, scan_type: Scan, path: &Path, relative_path: &Path,
+                           last_scan: Option<chrono::NaiveDateTime>) -> Result<()> {
+        use schema::audiobooks::dsl::location;
+
+        match scan_type {
+            Scan::Incremental => {
+                let preexisting_book = Audiobook::belonging_to(&self.library)
+                    .filter(location.eq(&relative_path.to_string_lossy()))
+                    .first::<Audiobook>(conn).optional()?;
+                if should_scan(path, last_scan)? || preexisting_book.is_none() {
+                    self.process_audiobook(&path, conn);
+                }
+            },
+            Scan::Full => self.process_audiobook(&path, conn)
+        }
+        let mut book_result = Audiobook::belonging_to(&self.library)
+            .filter(location.eq(&relative_path.to_string_lossy()))
+            .get_result::<Audiobook>(&*conn);
+        debug!("book: {:?}", book_result);
+        // Ensure cached file exists here no need to check if its current, that is ensured
+        // above
+        if let Ok(mut book) = book_result {
+            if path.is_dir() && !self.data_path_of(&book).exists() {
+                debug!("No remuxed version of {}, remuxing!", book.title);
+                match self.multifile_remux(&mut book) {
+                    Ok(_) => info!("Successfully remuxed {}", book.title),
+                    Err(e) => info!("Error {:?} while remuxing {}", e, book.title),
+                }
+            } else if !self.data_path_of(&book).exists() {
+                debug!("No remuxed version of {}, linking!", book.title);
+                match self.link_audiobook(&book) {
+                    Ok(_) => info!("Successfully linked {} into collection", book.title),
+                    Err(e) => info!("Error {:?} while linking {}", e, book.title),
+                }
             }
+        }
+        Ok(())
     }
 
     fn process_audiobook(&self, path: &AsRef<Path>, conn: &SqliteConnection) {

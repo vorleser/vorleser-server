@@ -11,10 +11,10 @@ use rocket::{Request, State, Outcome};
 use failure::Error;
 /// This module holds functions for loading config files.
 
-#[cfg(build = "release")]
+#[cfg(not(debug_assertions))]
 static CONFIG_LOCATIONS: &'static [&'static str] = &["/etc/vorleser.toml"];
 
-#[cfg(not(build = "release"))]
+#[cfg(debug_assertions)]
 static CONFIG_LOCATIONS: &'static [&'static str] = &["vorleser-dev.toml"];
 
 #[derive(Debug, Fail)]

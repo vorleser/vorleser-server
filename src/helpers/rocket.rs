@@ -36,7 +36,7 @@ impl Fairing for CORS {
     }
 }
 
-#[route(OPTIONS, "/<path..>")]
+#[route(OPTIONS, path = "/<path..>")]
 fn options_handler<'a>(path: PathBuf) -> Response<'a> {
     Response::build()
         .raw_header("Access-Control-Allow-Origin", "*")

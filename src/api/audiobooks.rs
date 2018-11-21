@@ -1,5 +1,5 @@
 use models::user::User;
-use rocket_contrib::Json;
+use rocket_contrib::json::Json;
 use diesel::prelude::*;
 use serde_json;
 use helpers::db::DB;

@@ -1,6 +1,6 @@
 use std::io::Cursor;
 use rocket_contrib::json::{Json};
-use rocket_contrib::JsonValue;
+use rocket_contrib::json::JsonValue;
 use rocket::request::{Request, FromRequest};
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};

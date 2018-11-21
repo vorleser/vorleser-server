@@ -1,4 +1,4 @@
-use rocket_contrib::Json;
+use rocket_contrib::json::Json;
 use validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;

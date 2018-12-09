@@ -8,7 +8,4 @@ before_install:
   - RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
 script:
   - cargo tarpaulin -v --ciserver travis-ci --coveralls $TRAVIS_JOB_ID
-cache:
-  directories:
-    - .cargo
-    - target
+cache: cargo

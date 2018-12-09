@@ -4,7 +4,7 @@ rust:
   - nightly
 before_install:
   - sudo apt-get update
-  - sudo apt-get install -y ffmpeg curl file zlib1g zlib1g-dev ffmpeg libsqlite3-0 libsqlite3-dev libavcodec-dev libavformat-dev libavfilter-dev libssl-dev libavdevice-dev libavresample-dev autoconf automake autotools-dev libtool xutils-dev
+  - sudo apt-get install -y ffmpeg curl file zlib1g zlib1g-dev libsqlite3-0 libsqlite3-dev libavcodec-dev libavformat-dev libavfilter-dev libssl-dev libavdevice-dev libavresample-dev autoconf automake autotools-dev libtool xutils-dev
   - RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
 script:
   - cargo tarpaulin -v --ciserver travis-ci --coveralls $TRAVIS_JOB_ID

@@ -81,7 +81,7 @@ debug = true
 
 [patch.crates-io]
 diesel = { git = "https://github.com/diesel-rs/diesel.git" }
-diesel_derives = { git = "https://github.com/diesel-rs/diesel.git" }
+diesel_derives = { git = "https://github.com/trha/diesel", branch = "fix-diesel-derives" }
 diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }
 migrations_internals = { git = "https://github.com/diesel-rs/diesel.git" }
 migrations_macros = { git = "https://github.com/diesel-rs/diesel.git" }

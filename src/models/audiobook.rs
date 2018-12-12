@@ -4,12 +4,12 @@ use std::path::Path;
 use diesel::result::Error;
 use chrono::NaiveDateTime;
 use diesel::sqlite::SqliteConnection;
-use models::user::User;
-use helpers::uuid::Uuid;
+use crate::models::user::User;
+use crate::helpers::uuid::Uuid;
 
-use ::models::library::Library;
-use ::models::chapter::Chapter;
-use schema::{audiobooks, playstates, library_permissions};
+use crate::models::library::Library;
+use crate::models::chapter::Chapter;
+use crate::schema::{audiobooks, playstates, library_permissions};
 
 #[table_name="audiobooks"]
 #[derive(PartialEq, Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone,

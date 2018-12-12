@@ -6,14 +6,14 @@ use diesel::prelude::*;
 use diesel;
 use walkdir::WalkDir;
 
-use ::worker::util;
-use helpers::db::init_test_db_pool;
-use helpers::db::Pool;
-use models::library::Library;
-use models::audiobook::Audiobook;
-use worker::scanner::{Scanner, LockingBehavior};
-use helpers::uuid::Uuid;
-use config;
+use crate::worker::util;
+use crate::helpers::db::init_test_db_pool;
+use crate::helpers::db::Pool;
+use crate::models::library::Library;
+use crate::models::audiobook::Audiobook;
+use crate::worker::scanner::{Scanner, LockingBehavior};
+use crate::helpers::uuid::Uuid;
+use crate::config;
 
 fn set_date(file: &str, date: &NaiveDate) {
     let time = date.format("%y%m%d0000").to_string();
@@ -40,8 +40,8 @@ fn data_file(book: &Audiobook) -> PathBuf {
 }
 
 fn count_books(scanner: &Scanner, pool: &Pool) -> i64 {
-    use models::audiobook::Audiobook;
-    use schema::audiobooks::dsl::deleted;
+    use crate::models::audiobook::Audiobook;
+    use crate::schema::audiobooks::dsl::deleted;
     Audiobook::belonging_to(&scanner.library)
                .filter(deleted.eq(false))
                .count()
@@ -56,7 +56,7 @@ fn set_dates(times: Vec<(String, NaiveDate)>) {
 }
 
 fn all_books(scanner: &Scanner, pool: &Pool) -> Vec<Audiobook> {
-    use schema::audiobooks::dsl::deleted;
+    use crate::schema::audiobooks::dsl::deleted;
     Audiobook::belonging_to(&scanner.library)
         .filter(deleted.eq(false))
         .load(&pool.get().unwrap()).unwrap()
@@ -91,10 +91,10 @@ speculate! {
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 
-        use models::audiobook::{Audiobook, Update};
-        use models::library::Library;
-        use schema::libraries;
-        use worker::scanner;
+        use crate::models::audiobook::{Audiobook, Update};
+        use crate::models::library::Library;
+        use crate::schema::libraries;
+        use crate::worker::scanner;
         let library = Library{
             id: Uuid::new_v4(),
             location: "".to_owned(),
@@ -136,7 +136,7 @@ speculate! {
             base = String::from("integration-tests/simple_deletion/02");
             scanner.library.location = base.clone();
             scanner.incremental_scan(LockingBehavior::Dont).unwrap();
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             assert_eq!(0, count_books(&scanner, &pool));
         }
 
@@ -149,7 +149,7 @@ speculate! {
         }
 
         it "recovers deleted books with the same timestamp" {
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             // Time step 01:
             let mut base = String::from("integration-tests/recovers_deleted_same_timestamp/01");
             scanner.library.location = base.clone();
@@ -179,7 +179,7 @@ speculate! {
         }
 
         it "works_with_moved_files" {
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             println!("============Step 1!============");
             let mut base = String::from("integration-tests/works_with_moved_files/01");
             scanner.library.location = base.clone();
@@ -207,7 +207,7 @@ speculate! {
             // We don't feel strongly about how this behaves we would just like to know when it changes
             // Currently the filename takes precedence over the files hash.
             // We want this behavior because
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             println!("============Step 1!============");
             let mut base = String::from("integration-tests/works_with_moved_files_same_name/01");
             scanner.library.location = base.clone();
@@ -256,7 +256,7 @@ speculate! {
         }
 
         it "content_changed" {
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             println!("============Step 1!============");
             let mut base = String::from("integration-tests/content_changed/01");
             scanner.library.location = base.clone();
@@ -281,7 +281,7 @@ speculate! {
         }
 
         it "content_changed_multifile" {
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             println!("============Step 1!============");
             let mut base = String::from("integration-tests/content_changed_multifile/01");
             set_date(&base, &NaiveDate::from_ymd(2008, 1, 1));
@@ -320,7 +320,7 @@ speculate! {
         }
 
         it "cover_changed_multifile" {
-            use schema::audiobooks::dsl::deleted;
+            use crate::schema::audiobooks::dsl::deleted;
             println!("============Step 1!============");
             let mut base = data_path!("01");
             println!("{}", base);

@@ -2,6 +2,7 @@
 authors = ["Lukas Stabe <ahti333@gmail.com>", "Hans Ole Hatzel <hhatzel@gmail.com>"]
 name = "vorleser-rust"
 version = "0.1.0"
+edition = "2018"
 [[bin]]
 name = "vorleser_server_bin"
 path = "src/bin/main.rs"

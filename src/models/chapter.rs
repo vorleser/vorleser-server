@@ -1,7 +1,7 @@
-use helpers::uuid::Uuid;
+use crate::helpers::uuid::Uuid;
 use diesel::prelude::*;
-use models::audiobook::Audiobook;
-use schema::chapters;
+use crate::models::audiobook::Audiobook;
+use crate::schema::chapters;
 
 #[table_name="chapters"]
 #[derive(Debug, Queryable, Associations, Identifiable, Serialize, Insertable)]

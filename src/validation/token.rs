@@ -1,5 +1,5 @@
-use helpers::uuid::Uuid;
-use models::user::ApiToken;
+use crate::helpers::uuid::Uuid;
+use crate::models::user::ApiToken;
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct TokenSerializer {

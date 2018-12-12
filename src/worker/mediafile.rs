@@ -1,4 +1,4 @@
-use ffmpeg::{
+use crate::ffmpeg::{
     AVFormatContext,
     AVMediaType,
     AVStream,
@@ -29,8 +29,8 @@ use super::util::*;
 use std::collections::HashMap;
 use std::fmt::{Formatter, Debug};
 use std::str::Split;
-use worker::error::{Result, WorkerError};
-use worker::util::string_from_ptr;
+use crate::worker::error::{Result, WorkerError};
+use crate::worker::util::string_from_ptr;
 use std::fmt;
 use std::error;
 use std::result;
@@ -135,13 +135,13 @@ impl MediaFile {
                 averror: 0,
                 av_packet: None,
             };
-            new.averror = try!(check_av_result(avformat_open_input(
+            new.averror = r#try!(check_av_result(avformat_open_input(
                 &mut new.ctx,
                 c_file_name.as_ptr(),
                 ptr::null_mut(),
                 ptr::null_mut()
             )));
-            try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));
+            r#try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));
             Ok(new)
         }
     }

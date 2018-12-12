@@ -1,6 +1,6 @@
 use rocket::{self, Rocket};
-use ::api;
-use ::handlers;
+use crate::api;
+use crate::handlers;
 
 use rocket::{Request, Response};
 use rocket::config::{Config, Environment};
@@ -10,7 +10,7 @@ use std::io::Cursor;
 use std::path::PathBuf;
 use rocket::config::Result;
 
-use config;
+use crate::config;
 pub struct CORS();
 
 impl Fairing for CORS {

@@ -1,14 +1,14 @@
 use uuid;
-use helpers::uuid::Uuid;
+use crate::helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
 use chrono::prelude::*;
 use argon2rs::{verifier, Argon2};
 use diesel::sqlite::SqliteConnection;
 use diesel::prelude::*;
 use diesel::expression::exists;
-use models::audiobook::Audiobook;
-use models::library::Library;
-use models::library_permission::LibraryPermission;
+use crate::models::audiobook::Audiobook;
+use crate::models::library::Library;
+use crate::models::library_permission::LibraryPermission;
 use std::result::Result as StdResult;
 use diesel;
 use diesel::result::QueryResult;
@@ -16,9 +16,9 @@ use base64;
 use ring::rand::{SystemRandom, SecureRandom};
 use failure::Error;
 
-use schema::{users, api_tokens};
-use schema;
-use helpers::db::DB;
+use crate::schema::{users, api_tokens};
+use crate::schema;
+use crate::helpers::db::DB;
 
 #[derive(Identifiable, Debug, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name="users"]
@@ -64,9 +64,9 @@ impl User {
     pub fn accessible_libraries(&self, conn: &SqliteConnection) -> Result<Vec<Library>> {
         use diesel::expression::sql_literal::*;
         use diesel::sql_types::*;
-        use schema::libraries::dsl::libraries;
-        use schema::library_permissions::dsl::{library_permissions, user_id};
-        use schema::libraries::all_columns;
+        use crate::schema::libraries::dsl::libraries;
+        use crate::schema::library_permissions::dsl::{library_permissions, user_id};
+        use crate::schema::libraries::all_columns;
 
         Ok(library_permissions.inner_join(libraries).filter(user_id.eq(&self.id))
             .select(all_columns)
@@ -77,11 +77,11 @@ impl User {
                 -> QueryResult<Vec<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::sql_types::*;
-        use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
-        use schema::libraries::dsl::{libraries, id};
-        use schema::audiobooks::dsl::{audiobooks, library_id, location, deleted};
-        use schema::audiobooks::all_columns;
-        use schema::users::dsl::users;
+        use crate::schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
+        use crate::schema::libraries::dsl::{libraries, id};
+        use crate::schema::audiobooks::dsl::{audiobooks, library_id, location, deleted};
+        use crate::schema::audiobooks::all_columns;
+        use crate::schema::users::dsl::users;
 
         audiobooks.inner_join(
             libraries.inner_join(library_permissions))
@@ -93,8 +93,8 @@ impl User {
     }
 
     pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &SqliteConnection) -> Result<User> {
-        use schema::users;
-        use schema::users::dsl;
+        use crate::schema::users;
+        use crate::schema::users::dsl;
         let new_password_hash = User::make_password_hash(password);
         let results = dsl::users.filter(dsl::email.eq(email.as_ref()))
             .first::<User>(&*conn);
@@ -143,10 +143,10 @@ impl User {
     }
 
     pub fn get_user_from_api_token(token_id_string: &str, db: &SqliteConnection) -> Result<Option<User>> {
-        use schema;
-        use schema::api_tokens::dsl::*;
+        use crate::schema;
+        use crate::schema::api_tokens::dsl::*;
 
-        use schema::users::dsl::*;
+        use crate::schema::users::dsl::*;
 
         let token_id = Uuid::parse_str(token_id_string)?;
         if let Some(token) = api_tokens.filter(schema::api_tokens::dsl::id.eq(token_id)).first::<ApiToken>(&*db).optional()? {
@@ -159,10 +159,10 @@ impl User {
     pub fn get_book_if_accessible(self, book_id: &Uuid, conn: &SqliteConnection) -> QueryResult<Option<Audiobook>> {
         use diesel::expression::sql_literal::*;
         use diesel::sql_types::*;
-        use schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
-        use schema::audiobooks::dsl::{audiobooks, id as audiobook_id};
-        use schema::audiobooks::all_columns;
-        use schema::libraries::dsl::libraries;
+        use crate::schema::library_permissions::dsl::{library_permissions, user_id as library_permissions_user_id};
+        use crate::schema::audiobooks::dsl::{audiobooks, id as audiobook_id};
+        use crate::schema::audiobooks::all_columns;
+        use crate::schema::libraries::dsl::libraries;
 
         Ok(audiobooks.inner_join(
                 libraries.inner_join(library_permissions)

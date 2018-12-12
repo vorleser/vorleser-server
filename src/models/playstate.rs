@@ -1,9 +1,9 @@
-use helpers::uuid::Uuid;
+use crate::helpers::uuid::Uuid;
 use diesel;
 use diesel::prelude::*;
 use diesel::sqlite::SqliteConnection;
-use schema::playstates;
-use schema::library_permissions;
+use crate::schema::playstates;
+use crate::schema::library_permissions;
 use chrono::prelude::*;
 
 #[derive(Identifiable, Associations, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug, Clone)]
@@ -20,7 +20,7 @@ pub struct Playstate {
 
 impl Playstate {
     pub fn upsert(self, db: &SqliteConnection) -> Result<Playstate, diesel::result::Error> {
-        use schema::playstates::dsl::*;
+        use crate::schema::playstates::dsl::*;
         diesel::replace_into(playstates)
             .values(&self)
             .execute(&*db)?;
@@ -43,7 +43,7 @@ pub struct ApiPlaystate {
     pub timestamp: DateTime<Utc>,
 }
 
-use models::user::User;
+use crate::models::user::User;
 
 impl ApiPlaystate {
     pub fn to_playstate(&self, user: &User) -> Playstate {

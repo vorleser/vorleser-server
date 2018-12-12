@@ -1,5 +1,5 @@
-use ffmpeg::*;
-use ffmpeg::AVMediaType::AVMEDIA_TYPE_AUDIO;
+use crate::ffmpeg::*;
+use crate::ffmpeg::AVMediaType::AVMEDIA_TYPE_AUDIO;
 
 use std::ffi::{CString, CStr, OsStr};
 use std::mem;
@@ -7,8 +7,8 @@ use std::ptr;
 use std::path::{Path, PathBuf};
 use super::mediafile::MediaFile;
 use super::util::*;
-use helpers::mllt;
-use worker::error::*;
+use crate::helpers::mllt;
+use crate::worker::error::*;
 use std::error::Error;
 
 pub struct NewMediaFile {
@@ -53,14 +53,14 @@ impl NewMediaFile {
                 None => return Err(WorkerError::UnkownFormat.into())
             };
             let mut ctx = ptr::null_mut();
-            try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
+            r#try!(check_av_result(avformat_alloc_output_context2(&mut ctx, format, ptr::null(), c_file_name.as_ptr())));
 
             let mut is_mp3 = false;
             match CStr::from_ptr((*format).name).to_str().expect("ffmpeg format name not valid utf8 (╯°□°）╯︵ ┻━┻") {
                 "ipod" => {
                     let faststart = CString::new("movflags").unwrap();
                     let opt_true = CString::new("faststart").unwrap();
-                    try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
+                    r#try!(check_av_result(av_opt_set((*ctx).priv_data, faststart.as_ptr(), opt_true.as_ptr(), AV_OPT_SEARCH_CHILDREN)));
                 }
                 "mp3" => {
                     // let write_xing = CString::new("write_xing").unwrap();
@@ -72,7 +72,7 @@ impl NewMediaFile {
             }
 
             let mut io_ctx = ptr::null_mut();
-            try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), AVIO_FLAG_WRITE, ptr::null(), ptr::null_mut())));
+            r#try!(check_av_result(avio_open2(&mut io_ctx, c_file_name.as_ptr(), AVIO_FLAG_WRITE, ptr::null(), ptr::null_mut())));
             (*ctx).pb = io_ctx;
             let stream = ptr_to_opt_mut(avformat_new_stream(ctx, ptr::null())).unwrap();
             (*stream).time_base = time_base;
@@ -83,7 +83,7 @@ impl NewMediaFile {
 
     pub fn write_header(&mut self) -> Result<()> {
         unsafe {
-            try!(check_av_result(avformat_write_header(self.ctx, ptr::null_mut())));
+            r#try!(check_av_result(avformat_write_header(self.ctx, ptr::null_mut())));
         }
         Ok(())
     }
@@ -91,17 +91,17 @@ impl NewMediaFile {
     fn write_frame(&mut self, pkt: &mut AVPacket) -> Result<()> {
         unsafe {
             pkt.stream_index = 0;
-            try!(check_av_result(av_write_frame(self.ctx, pkt)));
+            r#try!(check_av_result(av_write_frame(self.ctx, pkt)));
         }
         Ok(())
     }
 
     fn write_trailer(&mut self) -> Result<()> {
         unsafe {
-            try!(check_av_result(av_write_trailer(self.ctx)));
+            r#try!(check_av_result(av_write_trailer(self.ctx)));
         }
         if self.is_mp3 {
-            try!(mllt::mlltify(&self.path));
+            r#try!(mllt::mlltify(&self.path));
         }
         Ok(())
     }
@@ -116,23 +116,23 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
         }.into());
     }
     let mut out = {
-        let stream = try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
-        try!(NewMediaFile::from_stream(path.as_ref(), stream))
+        let stream = r#try!(in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO));
+        r#try!(NewMediaFile::from_stream(path.as_ref(), stream))
     };
     info!("writing header");
-    try!(out.write_header());
+    r#try!(out.write_header());
     info!("wrote header");
 
     let mut previous_files_duration: i64 = 0;
     for f in in_files {
         trace!("next file");
 
-        let best = try!(f.get_best_stream(AVMEDIA_TYPE_AUDIO));
+        let best = r#try!(f.get_best_stream(AVMEDIA_TYPE_AUDIO));
 
         let mut this_file_duration: i64 = 0;
         trace!("previous_files_duration: {}", previous_files_duration);
         loop {
-            match try!(f.read_packet()) {
+            match r#try!(f.read_packet()) {
                 Some(mut pkt) => {
                     if pkt.stream_index != best.index {
                         continue;
@@ -159,7 +159,7 @@ pub fn merge_files(path: &AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMedi
         previous_files_duration += this_file_duration;
     }
     info!("writing trailer");
-    try!(out.write_trailer());
+    r#try!(out.write_trailer());
     Ok(out)
     // Self::new()
 }

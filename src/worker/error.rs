@@ -1,10 +1,10 @@
 use std::fmt;
 use std::ffi::CStr;
-use ffmpeg::av_strerror;
+use crate::ffmpeg::av_strerror;
 use std::os::raw::c_char;
 use walkdir;
 use diesel;
-use helpers;
+use crate::helpers;
 use std::io;
 use std::error::Error as StdError;
 use std::result::Result as StdResult;

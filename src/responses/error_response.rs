@@ -5,13 +5,13 @@ use rocket::Outcome;
 use rocket::response::{Response, Responder};
 use rocket::request::FromRequest;
 use rocket::http::{Status, ContentType};
-use models::user::UserError;
+use crate::models::user::UserError;
 use uuid;
-use responses::responses::{bad_request, not_found, internal_server_error, conflict};
+use crate::responses::responses::{bad_request, not_found, internal_server_error, conflict};
 use serde_json::error::Error as SerdeError;
 use diesel;
 
-use config::Config;
+use crate::config::Config;
 
 #[derive(Debug)]
 pub struct APIError {

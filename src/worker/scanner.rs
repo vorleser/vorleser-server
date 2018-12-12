@@ -19,24 +19,24 @@ use ring::digest;
 use humanesort::HumaneOrder;
 use chrono::prelude::*;
 use chrono::NaiveDateTime;
-use helpers::uuid::Uuid;
+use crate::helpers::uuid::Uuid;
 use diesel::sqlite::SqliteConnection;
 use fs2::FileExt;
 
-use config::Config;
-use helpers::db::Pool;
-use models::library::*;
-use models::audiobook::{Audiobook, Update};
-use models::chapter::Chapter;
-use schema::audiobooks;
-use schema::chapters;
-use schema::libraries;
-use worker::mediafile::MediaFile;
-use worker::muxer;
-use worker::error::{Result, WorkerError};
+use crate::config::Config;
+use crate::helpers::db::Pool;
+use crate::models::library::*;
+use crate::models::audiobook::{Audiobook, Update};
+use crate::models::chapter::Chapter;
+use crate::schema::audiobooks;
+use crate::schema::chapters;
+use crate::schema::libraries;
+use crate::worker::mediafile::MediaFile;
+use crate::worker::muxer;
+use crate::worker::error::{Result, WorkerError};
 use diesel::BelongingToDsl;
-use worker::util;
-use worker::mediafile::Image;
+use crate::worker::util;
+use crate::worker::mediafile::Image;
 use super::hashing;
 
 pub struct Scanner {
@@ -180,7 +180,7 @@ impl Scanner {
 
     fn handle_book_at_path(&self, conn: &SqliteConnection, scan_type: Scan, path: &Path, relative_path: &Path,
                            last_scan: Option<chrono::NaiveDateTime>) -> Result<()> {
-        use schema::audiobooks::dsl::location;
+        use crate::schema::audiobooks::dsl::location;
 
         match scan_type {
             Scan::Incremental => {
@@ -235,7 +235,7 @@ impl Scanner {
     /// Try to recover those books that were marked as deleted.
     /// Checks the file paths of books in the database and recovers them if hashes match
     fn recover_deleted(&self, conn: &SqliteConnection) -> Result<usize> {
-        use schema::audiobooks::dsl as dsl;
+        use crate::schema::audiobooks::dsl as dsl;
         let mut recovered = 0;
         for book in Audiobook::belonging_to(&self.library).filter(dsl::deleted.eq(true)).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
@@ -249,7 +249,7 @@ impl Scanner {
             };
 
             if hash == book.hash {
-                use schema::audiobooks::dsl::*;
+                use crate::schema::audiobooks::dsl::*;
                 diesel::update(
                         Audiobook::belonging_to(&self.library)
                         .filter(dsl::id.eq(book.id))
@@ -269,7 +269,7 @@ impl Scanner {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
             info!("checking weather audiobook at {:?} still exists", path);
             if !path.exists() {
-                use schema::audiobooks::dsl::*;
+                use crate::schema::audiobooks::dsl::*;
                 let del = diesel::update(
                         Audiobook::belonging_to(&self.library)
                         .filter(id.eq(book.id))

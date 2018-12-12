@@ -1,12 +1,12 @@
 use diesel;
 use diesel::prelude::*;
-use helpers::uuid::Uuid;
-use schema::{libraries, audiobooks, library_permissions, self};
-use models::audiobook::Audiobook;
-use models::library::Library;
+use crate::helpers::uuid::Uuid;
+use crate::schema::{libraries, audiobooks, library_permissions, self};
+use crate::models::audiobook::Audiobook;
+use crate::models::library::Library;
 
-use helpers::db;
-use models::user::User;
+use crate::helpers::db;
+use crate::models::user::User;
 
 #[table_name="library_permissions"]
 #[belongs_to(User, foreign_key="user_id")]

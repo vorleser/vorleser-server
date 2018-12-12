@@ -2,13 +2,13 @@ use rocket::Outcome;
 use rocket::http::Status;
 use rocket::request::{self, Request, FromRequest};
 
-use models::user::{self, User, ApiToken};
-use models::library::Library;
+use crate::models::user::{self, User, ApiToken};
+use crate::models::library::Library;
 use diesel;
 use diesel::prelude::*;
-use helpers::uuid::Uuid;
-use helpers::db::DB;
-use responses::{APIResponse, APIError, bad_request, unauthorized, forbidden, not_found,
+use crate::helpers::uuid::Uuid;
+use crate::helpers::db::DB;
+use crate::responses::{APIResponse, APIError, bad_request, unauthorized, forbidden, not_found,
                 internal_server_error, service_unavailable};
 
 
@@ -17,7 +17,7 @@ impl<'a, 'r> FromRequest<'a, 'r> for User {
     type Error = ();
 
     fn from_request(request: &'a Request<'r>) -> request::Outcome<User, ()> {
-        use schema::users::dsl;
+        use crate::schema::users::dsl;
 
         let token_result = <ApiToken as FromRequest>::from_request(request);
         let db = <DB as FromRequest>::from_request(request).unwrap();
@@ -53,10 +53,10 @@ impl<'a, 'r> FromRequest<'a, 'r> for ApiToken {
                 }
             }
         };
-        use schema;
-        use schema::api_tokens::dsl::api_tokens;
+        use crate::schema;
+        use crate::schema::api_tokens::dsl::api_tokens;
 
-        use schema::api_tokens::dsl::id as token_id;
+        use crate::schema::api_tokens::dsl::id as token_id;
         use diesel::query_dsl::filter_dsl::FilterDsl;
         use diesel::RunQueryDsl;
         use diesel::prelude::*;

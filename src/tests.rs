@@ -1,15 +1,15 @@
-use helpers::db::init_test_db_pool;
-use helpers;
+use crate::helpers::db::init_test_db_pool;
+use crate::helpers;
 use diesel::prelude::*;
-use models::user::User;
+use crate::models::user::User;
 use rocket::local::{Client, LocalResponse};
 use rocket::Response;
 use rocket::http::{Status, Method, Header, ContentType};
 use serde_json::{self, Value};
-use worker::scanner::{Scanner, LockingBehavior};
-use models::library::Library;
+use crate::worker::scanner::{Scanner, LockingBehavior};
+use crate::models::library::Library;
 use regex::Regex;
-use config;
+use crate::config;
 
 fn post<'a>(client: &'a Client, url: &'a str, data: &Value, auth: Option<&str>) -> LocalResponse<'a> {
     if let Some(token) = auth {

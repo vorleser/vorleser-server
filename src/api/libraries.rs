@@ -1,25 +1,25 @@
-use models::user::User;
-use responses::{APIResponse, ok};
+use crate::models::user::User;
+use crate::responses::{APIResponse, ok};
 use rocket_contrib::json::Json;
 use diesel::prelude::*;
 use diesel::BelongingToDsl;
 use serde_json;
-use helpers::db::DB;
-use models::library::Library;
-use models::audiobook::Audiobook;
-use models::chapter::Chapter;
-use models::playstate::{Playstate, ApiPlaystate};
+use crate::helpers::db::DB;
+use crate::models::library::Library;
+use crate::models::audiobook::Audiobook;
+use crate::models::chapter::Chapter;
+use crate::models::playstate::{Playstate, ApiPlaystate};
 
 #[get("/libraries")]
 pub fn libraries(current_user: User, db: DB) -> APIResponse {
-    use schema::libraries::dsl::*;
+    use crate::schema::libraries::dsl::*;
     let libs = libraries.load::<Library>(&*db).unwrap();
     ok().data(json!(libs))
 }
 
 #[get("/all_the_things")]
 pub fn all_the_things(current_user: User, db: DB) -> APIResponse {
-    use schema;
+    use crate::schema;
     let libs = current_user.accessible_libraries(&*db).unwrap();
     let books = current_user.accessible_audiobooks(&*db).unwrap();
     let chapters: Vec<Chapter> = books.clone().into_iter().flat_map(|b| Chapter::belonging_to(&b).load::<Chapter>(&*db).unwrap()).collect();

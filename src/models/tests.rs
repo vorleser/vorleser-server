@@ -1,13 +1,13 @@
-use schema;
+use crate::schema;
 use diesel;
 use diesel::prelude::*;
-use helpers::db::init_test_db_pool;
-use ::*;
-use models::user::{NewUser, User};
-use models::library::Library;
-use models::library_permission::LibraryPermission;
-use models::audiobook::Audiobook;
-use helpers::uuid::Uuid;
+use crate::helpers::db::init_test_db_pool;
+use crate::*;
+use crate::models::user::{NewUser, User};
+use crate::models::library::Library;
+use crate::models::library_permission::LibraryPermission;
+use crate::models::audiobook::Audiobook;
+use crate::helpers::uuid::Uuid;
 
 speculate! {
     before {

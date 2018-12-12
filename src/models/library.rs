@@ -1,13 +1,13 @@
-use helpers::uuid::Uuid;
+use crate::helpers::uuid::Uuid;
 use chrono::NaiveDateTime;
 use std::time::SystemTime;
 use diesel;
 use diesel::prelude::*;
-use schema::{libraries, audiobooks, library_permissions, self};
-use models::audiobook::Audiobook;
-use models::library_permission::LibraryPermission;
-use helpers::db;
-use models::user::User;
+use crate::schema::{libraries, audiobooks, library_permissions, self};
+use crate::models::audiobook::Audiobook;
+use crate::models::library_permission::LibraryPermission;
+use crate::helpers::db;
+use crate::models::user::User;
 
 #[table_name="libraries"]
 #[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Identifiable, Serialize,

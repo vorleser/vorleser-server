@@ -5,8 +5,8 @@ use rocket::request::{Request, FromRequest};
 use rocket::response::{Response, Responder};
 use rocket::http::{Status, ContentType};
 use super::responses::*;
-use config::Config;
-use models::user::UserError;
+use crate::config::Config;
+use crate::models::user::UserError;
 use failure::Error;
 use diesel;
 

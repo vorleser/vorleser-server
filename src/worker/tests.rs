@@ -9,13 +9,13 @@ use image::jpeg::JPEGDecoder;
 use image::png::PNGDecoder;
 use image::ImageDecoder;
 use std::ffi::OsString;
-use helpers;
-use helpers::db::init_test_db_pool;
+use crate::helpers;
+use crate::helpers::db::init_test_db_pool;
 use diesel;
 use diesel::prelude::*;
-use ::worker::util;
-use config;
-use helpers::uuid::Uuid;
+use crate::worker::util;
+use crate::config;
+use crate::helpers::uuid::Uuid;
 
 speculate! {
     before {
@@ -26,9 +26,9 @@ speculate! {
 
     describe "scanner_tests" {
         before {
-            use models::library::Library;
-            use schema::libraries;
-            use worker::scanner;
+            use crate::models::library::Library;
+            use crate::schema::libraries;
+            use crate::worker::scanner;
             let library = Library {
                 id: Uuid::new_v4(),
                 location: "test-data".to_owned(),
@@ -47,13 +47,13 @@ speculate! {
         }
 
         it "can create single file audiobooks" {
-            use ::models::audiobook::{Audiobook, Update};
+            use crate::models::audiobook::{Audiobook, Update};
             test_scanner.create_audiobook(&*conn, &Path::new("test-data/all.m4b")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }
 
         it "can create multi file m4b audiobooks" {
-            use ::models::audiobook::{Audiobook, Update};
+            use crate::models::audiobook::{Audiobook, Update};
             test_scanner.create_multifile_audiobook(&*conn, &Path::new("test-data/m4bmulti")).unwrap();
             assert_eq!(1, Audiobook::belonging_to(&library).count().first::<i64>(&*conn).unwrap());
         }
@@ -154,7 +154,7 @@ fn read_files() -> Vec<MediaFile> {
 
 #[test]
 fn common_extension() {
-    use worker::scanner::probable_audio_filetype;
+    use crate::worker::scanner::probable_audio_filetype;
     let ft = probable_audio_filetype(&"test-data/all");
     assert_eq!(ft.unwrap().unwrap(), OsString::from("mp3")) }
 

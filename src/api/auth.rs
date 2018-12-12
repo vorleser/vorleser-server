@@ -1,20 +1,20 @@
 use rocket_contrib::json::Json;
-use validation::user::UserSerializer;
+use crate::validation::user::UserSerializer;
 use diesel::prelude::*;
 use diesel;
 use failure::Error;
 use serde_json::error::Error as SerdeError;
 
-use config::Config;
-use responses;
-use models::user::{User, NewUser, ApiToken};
-use schema::users;
-use schema::users::dsl::*;
-use helpers::db::DB;
-use responses::{APIError, APIResponse, APIResult, ok, created, conflict, unauthorized, internal_server_error};
+use crate::config::Config;
+use crate::responses;
+use crate::models::user::{User, NewUser, ApiToken};
+use crate::schema::users;
+use crate::schema::users::dsl::*;
+use crate::helpers::db::DB;
+use crate::responses::{APIError, APIResponse, APIResult, ok, created, conflict, unauthorized, internal_server_error};
 use rocket::http::Status;
-use validation::token::TokenSerializer;
-use helpers::JsonResult;
+use crate::validation::token::TokenSerializer;
+use crate::helpers::JsonResult;
 
 #[post("/login", data = "<user_in>", format = "application/json")]
 pub fn login(user_in: Json<UserSerializer>, db: DB) -> Result<APIResponse, APIError> {
@@ -56,8 +56,8 @@ pub fn whoami(current_user: User) -> APIResponse {
 
 #[post("/logout")]
 pub fn logout(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIError> {
-    use schema::api_tokens::table;
-    use schema::api_tokens::dsl::id;
+    use crate::schema::api_tokens::table;
+    use crate::schema::api_tokens::dsl::id;
 
     let ret = diesel::delete(table.filter(id.eq(token.id))).execute(&*db)?;
     println!("{}", ret);
@@ -66,8 +66,8 @@ pub fn logout(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse
 
 #[post("/logout_all")]
 pub fn logout_all(current_user: User, token: ApiToken, db: DB) -> Result<APIResponse, APIError> {
-    use schema::api_tokens::table;
-    use schema::api_tokens::dsl::user_id;
+    use crate::schema::api_tokens::table;
+    use crate::schema::api_tokens::dsl::user_id;
 
     diesel::delete(table.filter(user_id.eq(current_user.id))).execute(&*db)?;
     Ok(ok())

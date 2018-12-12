@@ -1,21 +1,21 @@
-use models::user::User;
+use crate::models::user::User;
 use rocket_contrib::json::Json;
 use diesel::prelude::*;
 use serde_json;
-use helpers::db::DB;
-use helpers::uuid::Uuid;
-use models::library::Library;
-use models::playstate::Playstate;
-use models::audiobook::Audiobook;
+use crate::helpers::db::DB;
+use crate::helpers::uuid::Uuid;
+use crate::models::library::Library;
+use crate::models::playstate::Playstate;
+use crate::models::audiobook::Audiobook;
 use diesel::prelude;
 use std::path::{Path, PathBuf};
-use api::ranged_file::RangedFile;
+use crate::api::ranged_file::RangedFile;
 use std::fs;
 use std::io;
-use schema::audiobooks::dsl::{audiobooks, self};
-use responses::{APIResponse, APIError, self, ok, internal_server_error};
+use crate::schema::audiobooks::dsl::{audiobooks, self};
+use crate::responses::{APIResponse, APIError, self, ok, internal_server_error};
 use rocket::response::NamedFile;
-use config::Config;
+use crate::config::Config;
 
 #[get("/data/<book_id>")]
 pub fn get_data_file(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<RangedFile, APIError> {
@@ -38,7 +38,7 @@ pub fn get_data_file(current_user: User, db: DB, book_id: Uuid, config: Config) 
 
 #[get("/coverart/<book_id>")]
 pub fn get_coverart(current_user: User, db: DB, book_id: Uuid, config: Config) -> Result<NamedFile, APIError> {
-    use schema::libraries::dsl::*;
+    use crate::schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,
         None => return Err(responses::not_found().message("No book found or not accessible."))
@@ -57,14 +57,14 @@ pub fn get_coverart(current_user: User, db: DB, book_id: Uuid, config: Config) -
 
 #[get("/audiobooks")]
 pub fn get_audiobooks(current_user: User, db: DB) -> Result<APIResponse, APIError> {
-    use schema::libraries::dsl::*;
+    use crate::schema::libraries::dsl::*;
     let user_books = current_user.accessible_audiobooks(&*db)?;
     Ok(ok().data(json!(user_books)))
 }
 
 #[get("/audiobooks/<book_id>")]
 pub fn get_audiobook(current_user: User, db: DB, book_id: Uuid) -> Result<APIResponse, APIError> {
-    use schema::libraries::dsl::*;
+    use crate::schema::libraries::dsl::*;
     let book = match current_user.get_book_if_accessible(&book_id, &*db)? {
         Some(a) => a,
         None => return Err(responses::not_found())

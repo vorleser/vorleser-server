@@ -19,7 +19,7 @@ image = "0.18.0"
 lazy_static = "1"
 libc = "0.2"
 log = "*"
-mp3-metadata = "0.3.0"
+mp3-metadata = { git = "https://github.com/GuillaumeGomez/mp3-metadata.git" }
 regex = "0.2.1"
 ring = "~0.13"
 serde = "1"
@@ -86,5 +86,3 @@ diesel_derives = { git = "https://github.com/trha/diesel", branch = "fix-diesel-
 diesel_migrations = { git = "https://github.com/diesel-rs/diesel.git" }
 migrations_internals = { git = "https://github.com/diesel-rs/diesel.git" }
 migrations_macros = { git = "https://github.com/diesel-rs/diesel.git" }
-# pending https://github.com/GuillaumeGomez/mp3-metadata/pull/17
-mp3-metadata = { git = "https://github.com/ahti/mp3-metadata.git" }

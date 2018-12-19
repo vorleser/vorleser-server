@@ -32,6 +32,8 @@ RUN apt-get update && \
 RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2018-12-08 -y
 ENV PATH=/root/.cargo/bin:$PATH
 
+RUN RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+
 
 
 # ------------------------

@@ -63,3 +63,40 @@ We have tested things with `mp3`, `m4a` and `m4b` files. However, since all audi
 Using `mp3` files with variable bitrate encoding may (especially for multi-hour books) result in inaccurate chapter markers, book length and imprecise seeking.
 
 Clients may only support some audio formats, as we don't do server-side transcoding (yet?).
+
+## Docker
+
+The server is available on Docker Hub as `vorleser/server`.
+
+Mount a volume for the database and remuxed audio files at `/var/lib/vorleser`. Mount directories containing your audiobooks anywhere you want.
+
+Run `vorleser-server create-library` in the container to add the audiobook directories you mounted, and run `vorleser-server create-user` to create any users you want. See the `--help` output of both for more info.
+
+The container exposes port 8000 for the HTTP server.
+
+### Example
+
+`docker-compose.yml`
+
+```
+version: '3'
+
+volumes:
+  data:
+
+services:
+  server:
+    restart: always
+    image: vorleser/server
+    volumes:
+      - data:/var/lib/vorleser
+      - /path/to/my/audiobooks:/audiobooks:ro
+```
+
+Then run:
+
+```
+$ docker-compose up -d
+$ docker-compose exec server vorleser-server create-library /audiobooks '^[^/]+/[^./][^/]*$''
+$ docker-compose exec server vorleser-server create-user very_user much_secure
+```

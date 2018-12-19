@@ -60,7 +60,7 @@ We will explain some of the values in this document:
 
 We have tested things with `mp3`, `m4a` and `m4b` files. However, since all audio handling is done by FFmpeg, any format supported by your FFmpeg installation should work.
 
-Using `mp3` files with variable bitrate encoding may (especially for multi-hour books) result in inaccurate chapter markers, book length and imprecise seeking.
+For multi-file audiobooks made of `mp3` files with variable bitrate we generate MLLT tags to aid precise seeking. Clients without support for MLLT may not be able to seek precisely or display correct durations.
 
 Clients may only support some audio formats, as we don't do server-side transcoding (yet?).
 

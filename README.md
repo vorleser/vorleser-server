@@ -9,7 +9,7 @@ Run `cargo build`, you will need a somewhat recent version of FFmpeg, including 
 **Optionally** if you want to include the web interface in your build:
 
 - Init the web frontend submodule `git submodule update --recursive --remote`
-- Build the frontend according to the instructions in [vorleser-web/README.md](vorleser-web/README.md)
+- Build the frontend according to the instructions in [vorleser-web/README.md](https://github.com/vorleser/vorleser-web)
 - Run `cargo build --features webfrontend`
 
 ## Library

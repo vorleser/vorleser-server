@@ -1,0 +1,14 @@
+on: push
+name: Test
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    # - name: docker://hatzel/vorleser-test
+    #   uses: docker://hatzel/vorleser-test
+    #   with:
+    #     entrypoint: sh
+    #     args: -c "ln -s /root/.rustup ~/.rustup && cargo test"
+    - run: docker build . --target builder --tag builder
+    - run: docker run --rm -e RUST_BACKTRACE=full builder cargo test

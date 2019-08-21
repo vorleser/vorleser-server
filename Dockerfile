@@ -32,7 +32,11 @@ RUN apt-get update && \
 RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2018-12-08 -y
 ENV PATH=/root/.cargo/bin:$PATH
 
-RUN RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
+# RUN RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin --version 0.7.0
+
+ADD . vorleser-server
+
+WORKDIR /root/vorleser-server
 
 
 
@@ -42,8 +46,7 @@ RUN RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin
 
 FROM builder
 
-ADD . vorleser-server
-RUN cd vorleser-server && cargo build --release
+RUN cargo build --release
 
 
 

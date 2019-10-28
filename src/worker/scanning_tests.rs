@@ -70,7 +70,7 @@ macro_rules! function {
             unsafe { core::intrinsics::type_name::<T>() }
         }
         let name = type_name_of(f);
-        &name[6..name.len() - 4]
+        &name[0..name.len() - 3]
     }}
 }
 

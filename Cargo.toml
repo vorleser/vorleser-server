@@ -19,7 +19,7 @@ image = "0.18.0"
 lazy_static = "1"
 libc = "0.2"
 log = "*"
-mp3-metadata = { git = "https://github.com/GuillaumeGomez/mp3-metadata.git" }
+mp3-metadata = "0.3.2"
 regex = "0.2.1"
 ring = "~0.13"
 serde = "1"

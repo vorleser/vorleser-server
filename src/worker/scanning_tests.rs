@@ -88,6 +88,8 @@ macro_rules! data_path{
 // To ensure this please name each test EXACTLY like the directory.
 speculate! {
     before {
+        std::fs::create_dir_all("data");
+
         let mut pool = init_test_db_pool();
         util::shut_up_ffmpeg();
 

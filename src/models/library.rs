@@ -12,7 +12,6 @@ use crate::models::user::User;
 #[table_name="libraries"]
 #[derive(PartialEq, Debug, Clone, AsChangeset, Queryable, Identifiable, Serialize,
          Insertable)]
-#[has_many(audiobooks, library_permissions)]
 pub struct Library {
     pub id: Uuid,
     #[serde(skip_serializing)]

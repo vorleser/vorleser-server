@@ -14,7 +14,6 @@ use crate::schema::{audiobooks, playstates, library_permissions};
 #[table_name="audiobooks"]
 #[derive(PartialEq, Debug, Queryable, AsChangeset, Associations, Identifiable, Serialize, Clone,
          Insertable)]
-#[hasmany(chapters)]
 #[belongs_to(Library)]
 pub struct Audiobook {
     pub id: Uuid,

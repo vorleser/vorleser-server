@@ -22,7 +22,6 @@ use crate::helpers::db::DB;
 
 #[derive(Identifiable, Debug, Serialize, Deserialize, Queryable, Insertable)]
 #[table_name="users"]
-#[hasmany(library_permissions)]
 pub struct User {
     pub id: Uuid,
     pub created_at: NaiveDateTime,

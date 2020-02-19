@@ -9,7 +9,7 @@ use chrono::prelude::*;
 #[derive(Identifiable, Associations, Insertable, Queryable, AsChangeset, Serialize, Deserialize, Debug, Clone)]
 #[primary_key(audiobook_id, user_id)]
 #[table_name="playstates"]
-#[changeset_for(playstates, treat_none_as_null="true")]
+#[changeset_options(treat_none_as_null = "true")]
 #[belongs_to(User, foreign_key="user_id")]
 pub struct Playstate {
     pub audiobook_id: Uuid,

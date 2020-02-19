@@ -1,4 +1,4 @@
-#![feature(custom_attribute, plugin, non_ascii_idents, duration_as_u128, proc_macro_hygiene)]
+#![feature(plugin, non_ascii_idents, duration_as_u128, proc_macro_hygiene)]
 #![allow(dead_code, unused)]
 #![feature(decl_macro)]
 #![feature(core_intrinsics)]

@@ -39,6 +39,7 @@ extern crate mp3_metadata;
 #[cfg(test)] #[macro_use] extern crate speculate;
 
 pub mod api;
+pub mod encoder;
 pub mod validation;
 pub mod models;
 pub mod schema;

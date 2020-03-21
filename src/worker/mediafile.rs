@@ -64,7 +64,7 @@ pub struct Chapter {
 }
 
 impl Image {
-    pub fn save(&self, path: &AsRef<Path>) -> Result<()> {
+    pub fn save(&self, path: &dyn AsRef<Path>) -> Result<()> {
         let mut file = File::create(path)?;
         file.write_all(&self.data[..])?;
         Ok(())
@@ -135,13 +135,13 @@ impl MediaFile {
                 averror: 0,
                 av_packet: None,
             };
-            new.averror = r#try!(check_av_result(avformat_open_input(
+            new.averror = check_av_result(avformat_open_input(
                 &mut new.ctx,
                 c_file_name.as_ptr(),
                 ptr::null_mut(),
                 ptr::null_mut()
-            )));
-            r#try!(check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut())));
+            ))?;
+            check_av_result(avformat_find_stream_info(new.ctx, ptr::null_mut()))?;
             Ok(new)
         }
     }
@@ -183,7 +183,7 @@ impl MediaFile {
 
     pub fn read_packet(&self) -> Result<Option<AVPacket>> {
         unsafe {
-            let mut pkt = mem::uninitialized::<AVPacket>();
+            let mut pkt: AVPacket = mem::MaybeUninit::uninit().assume_init();
             match check_av_result(av_read_frame(self.ctx, &mut pkt)) {
                 Err(e) => {
                     if let Some(

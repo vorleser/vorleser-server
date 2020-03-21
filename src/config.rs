@@ -36,10 +36,10 @@ pub fn load_config() -> Result<Config, Error> {
     Err(ConfigError::NoReadableConfig.into())
 }
 
-pub fn load_config_from_path(config_path: &AsRef<Path>) -> Result<Config, Error> {
+pub fn load_config_from_path(config_path: &dyn AsRef<Path>) -> Result<Config, Error> {
     let mut file = File::open(config_path)?;
     let mut content: Vec<u8> = Vec::new();
-    file.read_to_end(&mut content);
+    file.read_to_end(&mut content)?;
     let conf = toml::from_slice(&content)?;
     Ok(conf)
 }

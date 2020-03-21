@@ -8,7 +8,7 @@ use humanesort::HumaneOrder;
 use super::error::*;
 
 /// Checksum of a whole directory.
-pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>> {
+pub fn checksum_file(path: &dyn AsRef<Path>) -> Result<Vec<u8>> {
     let mut ctx = digest::Context::new(&digest::SHA256);
     update_hash_from_file(&mut ctx, path)?;
     let mut res = Vec::new();
@@ -17,7 +17,7 @@ pub fn checksum_file(path: &AsRef<Path>) -> Result<Vec<u8>> {
 }
 
 /// Update hash object using file content
-fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Result<()> {
+fn update_hash_from_file(ctx: &mut digest::Context, path: &dyn AsRef<Path>) -> Result<()> {
     let mut file = File::open(path.as_ref())?;
     let mut buf: [u8; 1024] = [0; 1024];
     loop {
@@ -29,7 +29,7 @@ fn update_hash_from_file(ctx: &mut digest::Context, path: &AsRef<Path>) -> Resul
 }
 
 /// Checksum a whole directory
-pub fn checksum_dir(path: &AsRef<Path>) -> Result<Vec<u8>> {
+pub fn checksum_dir(path: &dyn AsRef<Path>) -> Result<Vec<u8>> {
     let walker = WalkDir::new(path.as_ref())
         .follow_links(true)
         .sort_by(

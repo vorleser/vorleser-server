@@ -47,7 +47,7 @@ pub enum UserError {
 }
 
 impl User {
-    pub fn make_password_hash(new_password: &AsRef<str>) -> String {
+    pub fn make_password_hash(new_password: &dyn AsRef<str>) -> String {
         let rand = SystemRandom::new();
         let mut salt: [u8; 10] = [0; 10];
         rand.fill(&mut salt[..]);
@@ -91,7 +91,7 @@ impl User {
             .get_results::<Audiobook>(&*conn)
     }
 
-    pub fn create(email: &AsRef<str>, password: &AsRef<str>, conn: &SqliteConnection) -> Result<User> {
+    pub fn create(email: &dyn AsRef<str>, password: &dyn AsRef<str>, conn: &SqliteConnection) -> Result<User> {
         use crate::schema::users;
         use crate::schema::users::dsl;
         let new_password_hash = User::make_password_hash(password);

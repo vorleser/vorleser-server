@@ -218,7 +218,7 @@ fn create_library(command: &ArgMatches, conn: &SqliteConnection) {
             match Library::create(path.to_string_lossy().into_owned(), regex.to_owned(), &*conn)
             {
                 Ok(lib) => info!("Successfully created library."),
-                Err(error) => error_log!("Library creation failed: {:?}", error.description())
+                Err(error) => error_log!("Library creation failed: {}", error)
             }
         },
         Err(e) => error_log!("Invalid regex: {:?}", e)
@@ -272,7 +272,7 @@ fn init_logging(config: &LoggingConfig) {
             "off" => LevelFilter::Off,
             _ => LevelFilter::Info,
     };
-    let mut loggers: Vec<Box<simplelog::SharedLogger>> = Vec::new();
+    let mut loggers: Vec<Box<dyn simplelog::SharedLogger>> = Vec::new();
     let term_logger = TermLogger::new(level, simplelog::Config::default());
     if let Some(logger) = term_logger {
         loggers.push(logger)

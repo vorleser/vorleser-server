@@ -217,7 +217,7 @@ impl Scanner {
         Ok(())
     }
 
-    fn process_audiobook(&self, path: &AsRef<Path>, conn: &SqliteConnection) {
+    fn process_audiobook(&self, path: &dyn AsRef<Path>, conn: &SqliteConnection) {
         if path.as_ref().is_dir() {
             match self.create_multifile_audiobook(conn, path) {
                 Ok(_) => (),
@@ -305,7 +305,7 @@ impl Scanner {
         Ok(())
     }
 
-    pub(super) fn create_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &AsRef<Path>) -> Result<()> {
+    pub(super) fn create_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &dyn AsRef<Path>) -> Result<()> {
         info!("Scanning single file audiobook at: {:?}", path.as_ref());
         let relative_path = self.relative_path_str(path)?;
         let hash = hashing::checksum_file(path)?;
@@ -465,7 +465,7 @@ impl Scanner {
         })
     }
 
-    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &AsRef<Path>) -> Result<()> {
+    pub(super) fn create_multifile_audiobook(&self, conn: &diesel::sqlite::SqliteConnection, path: &dyn AsRef<Path>) -> Result<()> {
         // This might lead to inconsistent data as we hash before iterating over the files,
         // not better way to go about this seems possible to me
         // TODO: think about this
@@ -565,7 +565,7 @@ impl Scanner {
         }
     }
 
-    fn relative_path_str<'a>(&'a self, path: &'a AsRef<Path>) -> Result<&'a str>{
+    fn relative_path_str<'a>(&'a self, path: &'a dyn AsRef<Path>) -> Result<&'a str>{
         match path.as_ref().strip_prefix(&self.library.location).map(|p| p.to_str()) {
             Err(_) => Err(WorkerError::OutsideLibrary.into()),
             Ok(None) => Err(WorkerError::InvalidUtf8.into()),
@@ -574,7 +574,7 @@ impl Scanner {
     }
 
     /// Path at which to place a data file, where uuid is the books uuid and filetype its filetype.
-    fn build_target_path(&self, data_path: &AsRef<str>, uuid: &Uuid, filetype: &OsStr) -> String {
+    fn build_target_path(&self, data_path: &dyn AsRef<str>, uuid: &Uuid, filetype: &OsStr) -> String {
         format!(
             "{}/{}.{}",
             data_path.as_ref(),
@@ -591,7 +591,7 @@ fn is_audiobook(path: &Path, regex: &Regex) -> bool {
 ///
 /// Returns the largest changed time stamp on any file in a given directory
 ///
-fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
+fn most_recent_change(path: &dyn AsRef<Path>) -> Result<Option<NaiveDateTime>> {
     // this is a suboptimal solution it doesn't really matter here but creating a vector is not
     // great.
     let times: Result<Vec<NaiveDateTime>> = WalkDir::new(path.as_ref())
@@ -614,7 +614,7 @@ fn most_recent_change(path: &AsRef<Path>) -> Result<Option<NaiveDateTime>> {
 
 
 /// Find the most common extension in a directory that might be an audio file.
-pub(super) fn probable_audio_filetype(path: &AsRef<Path>) -> Result<Option<OsString>> {
+pub(super) fn probable_audio_filetype(path: &dyn AsRef<Path>) -> Result<Option<OsString>> {
     let mut counts: HashMap<OsString, usize> = HashMap::new();
     let file_type_iterator = WalkDir::new(path.as_ref())
         .follow_links(true)

@@ -40,7 +40,7 @@ impl Audiobook {
 
     /// Updates the path of any book with the given hash to the new_path provided.
     /// Returns true if a path is now correct, returns false if no book with this hash exists.
-    pub fn update_path(book_hash: &[u8], new_path: &AsRef<str>, conn: &diesel::sqlite::SqliteConnection)
+    pub fn update_path(book_hash: &[u8], new_path: &dyn AsRef<str>, conn: &diesel::sqlite::SqliteConnection)
         -> Result<Update, diesel::result::Error> {
         if let Ok(book) = Self::find_by_hash(book_hash, conn) {
             if book.location != new_path.as_ref() {
@@ -58,7 +58,7 @@ impl Audiobook {
         diesel::delete(Chapter::belonging_to(self)).execute(&*conn)
     }
 
-    pub fn ensure_exists_in(relative_path: &AsRef<str>, library: &Library,
+    pub fn ensure_exists_in(relative_path: &dyn AsRef<str>, library: &Library,
                             new_book: &Audiobook, conn: &SqliteConnection)
         -> Result<Audiobook, diesel::result::Error> {
         match Self::belonging_to(library)

@@ -1,15 +1,24 @@
 extern crate gstreamer as gst;
 use gst::glib::error::BoolError;
-use gst::PadLinkError;
+use gst::structure::GetError;
+use gst::{PadLinkError, StateChangeError};
 
 #[derive(Debug, Fail)]
 pub enum EncoderError {
     #[fail(display = "Failed to create element {:?}", _0)]
     FailedToCreateElement(Option<&'static str>),
-    #[fail(display = "GstreamerError: {}", _0)]
+    #[fail(display = "GStreamer Error: {}", _0)]
     GstreamerError(#[fail(cause)] BoolError),
-    #[fail(display = "PadLinkError: {}", _0)]
+    #[fail(display = "GStreamer PadLinkError: {}", _0)]
     PadLinkError(#[fail(cause)] PadLinkError),
+    #[fail(display = "GStreamer StateChangeError: {}", _0)]
+    StateChangeError(#[fail(cause)] StateChangeError),
+    #[fail(display = "Invalid State: {}", _0)]
+    InvalidState(&'static str),
+    #[fail(display = "Unable to get value {}", _0)]
+    GetError(String),
+    #[fail(display = "Stream header missing")]
+    NoStreamHeader,
 }
 
 impl From<BoolError> for EncoderError {
@@ -19,6 +28,18 @@ impl From<BoolError> for EncoderError {
         } else {
             Self::GstreamerError(err)
         }
+    }
+}
+
+impl From<StateChangeError> for EncoderError {
+    fn from(err: StateChangeError) -> Self {
+        Self::StateChangeError(err)
+    }
+}
+
+impl From<GetError<'_>> for EncoderError {
+    fn from(err: GetError) -> Self {
+        Self::GetError(format!("{}", err))
     }
 }
 

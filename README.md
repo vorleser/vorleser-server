@@ -18,7 +18,7 @@ Simply follow these simple rules when copying audiobooks to the directory:
 * For single file books: copy them to the top level of the library directory
 * For books with multiple files: create one top-level directory containing all chapters
 
-Following these rules will mean you create a dilrectory structure like this one:
+Following these rules will mean you create a directory structure like this one:
 
 ```
 ├── another-book.mp3
@@ -52,7 +52,7 @@ We will explain some of the values in this document:
 - The `[web]` section allows you to specify setting that affect the web server
     - `port` the port the web server should run on
     - `address` hostname or ip to serve the API on
-- The `[logging]` section allows you to specifiy which events to log
+- The `[logging]` section allows you to specify which events to log
     - `level` which level of logs to show, with the default being `info`. If you want to see less logs consider setting this to `error`.
     - `file` a file path for vorleser to write its logs to. Make sure the directory exists and vorleser can write it.
 
@@ -97,6 +97,6 @@ Then run:
 
 ```
 $ docker-compose up -d
-$ docker-compose exec server vorleser-server create-library /audiobooks '^[^/]+/[^./][^/]*$''
+$ docker-compose exec server vorleser-server create-library /audiobooks '^[^/]+/[^./][^/]*$'
 $ docker-compose exec server vorleser-server create-user very_user much_secure
 ```

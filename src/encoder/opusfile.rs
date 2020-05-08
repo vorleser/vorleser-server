@@ -2,7 +2,7 @@ extern crate gstreamer as gst;
 extern crate gstreamer_app as gst_app;
 
 use std::convert::TryInto;
-use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Write};
+use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
 use gst::prelude::*;
@@ -12,6 +12,7 @@ use ogger::{Packet, Page, Stream};
 use crate::encoder::EncoderError;
 
 static SINK_NAME: &'static str = "appsink-0";
+static ENCODER_NAME: &'static str = "opusenc";
 
 // At some point these should probably become runtime configurable
 static FRAME_SIZE: u32 = 20;
@@ -29,6 +30,7 @@ struct OpusFile {
     cached_page: Option<Page>,
     wrote_page_header: usize,
     wrote_page_body: usize,
+    to_discard: usize,
 }
 
 impl OpusFile {
@@ -76,6 +78,7 @@ impl OpusFile {
             cached_page: None,
             wrote_page_header: 0,
             wrote_page_body: 0,
+            to_discard: 0,
         })
     }
 
@@ -90,9 +93,18 @@ impl OpusFile {
             })
     }
 
+    fn get_encoder(&self) -> Result<gst::Element, EncoderError> {
+        self.pipeline
+            .get_by_name(ENCODER_NAME)
+            .ok_or(EncoderError::InvalidState("No encoder (yet)"))
+    }
+
     fn build_header_page(&mut self) -> Result<Page, EncoderError> {
+        let mut i = 0;
         for packet_data in self.get_header_data()? {
             let mut packet = Packet::new(&packet_data);
+            println!("Header pkt: {} ({} bytes)", i, packet_data.len());
+            i += 1;
             self.stream.packetin(&mut packet);
         }
         self.stream.flush().ok_or(EncoderError::NoStreamHeader)
@@ -212,16 +224,13 @@ impl OpusFile {
                         .map_err(|e| EncoderError::from(e).maybe_set_element("capsfilter"))?;
                     let opusenc = gst::ElementFactory::make("opusenc", None)
                         .map_err(|e| EncoderError::from(e).maybe_set_element("opusenc"))?;
+                    opusenc.set_property_from_str("name", ENCODER_NAME);
                     opusenc.set_property_from_str("bandwidth", "narrowband");
+                    opusenc.set_property("hard-resync", &true.to_value());
                     rate_filter.set_property("caps", &caps).unwrap();
                     let sink = gst::ElementFactory::make("appsink", None)
                         .map_err(|e| EncoderError::from(e).maybe_set_element("appsink"))?;
                     sink.set_property_from_str("name", SINK_NAME);
-                    println!(
-                        "Sink: {:?}",
-                        sink.get_property("name").unwrap().get::<String>().unwrap()
-                    );
-                    // println!(sink.get_prope)
 
                     let app_sink = sink.dynamic_cast::<gst_app::AppSink>().unwrap();
                     // We need some max buffer count to ensure that not reading from the OpusFile
@@ -257,6 +266,62 @@ impl OpusFile {
         pipeline.set_state(gst::State::Ready)?;
         pipeline.set_state(gst::State::Playing)?;
         Ok(pipeline)
+    }
+
+    fn drain_sink(&self) -> Result<(), EncoderError> {
+        loop {
+            let sample = self
+                .get_sink()?
+                .try_pull_preroll(gst::ClockTime::from_mseconds(10));
+            if sample.is_none() {
+                break;
+            }
+        }
+        loop {
+            let sample = self
+                .get_sink()?
+                .try_pull_sample(gst::ClockTime::from_mseconds(10));
+            if sample.is_none() {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    /// Returns a time offset in seconds + a small byte offset to seek to a specific byte
+    fn byte_to_offset(&self, byte_index: u64) -> Result<(u64, u64), EncoderError> {
+        // TODO: handle seeks that are shorter than the header
+        let offset_no_header = byte_index - (self.get_header_data().unwrap().len() as u64);
+        println!(
+            "Header size: {}",
+            self.get_header_data().unwrap().len() as u64
+        );
+        let bitrate_type = self.get_encoder()?.get_property("bitrate-type").unwrap();
+        println!(
+            "bitrate type flags {:?}",
+            gst::glib::EnumValue::from_value(&bitrate_type)
+                .unwrap()
+                .get_value()
+        );
+        let frame_size = self.get_encoder()?.get_property("frame-size").unwrap();
+        println!(
+            "frame size {:?}",
+            gst::glib::EnumValue::from_value(&frame_size)
+                .unwrap()
+                .get_value()
+        );
+
+        let bitrate = self
+            .get_encoder()?
+            .get_property("bitrate")
+            .unwrap()
+            .get::<i32>()
+            .unwrap()
+            .unwrap() as u64;
+        println!("Using bitrate {}", bitrate);
+        let byterate = bitrate / 8;
+        let full_seconds = (offset_no_header / byterate) - 5; // We seek to a second before
+        Ok((full_seconds, (offset_no_header - (full_seconds * byterate))))
     }
 }
 
@@ -294,7 +359,13 @@ impl Read for OpusFile {
             self.byte_offset += wrote_header;
         }
         if self.byte_offset >= header_data.len() {
-            wrote += self.read_from_pages(&mut buf[wrote..])?;
+            let wrote_data = self.read_from_pages(&mut buf[wrote..])?;
+            wrote += wrote_data;
+            println!(
+                "Wrote page data: {} wrote total data: {}",
+                wrote_data, wrote
+            );
+            self.byte_offset += wrote_data;
         }
         Ok(wrote)
     }
@@ -312,22 +383,64 @@ impl OpusFile {
                 self.wrote_page_body = 0;
             }
             if let Some(ref page) = self.cached_page {
-                loop {
-                    let wrote = buf.write(&page.get_header()[self.wrote_page_header..])?;
-                    wrote_total += wrote;
-                    self.wrote_page_header += wrote;
-                    self.byte_offset += wrote;
+                'outer_header: loop {
+                    let wrote;
+                    if self.to_discard > 0 {
+                        assert_eq!(self.wrote_page_header, 0);
+                        let header = page.get_header();
+                        if header.len() > self.to_discard {
+                            wrote = buf.write(&header[self.to_discard..])?;
+                            wrote_total += wrote;
+                            self.wrote_page_header = self.to_discard + wrote;
+                            self.to_discard = 0;
+                        } else {
+                            self.to_discard -= header.len();
+                            println!(
+                                "Discarded {} samples, still {} samples to discard",
+                                header.len(),
+                                self.to_discard
+                            );
+                            break 'outer_header;
+                        }
+                    } else {
+                        wrote = buf.write(&page.get_header()[self.wrote_page_header..])?;
+                        wrote_total += wrote;
+                        self.wrote_page_header += wrote;
+                        self.byte_offset += wrote;
+                    }
                     if wrote == 0 && self.wrote_page_header == page.get_header().len() {
                         break;
                     } else if wrote == 0 {
                         return Ok(wrote_total);
                     }
                 }
-                loop {
-                    let wrote = buf.write(&page.get_body()[self.wrote_page_body..])?;
-                    wrote_total += wrote;
-                    self.wrote_page_body += wrote;
-                    self.byte_offset += wrote;
+                'outer: loop {
+                    let wrote;
+                    if self.to_discard > 0 {
+                        assert_eq!(self.wrote_page_body, 0);
+                        let body = page.get_body();
+                        if body.len() > self.to_discard {
+                            wrote = buf.write(&body[self.to_discard..])?;
+                            self.wrote_page_header = self.to_discard + wrote;
+                            wrote_total += wrote;
+                            self.to_discard = 0;
+                        } else {
+                            self.to_discard -= body.len();
+                            println!("Discarded a page");
+                            println!(
+                                "Discarded {} samples, still {} samples to discard",
+                                body.len(),
+                                self.to_discard
+                            );
+                            self.cached_page = None;
+                            break 'outer;
+                        }
+                    } else {
+                        wrote = buf.write(&page.get_body()[self.wrote_page_body..])?;
+                        wrote_total += wrote;
+                        self.wrote_page_body += wrote;
+                        self.byte_offset += wrote;
+                    }
                     if wrote == 0 && self.wrote_page_body == page.get_body().len() {
                         // the entire page was written
                         self.cached_page = None;
@@ -343,10 +456,74 @@ impl OpusFile {
     }
 }
 
+impl Seek for OpusFile {
+    fn seek(&mut self, seek_from: SeekFrom) -> std::io::Result<u64> {
+        let pos = match seek_from {
+            SeekFrom::Start(pos) => pos,
+            _ => unimplemented!(),
+        };
+        self.byte_offset = pos as usize;
+        self.pipeline.set_state(gst::State::Paused).map_err(|e| {
+            IoError::new(
+                IoErrorKind::Other,
+                format!("Failed to pause underlying pipeline: {}", e),
+            )
+        })?;
+        println!("--AAAAA");
+        self.drain_sink().map_err(|e| {
+            IoError::new(
+                IoErrorKind::Other,
+                format!("Failed to pause underlying pipeline: {}", e),
+            )
+        })?;
+        println!("--BBBBB");
+        let (target_sec, trim_bytes) = self.byte_to_offset(pos).map_err(|e| {
+            IoError::new(
+                IoErrorKind::Other,
+                format!("Failed to calculate byte offset: {}", e),
+            )
+        })?;
+        println!("--CCCCC");
+        let seek_res = self.pipeline.seek(
+            std::f64::INFINITY,
+            gst::SeekFlags::ACCURATE | gst::SeekFlags::FLUSH,
+            gst::SeekType::Set,
+            gst::format::GenericFormattedValue::Time(gst::ClockTime::from_seconds(target_sec)),
+            gst::SeekType::None,
+            gst::format::GenericFormattedValue::Time(0.into()),
+        );
+        self.drain_sink().map_err(|e| {
+            IoError::new(
+                IoErrorKind::Other,
+                format!("Failed to drain underlying pipeline: {}", e),
+            )
+        })?;
+        self.to_discard = trim_bytes as usize;
+        self.packet_num = (target_sec / (20 * 1000)) as u32;
+        self.cached_page = None;
+        self.wrote_page_header = 0;
+        self.wrote_page_body = 0;
+        self.pipeline.set_state(gst::State::Playing).map_err(|e| {
+            IoError::new(
+                IoErrorKind::Other,
+                format!("Failed to pause underlying pipeline: {}", e),
+            )
+        })?;
+        println!("--DDDDD");
+        Ok(pos)
+    }
+}
+
+#[cfg(test)]
 mod test {
     use super::OpusFile;
+    use env_logger;
     use std::fs::File;
-    use std::io::{Read, Write};
+    use std::io::{Read, Seek, SeekFrom, Write};
+
+    fn init() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
 
     #[test]
     fn read_header() {
@@ -368,7 +545,7 @@ mod test {
 
     #[test]
     fn read_body() {
-        let mut opus_file_a = OpusFile::create("test-data/1.mp3".into()).unwrap();
+        let mut opus_file_a = OpusFile::create("test-data/all.m4b".into()).unwrap();
         let mut out = File::create("/tmp/test.ogg").unwrap();
         let mut data_a = Vec::new();
         for _ in 0..100_000 {
@@ -408,6 +585,67 @@ mod test {
             if read_a == 0 {
                 break;
             }
+        }
+    }
+
+    #[test]
+    fn byte_offset() {
+        let mut opus_file = OpusFile::create("test-data/1.mp3".into()).unwrap();
+        let offset = opus_file.byte_to_offset(200_000).unwrap();
+        println!("Offset: {:?}", offset);
+    }
+
+    fn read_loop(mut reader: &mut dyn Read, buf: &mut [u8]) -> usize {
+        let mut read = 0;
+        loop {
+            let new_read = reader.read(&mut buf[read..]).unwrap();
+            read += new_read;
+            println!("read: {}", read);
+            if read == buf.len() || new_read == 0 {
+                return read;
+            }
+        }
+    }
+
+    #[test]
+    fn seek_is_the_same() {
+        init();
+
+        let mut opus_file_seek =
+            OpusFile::create("test-data/sine_silence_1_1_30.mp3".into()).unwrap();
+        let mut opus_file_read =
+            OpusFile::create("test-data/sine_silence_1_1_30.mp3".into()).unwrap();
+        let mut data_read = Vec::new();
+        let mut data_seek = Vec::new();
+        let sector_size = 100_000;
+        for _ in 0..sector_size {
+            data_read.push(0);
+            data_seek.push(0);
+        }
+
+        let mut out = File::create("/tmp/stitched.ogg").unwrap();
+
+        // Discard sector_size bytes
+        let read = read_loop(&mut opus_file_read, &mut data_read);
+        out.write_all(&data_read[..read]);
+        assert_eq!(read, sector_size);
+
+        let read = read_loop(&mut opus_file_read, &mut data_read);
+        // assert_eq!(read, sector_size);
+
+        let seek = opus_file_seek
+            .seek(SeekFrom::Start(sector_size as u64))
+            .unwrap();
+        // assert_eq!(seek, sector_size as u64);
+
+        let read = read_loop(&mut opus_file_seek, &mut data_seek);
+        println!("Read {} bytes after seek", read);
+        out.write_all(&data_seek[..read]);
+        assert_eq!(read, sector_size);
+
+        for (s, r) in data_seek.iter().zip(data_read.iter()) {
+            // println!("{}, {}", s, r);
+            // assert_eq!(s, r);
         }
     }
 }

@@ -31,6 +31,8 @@ struct OpusFile {
     wrote_page_header: usize,
     wrote_page_body: usize,
     to_discard: usize,
+    discard_to_time: gst::ClockTime,
+    header_page: Option<Page>,
 }
 
 impl OpusFile {
@@ -79,6 +81,8 @@ impl OpusFile {
             wrote_page_header: 0,
             wrote_page_body: 0,
             to_discard: 0,
+            discard_to_time: 0.into(),
+            header_page: None,
         })
     }
 
@@ -97,6 +101,18 @@ impl OpusFile {
         self.pipeline
             .get_by_name(ENCODER_NAME)
             .ok_or(EncoderError::InvalidState("No encoder (yet)"))
+    }
+
+    /// Get header page if it exsits, build it otheriwse
+    fn get_header_page(&mut self) -> Result<&Page, EncoderError> {
+        if self.header_page.is_none() {
+            self.header_page = Some(self.build_header_page()?)
+        }
+        Ok(self.header_page.as_ref().unwrap())
+    }
+
+    fn get_header_page_size(&mut self) -> Result<usize, EncoderError> {
+        Ok(self.get_header_page()?.get_header().len() + self.get_header_page()?.get_body().len())
     }
 
     fn build_header_page(&mut self) -> Result<Page, EncoderError> {
@@ -159,6 +175,9 @@ impl OpusFile {
     fn get_next_page(&mut self) -> Result<Option<Page>, EncoderError> {
         while let Ok(sample) = self.get_sink()?.pull_sample() {
             let buf = sample.get_buffer().unwrap();
+            if buf.get_pts() < self.discard_to_time {
+                continue;
+            }
             let buf_map = buf.map_readable().unwrap();
             let mut packet = Packet::new(&buf_map);
             packet.set_packetno(self.packet_num as i64);
@@ -289,28 +308,65 @@ impl OpusFile {
     }
 
     /// Returns a time offset in seconds + a small byte offset to seek to a specific byte
-    fn byte_to_offset(&self, byte_index: u64) -> Result<(u64, u64), EncoderError> {
+    fn byte_to_offset(&mut self, byte_index: u64) -> Result<(u64, u64), EncoderError> {
         // TODO: handle seeks that are shorter than the header
-        let offset_no_header = byte_index - (self.get_header_data().unwrap().len() as u64);
-        println!(
-            "Header size: {}",
-            self.get_header_data().unwrap().len() as u64
-        );
-        let bitrate_type = self.get_encoder()?.get_property("bitrate-type").unwrap();
-        println!(
-            "bitrate type flags {:?}",
-            gst::glib::EnumValue::from_value(&bitrate_type)
-                .unwrap()
-                .get_value()
-        );
+        if self.get_header_page_size()? > byte_index as usize {
+            panic!("Seeking that doesn't go beyond the header is not supported!")
+        }
+        let offset_no_header = byte_index as usize - self.get_header_page_size()?;
+        println!("Header size: {}", self.get_header_page_size()?);
+        let bitrate_type_enum = self.get_encoder()?.get_property("bitrate-type").unwrap();
+        let bitrate_type = gst::glib::EnumValue::from_value(&bitrate_type_enum)
+            .unwrap()
+            .get_value();
+        assert_eq!(bitrate_type, 0); // assert we are in CBR mode
         let frame_size = self.get_encoder()?.get_property("frame-size").unwrap();
-        println!(
-            "frame size {:?}",
+        assert_eq!(
+            20,
             gst::glib::EnumValue::from_value(&frame_size)
                 .unwrap()
                 .get_value()
         );
+        let bitrate = self
+            .get_encoder()?
+            .get_property("bitrate")
+            .unwrap()
+            .get::<i32>()
+            .unwrap()
+            .unwrap() as usize;
 
+        let byterate = bitrate / 8;
+        let full_seconds = self.bytes_to_full_seconds(offset_no_header)? - 1;
+        let mut num_headers_skipped = full_seconds * byterate / 4160;
+        if (full_seconds * byterate) % 4160 != 0 {
+            num_headers_skipped += 1;
+        }
+        Ok((
+            full_seconds as u64,
+            (offset_no_header as usize - (full_seconds * byterate) - (num_headers_skipped * 53))
+                as u64,
+        ))
+    }
+
+    fn bytes_to_full_seconds(&self, content_bytes: usize) -> Result<usize, EncoderError> {
+        let bitrate = self
+            .get_encoder()?
+            .get_property("bitrate")
+            .unwrap()
+            .get::<i32>()
+            .unwrap()
+            .unwrap() as usize;
+        let mut num_pages = content_bytes / (4160 + 53);
+        if content_bytes % (4160 + 53) != 0 {
+            num_pages += 1
+        }
+        let opus_bytes = content_bytes - (num_pages * 53);
+        Ok(opus_bytes / (bitrate / 8))
+    }
+
+    /// Bytes in a second, excluding the file header but including ogg page headers.
+    fn second_to_content_bytes(&self, seconds: u64) -> Result<u64, EncoderError> {
+        // TODO: explore 53 and 4160 magic numbers
         let bitrate = self
             .get_encoder()?
             .get_property("bitrate")
@@ -318,10 +374,16 @@ impl OpusFile {
             .get::<i32>()
             .unwrap()
             .unwrap() as u64;
-        println!("Using bitrate {}", bitrate);
-        let byterate = bitrate / 8;
-        let full_seconds = (offset_no_header / byterate) - 5; // We seek to a second before
-        Ok((full_seconds, (offset_no_header - (full_seconds * byterate))))
+        println!("bitrate: {}", bitrate);
+        let opus_bytes_per_sec = bitrate / 8;
+        let total_opus_bytes = seconds * opus_bytes_per_sec;
+        let mut ogg_pages = total_opus_bytes / 4160;
+        if total_opus_bytes % 4160 != 0 {
+            ogg_pages += 1;
+        };
+        let total_ogg_header_bytes = ogg_pages * 53;
+        let total_content_bytes = total_opus_bytes + total_ogg_header_bytes;
+        Ok(total_content_bytes)
     }
 }
 
@@ -335,7 +397,7 @@ impl Read for OpusFile {
     fn read(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
         let mut wrote = 0;
         if self.header_data.as_ref().is_none() {
-            match self.build_header_page() {
+            match self.get_header_page() {
                 Ok(page) => {
                     let mut data = Vec::new();
                     data.write(&page.get_header()).unwrap();
@@ -608,16 +670,34 @@ mod test {
     }
 
     #[test]
+    fn byte_calculations() {
+        let mut opus = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3".into()).unwrap();
+        let bytes = opus.second_to_content_bytes(6).unwrap();
+        println!("Bytes: {:?}", bytes);
+        assert_eq!(bytes, 8000 * 6 + 12 * 53);
+        assert_eq!(opus.bytes_to_full_seconds(bytes as usize).unwrap(), 6);
+
+        let header_bytes = opus.get_header_page_size().unwrap();
+        let (secs, extra_bytes) = opus
+            .byte_to_offset((header_bytes + bytes as usize + 1234) as u64)
+            .unwrap();
+        assert_eq!(secs, 5);
+        let bytes_5 = opus.second_to_content_bytes(5).unwrap();
+        let bytes_6 = opus.second_to_content_bytes(6).unwrap();
+        assert_eq!(extra_bytes, 1234 + (bytes_6 - bytes_5));
+    }
+
+    #[test]
     fn seek_is_the_same() {
         init();
 
         let mut opus_file_seek =
-            OpusFile::create("test-data/sine_silence_1_1_30.mp3".into()).unwrap();
+            OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3".into()).unwrap();
         let mut opus_file_read =
-            OpusFile::create("test-data/sine_silence_1_1_30.mp3".into()).unwrap();
+            OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3".into()).unwrap();
         let mut data_read = Vec::new();
         let mut data_seek = Vec::new();
-        let sector_size = 100_000;
+        let sector_size = 90_000;
         for _ in 0..sector_size {
             data_read.push(0);
             data_seek.push(0);
@@ -631,12 +711,12 @@ mod test {
         assert_eq!(read, sector_size);
 
         let read = read_loop(&mut opus_file_read, &mut data_read);
-        // assert_eq!(read, sector_size);
+        assert_eq!(read, sector_size);
 
         let seek = opus_file_seek
             .seek(SeekFrom::Start(sector_size as u64))
             .unwrap();
-        // assert_eq!(seek, sector_size as u64);
+        assert_eq!(seek, sector_size as u64);
 
         let read = read_loop(&mut opus_file_seek, &mut data_seek);
         println!("Read {} bytes after seek", read);

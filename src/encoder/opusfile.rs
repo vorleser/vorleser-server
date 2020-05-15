@@ -3,7 +3,7 @@ extern crate gstreamer_app as gst_app;
 
 use std::convert::TryInto;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind, Read, Seek, SeekFrom, Write};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use gst::prelude::*;
 use gst::{GstBinExt, MessageView};
@@ -20,8 +20,7 @@ static RATE: u32 = 48_000;
 
 /// OggFile transparently encodes different file types into opus-oggs.
 /// It needs to support both `Read` and `Seek` to enable access via RangeRequests
-struct OpusFile {
-    underlying_file: PathBuf,
+pub struct OpusFile {
     pipeline: gst::Pipeline,
     byte_offset: usize,
     header_data: Option<Vec<u8>>,
@@ -31,13 +30,12 @@ struct OpusFile {
     wrote_page_header: usize,
     wrote_page_body: usize,
     to_discard: usize,
-    discard_to_time: gst::ClockTime,
     header_page: Option<Page>,
 }
 
 impl OpusFile {
-    pub fn create(source: PathBuf) -> Result<Self, EncoderError> {
-        let pipeline = Self::build_pipeline(source.to_string_lossy().as_ref())?;
+    pub fn create(source: impl AsRef<Path>) -> Result<Self, EncoderError> {
+        let pipeline = Self::build_pipeline(source.as_ref().to_string_lossy().as_ref())?;
         let bus = pipeline.get_bus().unwrap();
         for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
             match msg.view() {
@@ -71,7 +69,6 @@ impl OpusFile {
         }
 
         Ok(Self {
-            underlying_file: source,
             pipeline,
             byte_offset: 0,
             header_data: None,
@@ -81,7 +78,6 @@ impl OpusFile {
             wrote_page_header: 0,
             wrote_page_body: 0,
             to_discard: 0,
-            discard_to_time: 0.into(),
             header_page: None,
         })
     }
@@ -167,7 +163,8 @@ impl OpusFile {
                 .ok_or(EncoderError::NoStreamHeader)?;
             let buf_map = buf.map_readable()?;
             // Headers aren't large and only exist once per file so just copy them
-            headers.push(buf_map.to_owned())
+            headers.push(buf_map.to_owned());
+            break;
         }
         Ok(headers)
     }
@@ -175,9 +172,6 @@ impl OpusFile {
     fn get_next_page(&mut self) -> Result<Option<Page>, EncoderError> {
         while let Ok(sample) = self.get_sink()?.pull_sample() {
             let buf = sample.get_buffer().unwrap();
-            if buf.get_pts() < self.discard_to_time {
-                continue;
-            }
             let buf_map = buf.map_readable().unwrap();
             let mut packet = Packet::new(&buf_map);
             packet.set_packetno(self.packet_num as i64);
@@ -443,28 +437,40 @@ impl OpusFile {
                 })?;
                 self.wrote_page_header = 0;
                 self.wrote_page_body = 0;
+                println!(
+                    "header size: {:?}",
+                    self.cached_page.as_ref().map(|p| p.get_header().len())
+                );
+                println!(
+                    "body size: {:?}",
+                    self.cached_page.as_ref().map(|p| p.get_body().len())
+                );
             }
             if let Some(ref page) = self.cached_page {
                 'outer_header: loop {
-                    let wrote;
+                    let mut wrote = 0;
+                    println!("self.wrote_page_header {}", self.wrote_page_header);
                     if self.to_discard > 0 {
                         assert_eq!(self.wrote_page_header, 0);
                         let header = page.get_header();
                         if header.len() > self.to_discard {
                             wrote = buf.write(&header[self.to_discard..])?;
                             wrote_total += wrote;
-                            self.wrote_page_header = self.to_discard + wrote;
+                            self.wrote_page_header = wrote + self.to_discard;
                             self.to_discard = 0;
+                            println!("self.wrote_page_header {}", self.wrote_page_header);
                         } else {
                             self.to_discard -= header.len();
                             println!(
-                                "Discarded {} samples, still {} samples to discard",
+                                "Discarded {} bytes, still {} bytes to discard",
                                 header.len(),
                                 self.to_discard
                             );
+                            println!("self.wrote_page_header {}", self.wrote_page_header);
                             break 'outer_header;
                         }
-                    } else {
+                    } else if self.wrote_page_header < page.get_header().len() {
+                        println!("Writing from offset {}", self.wrote_page_header);
                         wrote = buf.write(&page.get_header()[self.wrote_page_header..])?;
                         wrote_total += wrote;
                         self.wrote_page_header += wrote;
@@ -490,7 +496,7 @@ impl OpusFile {
                             self.to_discard -= body.len();
                             println!("Discarded a page");
                             println!(
-                                "Discarded {} samples, still {} samples to discard",
+                                "Discarded {} bytes, still {} bytes to discard",
                                 body.len(),
                                 self.to_discard
                             );
@@ -525,19 +531,7 @@ impl Seek for OpusFile {
             _ => unimplemented!(),
         };
         self.byte_offset = pos as usize;
-        self.pipeline.set_state(gst::State::Paused).map_err(|e| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Failed to pause underlying pipeline: {}", e),
-            )
-        })?;
-        println!("--AAAAA");
-        self.drain_sink().map_err(|e| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Failed to pause underlying pipeline: {}", e),
-            )
-        })?;
+        println!("SEEKING to {}", pos);
         println!("--BBBBB");
         let (target_sec, trim_bytes) = self.byte_to_offset(pos).map_err(|e| {
             IoError::new(
@@ -545,23 +539,34 @@ impl Seek for OpusFile {
                 format!("Failed to calculate byte offset: {}", e),
             )
         })?;
-        println!("--CCCCC");
-        let seek_res = self.pipeline.seek(
-            std::f64::INFINITY,
-            gst::SeekFlags::ACCURATE | gst::SeekFlags::FLUSH,
-            gst::SeekType::Set,
-            gst::format::GenericFormattedValue::Time(gst::ClockTime::from_seconds(target_sec)),
-            gst::SeekType::None,
-            gst::format::GenericFormattedValue::Time(0.into()),
+        println!(
+            "Seeking to second {:?}, will discard an additional {:?} bytes",
+            target_sec, trim_bytes
         );
+        self.pipeline.set_state(gst::State::Paused).map_err(|e| {
+            IoError::new(
+                IoErrorKind::Other,
+                format!("Failed to pause underlying pipeline: {}", e),
+            )
+        })?;
+        let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
         self.drain_sink().map_err(|e| {
             IoError::new(
                 IoErrorKind::Other,
                 format!("Failed to drain underlying pipeline: {}", e),
             )
         })?;
+        println!("--EEEEE");
+        let seek_res = self.pipeline.seek(
+            std::f64::INFINITY,
+            gst::SeekFlags::ACCURATE | gst::SeekFlags::KEY_UNIT | gst::SeekFlags::FLUSH,
+            gst::SeekType::Set,
+            gst::format::GenericFormattedValue::Time(gst::ClockTime::from_seconds(target_sec)),
+            gst::SeekType::None,
+            gst::format::GenericFormattedValue::Time(0.into()),
+        );
         self.to_discard = trim_bytes as usize;
-        self.packet_num = (target_sec / (20 * 1000)) as u32;
+        self.packet_num = (target_sec * 1000 / 20) as u32;
         self.cached_page = None;
         self.wrote_page_header = 0;
         self.wrote_page_body = 0;
@@ -589,7 +594,7 @@ mod test {
 
     #[test]
     fn read_header() {
-        let mut opus_file = OpusFile::create("test-data/all.m4b".into()).unwrap();
+        let mut opus_file = OpusFile::create("test-data/all.m4b").unwrap();
         let mut data = Vec::new();
         for _ in 0..2048 {
             data.push(0);
@@ -607,7 +612,7 @@ mod test {
 
     #[test]
     fn read_body() {
-        let mut opus_file_a = OpusFile::create("test-data/all.m4b".into()).unwrap();
+        let mut opus_file_a = OpusFile::create("test-data/all.m4b").unwrap();
         let mut out = File::create("/tmp/test.ogg").unwrap();
         let mut data_a = Vec::new();
         for _ in 0..100_000 {
@@ -628,8 +633,8 @@ mod test {
 
     #[test]
     fn reproducible_encodes() {
-        let mut opus_file_a = OpusFile::create("test-data/1.mp3".into()).unwrap();
-        let mut opus_file_b = OpusFile::create("test-data/1.mp3".into()).unwrap();
+        let mut opus_file_a = OpusFile::create("test-data/1.mp3").unwrap();
+        let mut opus_file_b = OpusFile::create("test-data/1.mp3").unwrap();
         let mut data_a = Vec::new();
         let mut data_b = Vec::new();
         for _ in 0..100_000 {
@@ -642,6 +647,9 @@ mod test {
             let read_b = opus_file_b.read(&mut data_b).unwrap();
             assert_eq!(read_a, read_b);
             for (i, (a, b)) in data_a.iter().zip(data_b.iter()).enumerate() {
+                if !(a == b) {
+                    println!("Position {:?}", i);
+                }
                 assert_eq!(a, b)
             }
             if read_a == 0 {
@@ -652,7 +660,7 @@ mod test {
 
     #[test]
     fn byte_offset() {
-        let mut opus_file = OpusFile::create("test-data/1.mp3".into()).unwrap();
+        let mut opus_file = OpusFile::create("test-data/1.mp3").unwrap();
         let offset = opus_file.byte_to_offset(200_000).unwrap();
         println!("Offset: {:?}", offset);
     }
@@ -671,7 +679,7 @@ mod test {
 
     #[test]
     fn byte_calculations() {
-        let mut opus = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3".into()).unwrap();
+        let mut opus = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
         let bytes = opus.second_to_content_bytes(6).unwrap();
         println!("Bytes: {:?}", bytes);
         assert_eq!(bytes, 8000 * 6 + 12 * 53);
@@ -691,41 +699,47 @@ mod test {
     fn seek_is_the_same() {
         init();
 
-        let mut opus_file_seek =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3".into()).unwrap();
-        let mut opus_file_read =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3".into()).unwrap();
-        let mut data_read = Vec::new();
-        let mut data_seek = Vec::new();
-        let sector_size = 90_000;
-        for _ in 0..sector_size {
-            data_read.push(0);
-            data_seek.push(0);
-        }
+        for page in 55..56 {
+            let mut opus_file_seek =
+                OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            let mut opus_file_read =
+                OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            let mut data_read = Vec::new();
+            let mut data_seek = Vec::new();
+            // let sector_size = opus_file_read.get_header_page_size().unwrap() + (4160 + 53) * page;
+            let sector_size = 250_000;
+            println!("sector_size {:?}", sector_size);
+            for _ in 0..sector_size {
+                data_read.push(0);
+                data_seek.push(0);
+            }
 
-        let mut out = File::create("/tmp/stitched.ogg").unwrap();
+            let mut both = File::create(format!("/tmp/both_stitched_{}.ogg", page)).unwrap();
+            let mut first = File::create(format!("/tmp/first_stitched_{}.ogg", page)).unwrap();
 
-        // Discard sector_size bytes
-        let read = read_loop(&mut opus_file_read, &mut data_read);
-        out.write_all(&data_read[..read]);
-        assert_eq!(read, sector_size);
+            // Discard sector_size bytes
+            let read = read_loop(&mut opus_file_read, &mut data_read);
+            both.write_all(&data_read[..read]);
+            first.write_all(&data_read[..read]);
+            assert_eq!(read, sector_size);
 
-        let read = read_loop(&mut opus_file_read, &mut data_read);
-        assert_eq!(read, sector_size);
+            let read = read_loop(&mut opus_file_read, &mut data_read);
+            assert_eq!(read, sector_size);
 
-        let seek = opus_file_seek
-            .seek(SeekFrom::Start(sector_size as u64))
-            .unwrap();
-        assert_eq!(seek, sector_size as u64);
+            let seek = opus_file_seek
+                .seek(SeekFrom::Start(sector_size as u64))
+                .unwrap();
+            // assert_eq!(seek, sector_size as u64);
 
-        let read = read_loop(&mut opus_file_seek, &mut data_seek);
-        println!("Read {} bytes after seek", read);
-        out.write_all(&data_seek[..read]);
-        assert_eq!(read, sector_size);
+            let read = read_loop(&mut opus_file_seek, &mut data_seek);
+            println!("Read {} bytes after seek", read);
+            both.write_all(&data_seek[..read]);
+            assert_eq!(read, sector_size);
 
-        for (s, r) in data_seek.iter().zip(data_read.iter()) {
-            // println!("{}, {}", s, r);
-            // assert_eq!(s, r);
+            for (s, r) in data_seek.iter().zip(data_read.iter()) {
+                // println!("{}, {}", s, r);
+                // assert_eq!(s, r);
+            }
         }
     }
 }

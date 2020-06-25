@@ -6,6 +6,9 @@ edition = "2018"
 [[bin]]
 name = "vorleser_server_bin"
 path = "src/bin/main.rs"
+[[bin]]
+name = "opusify"
+path = "src/bin/opusify.rs"
 
 [dependencies]
 argon2rs = "0.2"
@@ -35,8 +38,8 @@ fs2 = "0.4.3"
 scheduled-thread-pool = "0.2.0"
 failure = "0.1.1"
 sentry = "0.12"
-gstreamer = "0.15"
-gstreamer-app = "0.15"
+gstreamer = { version = "0.15", features = ["v1_14"] }
+gstreamer-app = { version = "0.15", features = ["v1_14"] }
 ogger = { path = "../../ogger" }
 
 [dependencies.rocket_contrib]
@@ -70,6 +73,7 @@ version = "~0.7"
 [dev-dependencies]
 # speculate = "0.0.26"
 speculate = {git = "https://github.com/utkarshkukreti/speculate.rs.git"}
+env_logger = "~0.7"
 
 [features]
 webfrontend = []

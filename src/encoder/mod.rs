@@ -3,3 +3,4 @@ mod error;
 mod opusfile;
 
 pub use error::EncoderError;
+pub use opusfile::OpusFile;

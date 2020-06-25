@@ -30,7 +30,6 @@ pub struct OpusFile {
     wrote_page_header: usize,
     wrote_page_body: usize,
     to_discard: usize,
-    header_page: Option<Page>,
 }
 
 impl OpusFile {
@@ -73,12 +72,11 @@ impl OpusFile {
             byte_offset: 0,
             header_data: None,
             stream: Stream::new(0xf01353),
-            packet_num: 1,
+            packet_num: 0,
             cached_page: None,
             wrote_page_header: 0,
             wrote_page_body: 0,
             to_discard: 0,
-            header_page: None,
         })
     }
 
@@ -100,29 +98,51 @@ impl OpusFile {
     }
 
     /// Get header page if it exsits, build it otheriwse
-    fn get_header_page(&mut self) -> Result<&Page, EncoderError> {
-        if self.header_page.is_none() {
-            self.header_page = Some(self.build_header_page()?)
+    fn get_header_page_data(&mut self) -> Result<&Vec<u8>, EncoderError> {
+        if self.header_data.is_some() {
+            Ok(self.header_data.as_ref().unwrap())
+        } else {
+            let header_data = self.build_header_data()?;
+            self.header_data = Some(header_data);
+            Ok(self.header_data.as_ref().unwrap())
         }
-        Ok(self.header_page.as_ref().unwrap())
     }
 
-    fn get_header_page_size(&mut self) -> Result<usize, EncoderError> {
-        Ok(self.get_header_page()?.get_header().len() + self.get_header_page()?.get_body().len())
-    }
-
-    fn build_header_page(&mut self) -> Result<Page, EncoderError> {
-        let mut i = 0;
-        for packet_data in self.get_header_data()? {
+    fn build_header_data(&mut self) -> Result<Vec<u8>, EncoderError> {
+        let mut data = Vec::new();
+        for (i, packet_data) in self.get_opus_header_data()?.iter().enumerate() {
             let mut packet = Packet::new(&packet_data);
-            println!("Header pkt: {} ({} bytes)", i, packet_data.len());
-            i += 1;
+            if i == 0 {
+                packet.set_bos(true);
+            }
             self.stream.packetin(&mut packet);
+            if i > 0 {
+                loop {
+                    let new_page = self.stream.flush();
+                    if let Some(page) = new_page {
+                        data.extend(page.get_header().iter().cloned());
+                        data.extend(page.get_body().iter().cloned());
+                    } else {
+                        break;
+                    }
+                }
+            } else {
+                let new_page = self.stream.flush().ok_or(EncoderError::NoStreamHeader)?;
+                data.extend(new_page.get_header().iter().cloned());
+                data.extend(new_page.get_body().iter().cloned());
+            }
         }
-        self.stream.flush().ok_or(EncoderError::NoStreamHeader)
+        if data.len() < 2 {
+            return Err(EncoderError::NoStreamHeader);
+        }
+        Ok(data)
     }
 
-    fn get_header_data(&self) -> Result<Vec<Vec<u8>>, EncoderError> {
+    /// Returns the opus id header and comment header
+    ///
+    /// Each of the headers are not packed into ogg pages yet. Each header is represented as an
+    /// individual Vec<u8>.
+    fn get_opus_header_data(&self) -> Result<Vec<Vec<u8>>, EncoderError> {
         let sink = self.get_sink()?;
         let caps: Vec<gst::Caps> = sink
             .get_sink_pads()
@@ -164,7 +184,6 @@ impl OpusFile {
             let buf_map = buf.map_readable()?;
             // Headers aren't large and only exist once per file so just copy them
             headers.push(buf_map.to_owned());
-            break;
         }
         Ok(headers)
     }
@@ -176,9 +195,6 @@ impl OpusFile {
             let mut packet = Packet::new(&buf_map);
             packet.set_packetno(self.packet_num as i64);
             self.packet_num += 1;
-            if self.packet_num == 0 {
-                packet.set_bos(1);
-            }
             packet.set_granulepos(
                 (self.packet_num * (RATE / (1000 / FRAME_SIZE)))
                     .try_into()
@@ -304,11 +320,11 @@ impl OpusFile {
     /// Returns a time offset in seconds + a small byte offset to seek to a specific byte
     fn byte_to_offset(&mut self, byte_index: u64) -> Result<(u64, u64), EncoderError> {
         // TODO: handle seeks that are shorter than the header
-        if self.get_header_page_size()? > byte_index as usize {
+        if self.get_header_page_data()?.len() > byte_index as usize {
             panic!("Seeking that doesn't go beyond the header is not supported!")
         }
-        let offset_no_header = byte_index as usize - self.get_header_page_size()?;
-        println!("Header size: {}", self.get_header_page_size()?);
+        let offset_no_header = byte_index as usize - self.get_header_page_data()?.len();
+        println!("Header size: {}", self.get_header_page_data()?.len());
         let bitrate_type_enum = self.get_encoder()?.get_property("bitrate-type").unwrap();
         let bitrate_type = gst::glib::EnumValue::from_value(&bitrate_type_enum)
             .unwrap()
@@ -368,7 +384,6 @@ impl OpusFile {
             .get::<i32>()
             .unwrap()
             .unwrap() as u64;
-        println!("bitrate: {}", bitrate);
         let opus_bytes_per_sec = bitrate / 8;
         let total_opus_bytes = seconds * opus_bytes_per_sec;
         let mut ogg_pages = total_opus_bytes / 4160;
@@ -390,27 +405,9 @@ impl Drop for OpusFile {
 impl Read for OpusFile {
     fn read(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
         let mut wrote = 0;
-        if self.header_data.as_ref().is_none() {
-            match self.get_header_page() {
-                Ok(page) => {
-                    let mut data = Vec::new();
-                    data.write(&page.get_header()).unwrap();
-                    data.write(&page.get_body()).unwrap();
-                    self.header_data = Some(data);
-                    println!("{:?}", self.header_data);
-                }
-                Err(e) => {
-                    log::warn!("Error while reading: {}", e);
-                    return Err(IoError::new(
-                        IoErrorKind::Other,
-                        format!("EncoderError: {}", e),
-                    ));
-                }
-            }
-        }
-        let header_data = self.header_data.as_ref().unwrap();
+        let header_data = self.get_header_page_data().unwrap().to_owned();
         if self.byte_offset < header_data.len() {
-            let wrote_header = buf.write(&header_data[self.byte_offset..])?;
+            let wrote_header = buf.write(&header_data.as_slice()[self.byte_offset..])?;
             wrote += wrote_header;
             self.byte_offset += wrote_header;
         }
@@ -615,7 +612,7 @@ mod test {
         let mut opus_file_a = OpusFile::create("test-data/all.m4b").unwrap();
         let mut out = File::create("/tmp/test.ogg").unwrap();
         let mut data_a = Vec::new();
-        for _ in 0..100_000 {
+        for _ in 0..1_000_000 {
             data_a.push(0);
         }
 
@@ -685,7 +682,7 @@ mod test {
         assert_eq!(bytes, 8000 * 6 + 12 * 53);
         assert_eq!(opus.bytes_to_full_seconds(bytes as usize).unwrap(), 6);
 
-        let header_bytes = opus.get_header_page_size().unwrap();
+        let header_bytes = opus.get_header_page_data().unwrap().len();
         let (secs, extra_bytes) = opus
             .byte_to_offset((header_bytes + bytes as usize + 1234) as u64)
             .unwrap();

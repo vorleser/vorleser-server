@@ -185,9 +185,9 @@ impl OpusFile {
     fn get_next_page(&mut self) -> Result<Option<Page>, EncoderError> {
         while let Ok(sample) = self.get_sink()?.pull_sample() {
             println!("Sample info: {:?}", sample.get_info());
-            println!("Sample caps: {:?}", sample.get_caps_owned());
             println!("Buffer pts: {:?}", sample.get_buffer().unwrap().get_pts());
             println!("Buffer dts: {:?}", sample.get_buffer().unwrap().get_dts());
+            println!("Buffer len: {:?}", sample.get_buffer().unwrap().get_size());
             let buf = sample.get_buffer().unwrap();
             let buf_map = buf.map_readable().unwrap();
             let mut packet = Packet::new(&buf_map);
@@ -401,16 +401,29 @@ impl Drop for OpusFile {
 
 impl Read for OpusFile {
     fn read(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
+        println!("BUFFER SIZE: {:?}", buf.len());
         let mut wrote = 0;
         let header_data = self.get_header_page_data().unwrap().to_owned();
         if self.byte_offset < header_data.len() {
+            println!("Writing header");
             let wrote_header = buf.write(&header_data.as_slice()[self.byte_offset..])?;
             wrote += wrote_header;
+            println!("WROTE HEADER: {:?}, {:?}", wrote_header, wrote);
+            println!(
+                "AFTER HEADER: {:?}, {:?}",
+                buf[wrote_header - 1],
+                buf[wrote_header]
+            );
             self.byte_offset += wrote_header;
         }
         if self.byte_offset >= header_data.len() && wrote < buf.len() {
             let wrote_data = self.read_from_pages(&mut buf)?;
             wrote += wrote_data;
+            println!(
+                "Last elements: {:?}, {:?}",
+                buf[buf.len() - 2],
+                buf[buf.len() - 1]
+            );
             println!(
                 "Wrote page data: {} wrote total data: {}",
                 wrote_data, wrote

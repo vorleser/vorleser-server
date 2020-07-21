@@ -409,7 +409,7 @@ impl Read for OpusFile {
             self.byte_offset += wrote_header;
         }
         if self.byte_offset >= header_data.len() && wrote < buf.len() {
-            let wrote_data = self.read_from_pages(&mut buf[wrote..])?;
+            let wrote_data = self.read_from_pages(&mut buf)?;
             wrote += wrote_data;
             println!(
                 "Wrote page data: {} wrote total data: {}",
@@ -736,6 +736,23 @@ mod test {
             println!("{}: {}, {}", i, s, r);
             assert_eq!(s, r);
         }
+    }
+
+    #[test]
+    fn fill_up_buffer() {
+        init();
+        let mut opus_file_read =
+            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let mut data = Vec::new();
+        let size = 400;
+
+        for _ in 0..size {
+            data.push(0);
+        }
+
+        let mut out = File::create(format!("/tmp/fill_up_buffer.ogg")).unwrap();
+        let read = opus_file_read.read(&mut data).unwrap();
+        assert_eq!(size, read);
     }
 
     #[test]

@@ -114,16 +114,16 @@ impl OpusFile {
                 loop {
                     let new_page = self.stream.flush();
                     if let Some(page) = new_page {
-                        data.extend(page.get_header().iter().cloned());
-                        data.extend(page.get_body().iter().cloned());
+                        data.extend(page.header);
+                        data.extend(page.body);
                     } else {
                         break;
                     }
                 }
             } else {
                 let new_page = self.stream.flush().ok_or(EncoderError::NoStreamHeader)?;
-                data.extend(new_page.get_header().iter().cloned());
-                data.extend(new_page.get_body().iter().cloned());
+                data.extend(new_page.header);
+                data.extend(new_page.body);
             }
         }
         if data.len() < 2 {
@@ -433,80 +433,81 @@ impl OpusFile {
                 self.wrote_page_body = 0;
                 println!(
                     "header size: {:?}",
-                    self.cached_page.as_ref().map(|p| p.get_header().len())
+                    self.cached_page.as_ref().map(|p| p.header.len())
                 );
                 println!(
                     "body size: {:?}",
-                    self.cached_page.as_ref().map(|p| p.get_body().len())
+                    self.cached_page.as_ref().map(|p| p.body.len())
                 );
             }
             if let Some(ref page) = self.cached_page {
-                'outer_header: loop {
+                'inner_header: loop {
                     let mut wrote = 0;
                     println!("self.wrote_page_header {}", self.wrote_page_header);
                     if self.to_discard > 0 {
                         assert_eq!(self.wrote_page_header, 0);
-                        let header = page.get_header();
-                        if header.len() > self.to_discard {
-                            wrote = buf.write(&header[self.to_discard..])?;
+                        if page.header.len() > self.to_discard {
+                            wrote = buf.write(&page.header[self.to_discard..])?;
                             wrote_total += wrote;
                             self.wrote_page_header = wrote + self.to_discard;
                             self.to_discard = 0;
                             println!("self.wrote_page_header {}", self.wrote_page_header);
                         } else {
-                            self.to_discard -= header.len();
+                            self.to_discard -= page.header.len();
                             println!(
                                 "Discarded {} bytes, still {} bytes to discard",
-                                header.len(),
+                                page.header.len(),
                                 self.to_discard
                             );
                             println!("self.wrote_page_header {}", self.wrote_page_header);
-                            break 'outer_header;
+                            break 'inner_header;
                         }
-                    } else if self.wrote_page_header < page.get_header().len() {
+                    } else if self.wrote_page_header < page.header.len() {
                         println!("Writing from offset {}", self.wrote_page_header);
-                        wrote = buf.write(&page.get_header()[self.wrote_page_header..])?;
+                        wrote = buf.write(&page.header[self.wrote_page_header..])?;
                         wrote_total += wrote;
                         self.wrote_page_header += wrote;
-                        self.byte_offset += wrote;
                     }
-                    if wrote == 0 && self.wrote_page_header == page.get_header().len() {
+                    if wrote == 0 && self.wrote_page_header == page.header.len() {
                         break;
                     } else if wrote == 0 {
                         return Ok(wrote_total);
                     }
                 }
-                'outer: loop {
+                'inner: loop {
                     let wrote;
                     if self.to_discard > 0 {
                         assert_eq!(self.wrote_page_body, 0);
-                        let body = page.get_body();
-                        if body.len() > self.to_discard {
-                            wrote = buf.write(&body[self.to_discard..])?;
+                        if page.body.len() > self.to_discard {
+                            wrote = buf.write(&page.body[self.to_discard..])?;
                             self.wrote_page_header = self.to_discard + wrote;
                             wrote_total += wrote;
                             self.to_discard = 0;
                         } else {
-                            self.to_discard -= body.len();
+                            self.to_discard -= page.body.len();
                             println!("Discarded a page");
                             println!(
                                 "Discarded {} bytes, still {} bytes to discard",
-                                body.len(),
+                                page.body.len(),
                                 self.to_discard
                             );
                             self.cached_page = None;
-                            break 'outer;
+                            break 'inner;
                         }
                     } else {
-                        wrote = buf.write(&page.get_body()[self.wrote_page_body..])?;
+                        println!(
+                            "Already wrote {:?} of the total length: {:?}",
+                            self.wrote_page_body,
+                            page.body.len()
+                        );
+                        wrote = buf.write(&page.body[self.wrote_page_body..])?;
                         wrote_total += wrote;
                         self.wrote_page_body += wrote;
-                        self.byte_offset += wrote;
                     }
-                    if wrote == 0 && self.wrote_page_body == page.get_body().len() {
+                    if wrote == 0 && self.wrote_page_body == page.body.len() {
                         // the entire page was written
                         self.cached_page = None;
-                        break;
+                        break 'inner;
                     } else if wrote == 0 {
                         return Ok(wrote_total);
                     }

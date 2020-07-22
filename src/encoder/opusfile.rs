@@ -188,10 +188,16 @@ impl OpusFile {
             println!("Buffer pts: {:?}", sample.get_buffer().unwrap().get_pts());
             println!("Buffer dts: {:?}", sample.get_buffer().unwrap().get_dts());
             println!("Buffer len: {:?}", sample.get_buffer().unwrap().get_size());
+            let eos = self
+                .get_sink()?
+                .get_property("eos")?
+                .get_some::<bool>()
+                .unwrap_or(false);
             let buf = sample.get_buffer().unwrap();
             let buf_map = buf.map_readable().unwrap();
             let mut packet = Packet::new(&buf_map);
             packet.set_packetno(self.packet_num as i64);
+            packet.set_eos(eos);
             self.packet_num += 1;
             packet.set_granulepos(
                 (self.packet_num * (RATE / (1000 / FRAME_SIZE)))

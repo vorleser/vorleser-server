@@ -244,6 +244,9 @@ impl OpusFile {
                 return Ok(Some(page));
             }
         }
+        if let Some(page) = self.stream.flush() {
+            return Ok(Some(page));
+        }
         Ok(None)
     }
 
@@ -423,14 +426,19 @@ impl OpusFile {
     fn read_from_pages(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
         dbg!(buf.len());
         let mut wrote = 0;
+        let mut fail_count = 0;
         loop {
             if self.cached_page.is_none() {
                 self.cached_page = self.get_next_page().map_err(|e| {
                     IoError::new(IoErrorKind::Other, format!("Encoder error: {}", e))
                 })?;
                 if self.cached_page.is_none() {
-                    log::info!("Can't get more pages :(");
-                    return Ok(wrote);
+                    fail_count += 1;
+                    if fail_count > 3 {
+                        return Ok(wrote);
+                    }
+                } else {
+                    fail_count = 0;
                 }
                 self.wrote_page_header = 0;
                 self.wrote_page_body = 0;
@@ -659,8 +667,11 @@ mod test {
         let pos = 150_000;
         let offset = opus_file.byte_to_offset(pos).unwrap();
         println!("Offset: {:?}", offset);
-        assert_eq!(offset.millis, 18_200);
-        assert_eq!(offset.extra_bytes, 2423);
+        assert_eq!(offset.millis, 17160);
+        assert_eq!(
+            offset.extra_bytes,
+            2423 + (opus_file.spec.page_body_size + opus_file.spec.page_header_size) * 2
+        );
         let full_page_bytes = ((offset.packet / 26)
             * (opus_file.spec.page_body_size + opus_file.spec.page_header_size))
             as usize;
@@ -740,8 +751,6 @@ mod test {
     #[test]
     fn seek_is_the_same() {
         init();
-        let page = 0;
-
         let mut opus_file_seek =
             OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
         let mut opus_file_read =
@@ -755,8 +764,8 @@ mod test {
             data_seek.push(0);
         }
 
-        let mut stitched = File::create(format!("/tmp/stitched_{}.ogg", page)).unwrap();
-        let mut complete = File::create(format!("/tmp/complete_{}.ogg", page)).unwrap();
+        let mut stitched = File::create("/tmp/stitched.ogg").unwrap();
+        let mut complete = File::create("/tmp/complete.ogg").unwrap();
 
         // Discard sector_size bytes
         let read = read_loop(&mut opus_file_read, &mut data_read);
@@ -826,18 +835,19 @@ mod test {
             data.push(0);
         }
 
-        let mut out = File::create(format!("/tmp/fill_up_buffer.ogg")).unwrap();
         let read = opus_file_read.read(&mut data).unwrap();
         assert_eq!(size, read);
     }
 
     #[test]
     fn faster_than_real_time() {
+        use std::time::SystemTime;
         init();
+        let start = SystemTime::now();
 
         let mut file = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
         let mut data = Vec::new();
-        let sector_size = 100_000;
+        let sector_size = 10_000;
 
         for _ in 0..sector_size {
             data.push(0);
@@ -846,11 +856,13 @@ mod test {
         let mut out_file = File::create(format!("/tmp/out.ogg")).unwrap();
 
         loop {
-            let read = read_loop(&mut file, &mut data);
+            let read = file.read(&mut data).unwrap();
             out_file.write_all(&data[..read]);
             if read == 0 {
                 break;
             }
         }
+        // This should be a lot faster than real time!
+        assert!(start.elapsed().unwrap().as_secs() < 5);
     }
 }

@@ -798,6 +798,27 @@ mod test {
     }
 
     #[test]
+    fn seek_in_header() {
+        init();
+        let mut opus_file_seek =
+            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let size = 300_000;
+        let mut data = Vec::with_capacity(size);
+
+        for _ in 0..size {
+            data.push(0);
+        }
+
+        let mut out = File::create("/tmp/seek_in_header.ogg").unwrap();
+
+        opus_file_seek.read(&mut data[..200]).unwrap();
+        opus_file_seek.seek(SeekFrom::Start(40)).unwrap();
+        let read = opus_file_seek.read(&mut data[40..]).unwrap();
+
+        out.write(&data[..read + 40]).unwrap();
+    }
+
+    #[test]
     fn fill_up_buffer() {
         init();
         let mut opus_file_read =

@@ -338,26 +338,6 @@ impl OpusFile {
         Ok(pipeline)
     }
 
-    fn drain_sink(&self) -> Result<(), EncoderError> {
-        loop {
-            let sample = self
-                .get_sink()?
-                .try_pull_preroll(gst::ClockTime::from_mseconds(10));
-            if sample.is_none() {
-                break;
-            }
-        }
-        loop {
-            let sample = self
-                .get_sink()?
-                .try_pull_sample(gst::ClockTime::from_mseconds(10));
-            if sample.is_none() {
-                break;
-            }
-        }
-        Ok(())
-    }
-
     /// Given a byte offset return milliseconds and a byte offset
     fn byte_to_offset(&mut self, position: usize) -> Result<Offset, EncoderError> {
         // TODO: handle seeks that are shorter than the header
@@ -396,12 +376,6 @@ impl Read for OpusFile {
             println!("Writing header");
             let wrote_header = buf.write(&header_data.as_slice()[self.byte_offset..])?;
             wrote += wrote_header;
-            println!("WROTE HEADER: {:?}, {:?}", wrote_header, wrote);
-            println!(
-                "AFTER HEADER: {:?}, {:?}",
-                buf[wrote_header - 1],
-                buf[wrote_header]
-            );
             self.byte_offset += wrote_header;
         }
         if self.byte_offset >= header_data.len() {

@@ -362,16 +362,20 @@ impl OpusFile {
             panic!("Seeking that doesn't go beyond the header is not supported!")
         }
         let offset_no_header = position - self.get_header_page_data()?.len();
-        let pages =
-            offset_no_header / ((self.spec.page_header_size + self.spec.page_body_size) as usize);
-        let extra_bytes =
-            offset_no_header % ((self.spec.page_header_size + self.spec.page_body_size) as usize);
+        // After seeking the audio 'fades in' i.e. it's volume is slowly increased
+        // This means we need to discard the first second or so of data after a seek
+        let pages_to_prerender = 2;
+        let pages = (offset_no_header
+            / ((self.spec.page_header_size + self.spec.page_body_size) as usize))
+            - pages_to_prerender;
+        let extra_bytes = offset_no_header
+            - ((self.spec.page_header_size + self.spec.page_body_size) as usize * pages);
         let millis = pages as u32 * self.spec.page_duration_ms();
-        dbg!(Ok(Offset {
+        Ok(Offset {
             millis,
             packet: (pages * (self.spec.page_body_size / self.spec.packet_size) as usize) as u32,
             extra_bytes: extra_bytes as u32,
-        }))
+        })
     }
 }
 

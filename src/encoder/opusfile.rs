@@ -18,8 +18,13 @@ static ENCODER_NAME: &'static str = "opusenc";
 static FRAME_SIZE: u32 = 20;
 static RATE: u32 = 48_000;
 
+enum Offset {
+    TemporalOffset(TemporalOffset),
+    ByteOffset(u64),
+}
+
 #[derive(Debug)]
-struct Offset {
+struct TemporalOffset {
     millis: u32,
     packet: u32,
     extra_bytes: u32,
@@ -54,6 +59,7 @@ impl OpusSpec {
 /// OggFile transparently encodes different file types into opus-oggs.
 /// It needs to support both `Read` and `Seek` to enable access via RangeRequests
 pub struct OpusFile {
+    source: PathBuf,
     spec: OpusSpec,
     pipeline: gst::Pipeline,
     byte_offset: usize,
@@ -69,8 +75,8 @@ pub struct OpusFile {
 impl OpusFile {
     pub fn create(source: impl AsRef<Path>) -> Result<Self, EncoderError> {
         let pipeline = Self::build_pipeline(source.as_ref().to_string_lossy().as_ref())?;
-        let bus = pipeline.get_bus().unwrap();
         let out = Self {
+            source: source.as_ref().to_owned(),
             spec: OpusSpec::default(),
             pipeline,
             byte_offset: 0,
@@ -83,8 +89,19 @@ impl OpusFile {
             to_discard: 0,
         };
         out.pipeline.set_state(gst::State::Playing)?;
+        out.wait_for_pipeline_ready();
+
+        Ok(out)
+    }
+
+    fn wait_for_pipeline_ready(&self) {
         // Wait for pipeline to be ready
-        for msg in bus.iter_timed(gst::CLOCK_TIME_NONE) {
+        for msg in self
+            .pipeline
+            .get_bus()
+            .unwrap()
+            .iter_timed(gst::CLOCK_TIME_NONE)
+        {
             match msg.view() {
                 MessageView::StateChanged(s) => {
                     let name = s
@@ -100,13 +117,11 @@ impl OpusFile {
                         break;
                     }
                 }
-                MessageView::Eos(..) => break,
+                MessageView::Eos(..) => return,
                 MessageView::Error(e) => log::error!("GStreamer Error: {:?}", e),
                 e => (),
             }
         }
-
-        Ok(out)
     }
 
     fn get_sink(&self) -> Result<gst_app::AppSink, EncoderError> {
@@ -135,6 +150,11 @@ impl OpusFile {
             self.header_data = Some(header_data);
             Ok(self.header_data.as_ref().unwrap())
         }
+    }
+
+    fn reset_stream(&mut self) {
+        self.stream.reset();
+        self.header_data = None;
     }
 
     fn build_header_data(&mut self) -> Result<Vec<u8>, EncoderError> {
@@ -340,25 +360,27 @@ impl OpusFile {
 
     /// Given a byte offset return milliseconds and a byte offset
     fn byte_to_offset(&mut self, position: usize) -> Result<Offset, EncoderError> {
-        // TODO: handle seeks that are shorter than the header
-        if self.get_header_page_data()?.len() > position as usize {
-            panic!("Seeking that doesn't go beyond the header is not supported!")
+        if self.get_header_page_data()?.len() >= position as usize {
+            return Ok(Offset::ByteOffset(position as u64));
         }
         let offset_no_header = position - self.get_header_page_data()?.len();
         // After seeking the audio 'fades in' i.e. it's volume is slowly increased
         // This means we need to discard the first second or so of data after a seek
         let pages_to_prerender = 2;
-        let pages = (offset_no_header
-            / ((self.spec.page_header_size + self.spec.page_body_size) as usize))
-            - pages_to_prerender;
+        let mut pages =
+            (offset_no_header / ((self.spec.page_header_size + self.spec.page_body_size) as usize));
+        if pages < 3 {
+            return Ok(Offset::ByteOffset(position as u64));
+        }
+        pages -= pages_to_prerender;
         let extra_bytes = offset_no_header
             - ((self.spec.page_header_size + self.spec.page_body_size) as usize * pages);
         let millis = pages as u32 * self.spec.page_duration_ms();
-        Ok(Offset {
+        Ok(Offset::TemporalOffset(TemporalOffset {
             millis,
             packet: (pages * (self.spec.page_body_size / self.spec.packet_size) as usize) as u32,
             extra_bytes: extra_bytes as u32,
-        })
+        }))
     }
 }
 
@@ -381,15 +403,6 @@ impl Read for OpusFile {
         if self.byte_offset >= header_data.len() {
             let wrote_data = self.read_from_pages(&mut buf[..])?;
             wrote += wrote_data;
-            println!(
-                "Last elements: {:?}, {:?}",
-                buf[buf.len() - 2],
-                buf[buf.len() - 1]
-            );
-            println!(
-                "Wrote page data: {} wrote total data: {}",
-                wrote_data, wrote
-            );
             self.byte_offset += wrote_data;
         }
         dbg!(Ok(wrote))
@@ -450,7 +463,7 @@ impl OpusFile {
             let mut discarded = 0;
             let mut to_write_header = &page.header[self.wrote_page_header..];
             if to_write_header.len() > 0 && self.to_discard > 0 {
-                if to_write_header.len() as i64 - self.to_discard as i64 > 0 {
+                if to_write_header.len() > self.to_discard {
                     to_write_header = &to_write_header[self.to_discard..];
                     discarded += self.to_discard;
                     self.to_discard = 0;
@@ -479,7 +492,7 @@ impl OpusFile {
         if let Some(ref page) = self.cached_page {
             let mut to_write_body = &page.body[self.wrote_page_body..];
             if to_write_body.len() > 0 && self.to_discard > 0 {
-                if to_write_body.len() as i64 - self.to_discard as i64 > 0 {
+                if to_write_body.len() > self.to_discard {
                     to_write_body = &to_write_body[self.to_discard..];
                     discarded += self.to_discard;
                     self.to_discard = 0;
@@ -512,47 +525,76 @@ impl Seek for OpusFile {
             _ => unimplemented!(),
         };
         self.byte_offset = pos as usize;
-        println!("SEEKING to {}", pos);
-        println!("--BBBBB");
         let offset = self.byte_to_offset(pos as usize).map_err(|e| {
             IoError::new(
                 IoErrorKind::Other,
                 format!("Failed to calculate byte offset: {}", e),
             )
         })?;
-        println!(
-            "Seeking to ms {:?}, will discard an additional {:?} bytes",
-            offset.millis, offset.extra_bytes,
-        );
-        self.pipeline.set_state(gst::State::Paused).map_err(|e| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Failed to pause underlying pipeline: {}", e),
-            )
-        })?;
-        let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
-        println!("--EEEEE");
-        let seek_res = self.pipeline.seek(
-            1.0,
-            gst::SeekFlags::ACCURATE | gst::SeekFlags::KEY_UNIT | gst::SeekFlags::FLUSH,
-            gst::SeekType::Set,
-            gst::format::GenericFormattedValue::Time(gst::ClockTime::from_mseconds(
-                offset.millis as u64,
-            )),
-            gst::SeekType::None,
-            gst::format::GenericFormattedValue::Time(0.into()),
-        );
-        self.to_discard = offset.extra_bytes as usize;
-        self.packet_num = offset.packet;
+        match offset {
+            Offset::TemporalOffset(offset) => {
+                println!(
+                    "Seeking to ms {:?}, will discard an additional {:?} bytes",
+                    offset.millis, offset.extra_bytes,
+                );
+                self.pipeline.set_state(gst::State::Paused).map_err(|e| {
+                    IoError::new(
+                        IoErrorKind::Other,
+                        format!("Failed to pause underlying pipeline: {}", e),
+                    )
+                })?;
+                let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
+                println!("--EEEEE");
+                let seek_res = self.pipeline.seek(
+                    1.0,
+                    gst::SeekFlags::ACCURATE | gst::SeekFlags::KEY_UNIT | gst::SeekFlags::FLUSH,
+                    gst::SeekType::Set,
+                    gst::format::GenericFormattedValue::Time(gst::ClockTime::from_mseconds(
+                        offset.millis as u64,
+                    )),
+                    gst::SeekType::None,
+                    gst::format::GenericFormattedValue::Time(0.into()),
+                );
+                self.pipeline.set_state(gst::State::Playing).map_err(|e| {
+                    IoError::new(
+                        IoErrorKind::Other,
+                        format!("Failed to unpause underlying pipeline: {}", e),
+                    )
+                })?;
+                self.wait_for_pipeline_ready();
+                self.to_discard = offset.extra_bytes as usize;
+                self.packet_num = offset.packet;
+            }
+            Offset::ByteOffset(offset) => {
+                self.reset_stream();
+                self.pipeline.set_state(gst::State::Null).map_err(|e| {
+                    IoError::new(
+                        IoErrorKind::Other,
+                        format!("Failed to terminate underlying pipeline: {}", e),
+                    )
+                })?;
+                let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
+                self.pipeline = Self::build_pipeline(self.source.to_string_lossy().as_ref())
+                    .expect("TODO return proper error");
+                self.pipeline.set_state(gst::State::Playing).map_err(|e| {
+                    IoError::new(
+                        IoErrorKind::Other,
+                        format!("Failed to play underlying pipeline: {}", e),
+                    )
+                })?;
+                self.wait_for_pipeline_ready();
+                let header_size = self.get_header_page_data().unwrap().len();
+                if offset > header_size as u64 {
+                    self.to_discard = (offset - header_size as u64) as usize;
+                } else {
+                    self.to_discard = 0;
+                }
+                self.packet_num = 0;
+            }
+        }
         self.cached_page = None;
         self.wrote_page_header = 0;
         self.wrote_page_body = 0;
-        self.pipeline.set_state(gst::State::Playing).map_err(|e| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Failed to pause underlying pipeline: {}", e),
-            )
-        })?;
         println!("--DDDDD");
         Ok(pos)
     }
@@ -639,7 +681,10 @@ mod test {
     fn byte_offset() {
         let mut opus_file = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
         let pos = 150_000;
-        let offset = opus_file.byte_to_offset(pos).unwrap();
+        let offset = match opus_file.byte_to_offset(pos).unwrap() {
+            super::Offset::TemporalOffset(o) => o,
+            _ => panic!("Unexpected offset"),
+        };
         println!("Offset: {:?}", offset);
         assert_eq!(offset.millis, 17160);
         assert_eq!(
@@ -771,8 +816,6 @@ mod test {
     #[test]
     fn seek_many() {
         init();
-        let page = 0;
-
         let mut opus_file_seek =
             OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
         let mut data_seek = Vec::new();
@@ -800,22 +843,61 @@ mod test {
     #[test]
     fn seek_in_header() {
         init();
+
+        for offset in (0..20).step_by(1) {
+            let mut opus_file_seek =
+                OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            let size = 243376;
+            let mut data = Vec::with_capacity(size);
+
+            println!("LEN: {:?}", data.len());
+            for _ in 0..size {
+                data.push(0);
+            }
+
+            let mut out = File::create(format!("/tmp/seek_in_header_{}.ogg", offset)).unwrap();
+
+            opus_file_seek.read(&mut data[..200]).unwrap();
+            let first_byte = data[0];
+            opus_file_seek.seek(SeekFrom::Start(offset)).unwrap();
+            let read = opus_file_seek.read(&mut data[offset as usize..]).unwrap();
+            assert_eq!(first_byte, data[0]);
+
+            out.write(&data[..read + offset as usize]).unwrap();
+        }
+    }
+
+    #[test]
+    fn seek_to_zero() {
+        init();
+
+        let mut opus_file_read =
+            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
         let mut opus_file_seek =
             OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
-        let size = 300_000;
-        let mut data = Vec::with_capacity(size);
+        let size = 3_000;
+        let mut data_read = Vec::with_capacity(size);
+        let mut data_seek = Vec::with_capacity(size);
+        let mut data_discard = Vec::with_capacity(size);
 
         for _ in 0..size {
-            data.push(0);
+            data_read.push(0);
+            data_seek.push(0);
+            data_discard.push(0);
         }
 
-        let mut out = File::create("/tmp/seek_in_header.ogg").unwrap();
+        opus_file_seek.read(&mut data_discard).unwrap();
+        opus_file_read.read(&mut data_read).unwrap();
+        opus_file_seek.seek(SeekFrom::Start(0)).unwrap();
+        let read = opus_file_seek.read(&mut data_seek).unwrap();
 
-        opus_file_seek.read(&mut data[..200]).unwrap();
-        opus_file_seek.seek(SeekFrom::Start(40)).unwrap();
-        let read = opus_file_seek.read(&mut data[40..]).unwrap();
+        let mut out = File::create("/tmp/seek_to_zero.ogg").unwrap();
+        out.write_all(&data_seek[..read]).unwrap();
 
-        out.write(&data[..read + 40]).unwrap();
+        for (i, (read, seek)) in data_read.iter().zip(data_seek.iter()).enumerate() {
+            println!("Index: {}", i);
+            assert_eq!(read, seek);
+        }
     }
 
     #[test]

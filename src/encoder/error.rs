@@ -19,6 +19,8 @@ pub enum EncoderError {
     GetError(String),
     #[fail(display = "Stream header missing")]
     NoStreamHeader,
+    #[fail(display = "Invalid media file")]
+    InvalidMediaFile,
 }
 
 impl From<BoolError> for EncoderError {

@@ -78,11 +78,18 @@ pub struct OpusFile {
     wrote_page_header: usize,
     wrote_page_body: usize,
     to_discard: usize,
+    duration: gst::ClockTime,
 }
 
 impl OpusFile {
     pub fn create(source: impl AsRef<Path>) -> Result<Self, EncoderError> {
         let pipeline = Self::build_pipeline(source.as_ref().to_string_lossy().as_ref())?;
+        pipeline.set_state(gst::State::Playing)?;
+        let (res, _, _) = pipeline.get_state(gst::CLOCK_TIME_NONE);
+        res?;
+        let duration: gst::ClockTime = pipeline
+            .query_duration()
+            .ok_or(EncoderError::InvalidMediaFile)?;
         let out = Self {
             source: source.as_ref().to_owned(),
             spec: OpusSpec::default(),
@@ -95,41 +102,10 @@ impl OpusFile {
             wrote_page_header: 0,
             wrote_page_body: 0,
             to_discard: 0,
+            duration,
         };
-        out.pipeline.set_state(gst::State::Playing)?;
-        out.wait_for_pipeline_ready();
 
         Ok(out)
-    }
-
-    fn wait_for_pipeline_ready(&self) {
-        // Wait for pipeline to be ready
-        for msg in self
-            .pipeline
-            .get_bus()
-            .unwrap()
-            .iter_timed(gst::CLOCK_TIME_NONE)
-        {
-            match msg.view() {
-                MessageView::StateChanged(s) => {
-                    let name = s
-                        .get_src()
-                        .unwrap()
-                        .get_property("name")
-                        .unwrap()
-                        .get::<String>()
-                        .unwrap();
-                    if name.unwrap().starts_with("pipeline")
-                        && s.get_current() == gst::State::Playing
-                    {
-                        break;
-                    }
-                }
-                MessageView::Eos(..) => return,
-                MessageView::Error(e) => log::error!("GStreamer Error: {:?}", e),
-                e => (),
-            }
-        }
     }
 
     fn get_sink(&self) -> Result<gst_app::AppSink, EncoderError> {
@@ -246,6 +222,7 @@ impl OpusFile {
     }
 
     fn get_next_page(&mut self) -> Result<Option<Page>, EncoderError> {
+        let mut pkt = 0;
         while let Ok(sample) = self.get_sink()?.pull_sample() {
             println!("Sample info: {:?}", sample.get_info());
             println!("Buffer pts: {:?}", sample.get_buffer().unwrap().get_pts());
@@ -260,7 +237,13 @@ impl OpusFile {
             let buf_map = buf.map_readable().unwrap();
             let mut packet = Packet::new(&buf_map);
             packet.set_packetno(self.packet_num as i64);
-            packet.set_eos(eos);
+            let is_eos = (self.byte_offset as u64
+                + self.spec.page_header_size as u64
+                + (self.spec.packet_size * (pkt + 1)) as u64)
+                == self.size_bytes()? as u64;
+            if is_eos {
+                packet.set_eos(true);
+            }
             self.packet_num += 1;
             packet.set_granulepos(
                 (self.packet_num * (RATE / (1000 / FRAME_SIZE)))
@@ -268,12 +251,12 @@ impl OpusFile {
                     .unwrap(),
             );
             self.stream.packetin(&mut packet);
-            if let Some(page) = self.stream.pageout() {
-                return Ok(Some(page));
+            if pkt + 1 == self.spec.frames_per_page() || is_eos {
+                if let Some(page) = self.stream.flush() {
+                    return Ok(Some(page));
+                }
             }
-        }
-        if let Some(page) = self.stream.flush() {
-            return Ok(Some(page));
+            pkt += 1;
         }
         Ok(None)
     }
@@ -326,6 +309,7 @@ impl OpusFile {
                     opusenc.set_property_from_str("name", ENCODER_NAME);
                     opusenc.set_property_from_str("bandwidth", "narrowband");
                     opusenc.set_property("hard-resync", &true.to_value());
+                    opusenc.set_property("perfect-timestamp", &true.to_value());
                     rate_filter.set_property("caps", &caps).unwrap();
                     let sink = gst::ElementFactory::make("appsink", None)
                         .map_err(|e| EncoderError::from(e).maybe_set_element("appsink"))?;
@@ -402,6 +386,12 @@ impl Read for OpusFile {
     fn read(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
         let mut wrote = 0;
         let header_data = self.get_header_page_data().unwrap().to_owned();
+        let size = self
+            .size_bytes()
+            .map_err(|e| IoError::new(IoErrorKind::Other, "Unable to calculate size"))?;
+        if self.byte_offset as u64 + buf.len() as u64 > size {
+            buf = &mut buf[..(size - self.byte_offset as u64) as usize];
+        }
         if self.byte_offset < header_data.len() {
             println!("Writing header");
             let wrote_header = buf.write(&header_data.as_slice()[self.byte_offset..])?;
@@ -411,15 +401,13 @@ impl Read for OpusFile {
         if self.byte_offset >= header_data.len() {
             let wrote_data = self.read_from_pages(&mut buf[..])?;
             wrote += wrote_data;
-            self.byte_offset += wrote_data;
         }
-        dbg!(Ok(wrote))
+        Ok(wrote)
     }
 }
 
 impl OpusFile {
     fn read_from_pages(&mut self, mut buf: &mut [u8]) -> std::io::Result<usize> {
-        dbg!(buf.len());
         let mut wrote = 0;
         let mut fail_count = 0;
         loop {
@@ -524,14 +512,41 @@ impl OpusFile {
             ))
         }
     }
+
+    fn size_bytes(&mut self) -> Result<u64, EncoderError> {
+        let frame_len = self.spec.packet_length_ms as u64 * 1_000_000;
+        let duration = self.duration.nanoseconds().unwrap_or(0);
+        let num_packets = if duration % frame_len == 0 {
+            duration / frame_len
+        } else {
+            duration / frame_len + 1
+        };
+        let num_pages = dbg!(num_packets) / self.spec.frames_per_page() as u64;
+        let extra_packets = num_packets % self.spec.frames_per_page() as u64;
+        let last_page_size = if extra_packets != 0 {
+            self.spec.page_header_size + self.spec.packet_size * extra_packets as u32
+        } else {
+            0
+        };
+        Ok((self.get_header_page_data()?.len() as u64
+            + (num_pages * self.spec.page_size() as u64)
+            + last_page_size as u64))
+    }
 }
 
 impl Seek for OpusFile {
     fn seek(&mut self, seek_from: SeekFrom) -> std::io::Result<u64> {
-        let pos = match seek_from {
+        let size = self
+            .size_bytes()
+            .map_err(|e| IoError::new(IoErrorKind::Other, "Unable to calculate size"))?;
+        let mut pos = match seek_from {
             SeekFrom::Start(pos) => pos,
-            _ => unimplemented!(),
+            SeekFrom::End(pos) => size - pos as u64,
+            SeekFrom::Current(pos) => self.byte_offset as u64 + pos as u64,
         };
+        if pos > size {
+            pos = size;
+        }
         self.byte_offset = pos as usize;
         let offset = self.byte_to_offset(pos as usize).map_err(|e| {
             IoError::new(
@@ -569,7 +584,7 @@ impl Seek for OpusFile {
                         format!("Failed to unpause underlying pipeline: {}", e),
                     )
                 })?;
-                self.wait_for_pipeline_ready();
+                let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 self.to_discard = offset.extra_bytes as usize;
                 self.packet_num = offset.packet;
             }
@@ -583,14 +598,19 @@ impl Seek for OpusFile {
                 })?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 self.pipeline = Self::build_pipeline(self.source.to_string_lossy().as_ref())
-                    .expect("TODO return proper error");
+                    .map_err(|e| {
+                        IoError::new(
+                            IoErrorKind::Other,
+                            format!("Failed to play underlying pipeline: {}", e),
+                        )
+                    })?;
                 self.pipeline.set_state(gst::State::Playing).map_err(|e| {
                     IoError::new(
                         IoErrorKind::Other,
                         format!("Failed to play underlying pipeline: {}", e),
                     )
                 })?;
-                self.wait_for_pipeline_ready();
+                let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 let header_size = self.get_header_page_data().unwrap().len();
                 if offset > header_size as u64 {
                     self.to_discard = (offset - header_size as u64) as usize;

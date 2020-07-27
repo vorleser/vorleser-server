@@ -18,6 +18,43 @@ static ENCODER_NAME: &'static str = "opusenc";
 static FRAME_SIZE: u32 = 20;
 static RATE: u32 = 48_000;
 
+#[derive(Debug, Clone, Copy)]
+enum OpusBandwidth {
+    Narrowband,
+    Mediumband,
+    Wideband,
+    Superwideband,
+    Fullband,
+}
+
+impl OpusBandwidth {
+    fn sampling_rate(&self) -> i32 {
+        match self {
+            Self::Narrowband => 8_000,
+            Self::Mediumband => 12_000,
+            Self::Wideband => 16_000,
+            Self::Superwideband => 24_000,
+            Self::Fullband => 48_000,
+        }
+    }
+
+    fn get_nick(&self) -> &'static str {
+        match self {
+            Self::Narrowband => "narrowband",
+            Self::Mediumband => "mediumband",
+            Self::Wideband => "wideband",
+            Self::Superwideband => "superwideband",
+            Self::Fullband => "fullband",
+        }
+    }
+}
+
+impl Default for OpusBandwidth {
+    fn default() -> Self {
+        OpusBandwidth::Narrowband
+    }
+}
+
 enum Offset {
     TemporalOffset(TemporalOffset),
     ByteOffset(u64),
@@ -30,22 +67,25 @@ struct TemporalOffset {
     extra_bytes: u32,
 }
 
+#[derive(Debug, Clone)]
 struct OpusSpec {
+    bitrate: i32,
     page_header_size: u32,
     page_body_size: u32,
     packet_size: u32,
     packet_length_ms: u32,
-    rate: u32,
+    bandwidth: OpusBandwidth,
 }
 
 impl Default for OpusSpec {
     fn default() -> Self {
         OpusSpec {
+            bitrate: 64_000,
             page_header_size: 53,
             page_body_size: 4160,
             packet_size: 160,
             packet_length_ms: FRAME_SIZE,
-            rate: RATE,
+            bandwidth: OpusBandwidth::default(),
         }
     }
 }
@@ -61,6 +101,10 @@ impl OpusSpec {
 
     fn page_size(&self) -> u32 {
         self.page_body_size + self.page_header_size
+    }
+
+    fn get_rate(&self) -> i32 {
+        self.bandwidth.sampling_rate()
     }
 }
 
@@ -83,7 +127,9 @@ pub struct OpusFile {
 
 impl OpusFile {
     pub fn create(source: impl AsRef<Path>) -> Result<Self, EncoderError> {
-        let pipeline = Self::build_pipeline(source.as_ref().to_string_lossy().as_ref())?;
+        let spec = OpusSpec::default();
+        let pipeline =
+            Self::build_pipeline(source.as_ref().to_string_lossy().as_ref(), spec.clone())?;
         pipeline.set_state(gst::State::Playing)?;
         let (res, _, _) = pipeline.get_state(gst::CLOCK_TIME_NONE);
         res?;
@@ -92,7 +138,7 @@ impl OpusFile {
             .ok_or(EncoderError::InvalidMediaFile)?;
         let out = Self {
             source: source.as_ref().to_owned(),
-            spec: OpusSpec::default(),
+            spec,
             pipeline,
             byte_offset: 0,
             header_data: None,
@@ -242,7 +288,7 @@ impl OpusFile {
             }
             self.packet_num += 1;
             packet.set_granulepos(
-                (self.packet_num * (RATE / (1000 / FRAME_SIZE)))
+                (self.packet_num * (48_000_u32 / (1000 / self.spec.packet_length_ms)))
                     .try_into()
                     .unwrap(),
             );
@@ -257,8 +303,9 @@ impl OpusFile {
         Ok(None)
     }
 
-    fn build_pipeline(file_name: &str) -> Result<gst::Pipeline, EncoderError> {
+    fn build_pipeline(file_name: &str, spec: OpusSpec) -> Result<gst::Pipeline, EncoderError> {
         gst::init().unwrap();
+        let spec_clone = spec.clone();
 
         let pipeline = gst::Pipeline::new(None);
         let src = gst::ElementFactory::make("filesrc", None)
@@ -267,7 +314,7 @@ impl OpusFile {
             .map_err(|e| EncoderError::from(e).maybe_set_element("decodebin"))?;
 
         let caps = gst::Caps::builder("audio/x-raw")
-            .field("rate", &8000)
+            .field("rate", &spec.get_rate())
             .build();
 
         pipeline
@@ -303,9 +350,20 @@ impl OpusFile {
                     let opusenc = gst::ElementFactory::make("opusenc", None)
                         .map_err(|e| EncoderError::from(e).maybe_set_element("opusenc"))?;
                     opusenc.set_property_from_str("name", ENCODER_NAME);
-                    opusenc.set_property_from_str("bandwidth", "narrowband");
                     opusenc.set_property("hard-resync", &true.to_value());
                     opusenc.set_property("perfect-timestamp", &true.to_value());
+                    opusenc.set_property("bitrate", &spec.bitrate);
+                    let bandwidth = opusenc.get_property("bandwidth")?;
+                    let bandwidth_enum_value = glib::EnumValue::from_value(&bandwidth).unwrap();
+                    opusenc.set_property(
+                        "bandwidth",
+                        &bandwidth_enum_value
+                            .get_class()
+                            .to_value_by_nick(spec.bandwidth.get_nick())
+                            .unwrap(),
+                    );
+                    let bandwidth = opusenc.get_property("bandwidth")?;
+                    let bandwidth_enum_value = glib::EnumValue::from_value(&bandwidth).unwrap();
                     rate_filter.set_property("caps", &caps).unwrap();
                     let sink = gst::ElementFactory::make("appsink", None)
                         .map_err(|e| EncoderError::from(e).maybe_set_element("appsink"))?;
@@ -585,13 +643,14 @@ impl Seek for OpusFile {
                     )
                 })?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
-                self.pipeline = Self::build_pipeline(self.source.to_string_lossy().as_ref())
-                    .map_err(|e| {
-                        IoError::new(
-                            IoErrorKind::Other,
-                            format!("Failed to play underlying pipeline: {}", e),
-                        )
-                    })?;
+                self.pipeline =
+                    Self::build_pipeline(self.source.to_string_lossy().as_ref(), self.spec.clone())
+                        .map_err(|e| {
+                            IoError::new(
+                                IoErrorKind::Other,
+                                format!("Failed to play underlying pipeline: {}", e),
+                            )
+                        })?;
                 self.pipeline.set_state(gst::State::Playing).map_err(|e| {
                     IoError::new(
                         IoErrorKind::Other,

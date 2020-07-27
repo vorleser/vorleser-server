@@ -38,8 +38,9 @@ fs2 = "0.4.3"
 scheduled-thread-pool = "0.2.0"
 failure = "0.1.1"
 sentry = "0.12"
-gstreamer = { version = "0.15", features = ["v1_14"] }
-gstreamer-app = { version = "0.15", features = ["v1_14"] }
+gstreamer = { version = "0.16", features = ["v1_14"] }
+gstreamer-app = { version = "0.16", features = ["v1_14"] }
+glib = "0.10.1"
 libogg = { git = "https://github.com/hatzel/libogg-rs.git" }
 
 [dependencies.rocket_contrib]

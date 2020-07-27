@@ -553,6 +553,7 @@ impl Seek for OpusFile {
                 format!("Failed to calculate byte offset: {}", e),
             )
         })?;
+        self.reset_stream();
         match offset {
             Offset::TemporalOffset(offset) => {
                 println!(
@@ -586,9 +587,10 @@ impl Seek for OpusFile {
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 self.to_discard = offset.extra_bytes as usize;
                 self.packet_num = offset.packet;
+                self.stream
+                    .set_pageno((self.packet_num / self.spec.frames_per_page()) as i64)
             }
             Offset::ByteOffset(offset) => {
-                self.reset_stream();
                 self.pipeline.set_state(gst::State::Null).map_err(|e| {
                     IoError::new(
                         IoErrorKind::Other,
@@ -835,7 +837,9 @@ mod test {
             .zip(data_read[..read].iter())
             .enumerate()
         {
-            println!("{}: {}, {}", i, s, r);
+            if (s != r) {
+                println!("{}: {}, {}", i, s, r);
+            }
             assert_eq!(s, r);
         }
     }

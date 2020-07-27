@@ -40,7 +40,7 @@ failure = "0.1.1"
 sentry = "0.12"
 gstreamer = { version = "0.15", features = ["v1_14"] }
 gstreamer-app = { version = "0.15", features = ["v1_14"] }
-ogger = { path = "../../ogger" }
+libogg = { path = "../../ogger" }
 
 [dependencies.rocket_contrib]
 default-features = false

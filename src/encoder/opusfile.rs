@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 
 use gst::prelude::*;
 use gst::{GstBinExt, MessageView};
-use ogger::{Packet, Page, Stream};
+use libogg::{Packet, Page, Stream};
 
 use crate::encoder::EncoderError;
 
@@ -52,7 +52,15 @@ impl Default for OpusSpec {
 
 impl OpusSpec {
     fn page_duration_ms(&self) -> u32 {
-        (self.page_body_size / self.packet_size) * self.packet_length_ms
+        self.frames_per_page() * self.packet_length_ms
+    }
+
+    fn frames_per_page(&self) -> u32 {
+        self.page_body_size / self.packet_size
+    }
+
+    fn page_size(&self) -> u32 {
+        self.page_body_size + self.page_header_size
     }
 }
 

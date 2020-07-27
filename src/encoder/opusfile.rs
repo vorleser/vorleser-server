@@ -438,11 +438,12 @@ impl OpusFile {
                 if wrote < buf.len() {
                     if self.cached_page.is_some() {
                         let (wrote_header, discarded_header) =
-                            dbg!(self.write_header(&mut buf[wrote..])?);
+                            self.write_header(&mut buf[wrote..])?;
                         wrote += wrote_header;
-                        let (wrote_body, discarded_body) =
-                            dbg!(self.write_body(&mut buf[wrote..])?);
+                        self.byte_offset += wrote_header;
+                        let (wrote_body, discarded_body) = self.write_body(&mut buf[wrote..])?;
                         wrote += wrote_body;
+                        self.byte_offset += wrote_body;
                     } else {
                         break;
                     }
@@ -469,9 +470,7 @@ impl OpusFile {
                     to_write_header = &[];
                 }
             }
-            dbg!(buf.len());
-            dbg!(to_write_header.len());
-            let wrote = dbg!(buf.write(to_write_header)?);
+            let wrote = buf.write(to_write_header)?;
             to_write_header = &to_write_header[wrote..];
             self.wrote_page_header = page.header.len() - to_write_header.len();
             Ok((wrote, discarded))
@@ -521,7 +520,7 @@ impl OpusFile {
         } else {
             duration / frame_len + 1
         };
-        let num_pages = dbg!(num_packets) / self.spec.frames_per_page() as u64;
+        let num_pages = num_packets / self.spec.frames_per_page() as u64;
         let extra_packets = num_packets % self.spec.frames_per_page() as u64;
         let last_page_size = if extra_packets != 0 {
             self.spec.page_header_size + self.spec.packet_size * extra_packets as u32

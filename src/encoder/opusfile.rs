@@ -667,6 +667,12 @@ mod test {
 
     #[test]
     fn reproducible_encodes() {
+        for _ in 0..10 {
+            reproducible_encode();
+        }
+    }
+
+    fn reproducible_encode() {
         let mut opus_file_a = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
         let mut opus_file_b = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
         let mut data_a = Vec::new();

@@ -224,10 +224,6 @@ impl OpusFile {
     fn get_next_page(&mut self) -> Result<Option<Page>, EncoderError> {
         let mut pkt = 0;
         while let Ok(sample) = self.get_sink()?.pull_sample() {
-            println!("Sample info: {:?}", sample.get_info());
-            println!("Buffer pts: {:?}", sample.get_buffer().unwrap().get_pts());
-            println!("Buffer dts: {:?}", sample.get_buffer().unwrap().get_dts());
-            println!("Buffer len: {:?}", sample.get_buffer().unwrap().get_size());
             let eos = self
                 .get_sink()?
                 .get_property("eos")?
@@ -393,7 +389,6 @@ impl Read for OpusFile {
             buf = &mut buf[..(size - self.byte_offset as u64) as usize];
         }
         if self.byte_offset < header_data.len() {
-            println!("Writing header");
             let wrote_header = buf.write(&header_data.as_slice()[self.byte_offset..])?;
             wrote += wrote_header;
             self.byte_offset += wrote_header;
@@ -425,14 +420,6 @@ impl OpusFile {
                 }
                 self.wrote_page_header = 0;
                 self.wrote_page_body = 0;
-                println!(
-                    "header size: {:?}",
-                    self.cached_page.as_ref().map(|p| p.header.len())
-                );
-                println!(
-                    "body size: {:?}",
-                    self.cached_page.as_ref().map(|p| p.body.len())
-                );
             }
             loop {
                 if wrote < buf.len() {
@@ -556,9 +543,10 @@ impl Seek for OpusFile {
         self.reset_stream();
         match offset {
             Offset::TemporalOffset(offset) => {
-                println!(
+                log::debug!(
                     "Seeking to ms {:?}, will discard an additional {:?} bytes",
-                    offset.millis, offset.extra_bytes,
+                    offset.millis,
+                    offset.extra_bytes,
                 );
                 self.pipeline.set_state(gst::State::Paused).map_err(|e| {
                     IoError::new(
@@ -567,7 +555,6 @@ impl Seek for OpusFile {
                     )
                 })?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
-                println!("--EEEEE");
                 let seek_res = self.pipeline.seek(
                     1.0,
                     gst::SeekFlags::ACCURATE | gst::SeekFlags::KEY_UNIT | gst::SeekFlags::FLUSH,
@@ -624,7 +611,6 @@ impl Seek for OpusFile {
         self.cached_page = None;
         self.wrote_page_header = 0;
         self.wrote_page_body = 0;
-        println!("--DDDDD");
         Ok(pos)
     }
 }

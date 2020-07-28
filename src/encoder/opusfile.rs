@@ -111,7 +111,7 @@ impl OpusSpec {
 /// OggFile transparently encodes different file types into opus-oggs.
 /// It needs to support both `Read` and `Seek` to enable access via RangeRequests
 pub struct OpusFile {
-    source: PathBuf,
+    sources: Vec<PathBuf>,
     spec: OpusSpec,
     pipeline: gst::Pipeline,
     byte_offset: usize,
@@ -126,10 +126,10 @@ pub struct OpusFile {
 }
 
 impl OpusFile {
-    pub fn create(source: impl AsRef<Path>) -> Result<Self, EncoderError> {
+    pub fn create(sources: &[impl AsRef<Path>]) -> Result<Self, EncoderError> {
         let spec = OpusSpec::default();
         let pipeline =
-            Self::build_pipeline(source.as_ref().to_string_lossy().as_ref(), spec.clone())?;
+            Self::build_pipeline(sources[0].as_ref().to_string_lossy().as_ref(), spec.clone())?;
         pipeline.set_state(gst::State::Playing)?;
         let (res, _, _) = pipeline.get_state(gst::CLOCK_TIME_NONE);
         res?;
@@ -137,7 +137,7 @@ impl OpusFile {
             .query_duration()
             .ok_or(EncoderError::InvalidMediaFile)?;
         let out = Self {
-            source: source.as_ref().to_owned(),
+            sources: sources.iter().map(|e| e.as_ref().to_owned()).collect(),
             spec,
             pipeline,
             byte_offset: 0,
@@ -631,9 +631,11 @@ impl Seek for OpusFile {
                     .set_state(gst::State::Null)
                     .map_err(|e| custom_io_error(&"stop", &e))?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
-                self.pipeline =
-                    Self::build_pipeline(self.source.to_string_lossy().as_ref(), self.spec.clone())
-                        .map_err(|e| custom_io_error(&"rebuild", &e))?;
+                self.pipeline = Self::build_pipeline(
+                    self.sources[0].to_string_lossy().as_ref(),
+                    self.spec.clone(),
+                )
+                .map_err(|e| custom_io_error(&"rebuild", &e))?;
                 self.pipeline
                     .set_state(gst::State::Playing)
                     .map_err(|e| custom_io_error(&"play", &e))?;
@@ -681,7 +683,7 @@ mod test {
 
     #[test]
     fn read_header() {
-        let mut opus_file = OpusFile::create("test-data/all.m4b").unwrap();
+        let mut opus_file = OpusFile::create(&["test-data/all.m4b"]).unwrap();
         let mut data = Vec::new();
         for _ in 0..2048 {
             data.push(0);
@@ -699,7 +701,7 @@ mod test {
 
     #[test]
     fn read_body() {
-        let mut opus_file_a = OpusFile::create("test-data/all.m4b").unwrap();
+        let mut opus_file_a = OpusFile::create(&["test-data/all.m4b"]).unwrap();
         let mut out = File::create("/tmp/test.ogg").unwrap();
         let mut data_a = Vec::new();
         for _ in 0..1_000_000 {
@@ -726,8 +728,10 @@ mod test {
     }
 
     fn reproducible_encode() {
-        let mut opus_file_a = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
-        let mut opus_file_b = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
+        let mut opus_file_a =
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.mp3"]).unwrap();
+        let mut opus_file_b =
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.mp3"]).unwrap();
         let mut data_a = Vec::new();
         let mut data_b = Vec::new();
         for _ in 0..1_000_000 {
@@ -753,7 +757,8 @@ mod test {
 
     #[test]
     fn byte_offset() {
-        let mut opus_file = OpusFile::create("test-data/sine_silence_1_1_30_volume.mp3").unwrap();
+        let mut opus_file =
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.mp3"]).unwrap();
         let pos = 150_000;
         let offset = match opus_file.byte_to_offset(pos).unwrap() {
             super::Offset::TemporalOffset(o) => o,
@@ -790,7 +795,7 @@ mod test {
 
     #[test]
     fn hit_page_boundary() {
-        let mut opus = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let mut opus = OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let sector_size = 147_577;
         let mut data = Vec::with_capacity(sector_size);
         assert_eq!(
@@ -808,7 +813,8 @@ mod test {
         let read = opus.read(&mut ogg_ident).unwrap();
         assert_eq!(std::str::from_utf8(&ogg_ident).unwrap(), "OggS");
 
-        let mut opus_seek = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let mut opus_seek =
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let seek = opus_seek.seek(SeekFrom::Start(sector_size as u64)).unwrap();
         assert_eq!(seek, sector_size as u64);
 
@@ -819,7 +825,7 @@ mod test {
 
     #[test]
     fn just_before_page_boundary() {
-        let mut opus = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let mut opus = OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let sector_size = 147_576;
         let mut data = Vec::with_capacity(sector_size);
 
@@ -832,7 +838,8 @@ mod test {
         let read = opus.read(&mut ogg_ident).unwrap();
         assert_eq!(std::str::from_utf8(&ogg_ident[1..]).unwrap(), "OggS");
 
-        let mut opus_seek = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let mut opus_seek =
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let seek = opus_seek.seek(SeekFrom::Start(sector_size as u64)).unwrap();
         assert_eq!(seek, sector_size as u64);
 
@@ -845,9 +852,9 @@ mod test {
     fn seek_is_the_same() {
         init();
         let mut opus_file_seek =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let mut opus_file_read =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let mut data_read = Vec::new();
         let mut data_seek = Vec::new();
         let sector_size = 150_000;
@@ -893,7 +900,7 @@ mod test {
     fn seek_many() {
         init();
         let mut opus_file_seek =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let mut data_seek = Vec::new();
         let sector_size = 15_000;
 
@@ -907,7 +914,8 @@ mod test {
         loop {
             let read = read_loop(&mut opus_file_seek, &mut data_seek);
             stitched.write_all(&data_seek[..read]);
-            opus_file_seek = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            opus_file_seek =
+                OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
             i += 1;
             opus_file_seek.seek(SeekFrom::Start(sector_size as u64 * i));
             if read == 0 {
@@ -922,7 +930,7 @@ mod test {
 
         for offset in (0..20).step_by(1) {
             let mut opus_file_seek =
-                OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+                OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
             let size = 243376;
             let mut data = Vec::with_capacity(size);
 
@@ -948,9 +956,9 @@ mod test {
         init();
 
         let mut opus_file_read =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let mut opus_file_seek =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let size = 3_000;
         let mut data_read = Vec::with_capacity(size);
         let mut data_seek = Vec::with_capacity(size);
@@ -980,7 +988,7 @@ mod test {
     fn fill_up_buffer() {
         init();
         let mut opus_file_read =
-            OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+            OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let mut data = Vec::new();
         let size = 400;
 
@@ -998,7 +1006,7 @@ mod test {
         init();
         let start = SystemTime::now();
 
-        let mut file = OpusFile::create("test-data/sine_silence_1_1_30_volume.wav").unwrap();
+        let mut file = OpusFile::create(&["test-data/sine_silence_1_1_30_volume.wav"]).unwrap();
         let mut data = Vec::new();
         let sector_size = 10_000;
 

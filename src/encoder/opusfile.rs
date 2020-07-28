@@ -582,7 +582,7 @@ impl Seek for OpusFile {
     fn seek(&mut self, seek_from: SeekFrom) -> std::io::Result<u64> {
         let size = self
             .size_bytes()
-            .map_err(|e| IoError::new(IoErrorKind::Other, "Unable to calculate size"))?;
+            .map_err(|e| custom_io_error(&"calculate size", &e))?;
         let mut pos = match seek_from {
             SeekFrom::Start(pos) => pos,
             SeekFrom::End(pos) => size - pos as u64,
@@ -592,12 +592,9 @@ impl Seek for OpusFile {
             pos = size;
         }
         self.byte_offset = pos as usize;
-        let offset = self.byte_to_offset(pos as usize).map_err(|e| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Failed to calculate byte offset: {}", e),
-            )
-        })?;
+        let offset = self
+            .byte_to_offset(pos as usize)
+            .map_err(|e| custom_io_error(&"calculate byte offset", &e))?;
         self.reset_stream();
         match offset {
             Offset::TemporalOffset(offset) => {
@@ -606,12 +603,9 @@ impl Seek for OpusFile {
                     offset.millis,
                     offset.extra_bytes,
                 );
-                self.pipeline.set_state(gst::State::Paused).map_err(|e| {
-                    IoError::new(
-                        IoErrorKind::Other,
-                        format!("Failed to pause underlying pipeline: {}", e),
-                    )
-                })?;
+                self.pipeline
+                    .set_state(gst::State::Paused)
+                    .map_err(|e| custom_io_error(&"pause", &e))?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 let seek_res = self.pipeline.seek(
                     1.0,
@@ -623,12 +617,9 @@ impl Seek for OpusFile {
                     gst::SeekType::None,
                     gst::format::GenericFormattedValue::Time(0.into()),
                 );
-                self.pipeline.set_state(gst::State::Playing).map_err(|e| {
-                    IoError::new(
-                        IoErrorKind::Other,
-                        format!("Failed to unpause underlying pipeline: {}", e),
-                    )
-                })?;
+                self.pipeline
+                    .set_state(gst::State::Playing)
+                    .map_err(|e| custom_io_error(&"play", &e))?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 self.to_discard = offset.extra_bytes as usize;
                 self.packet_num = offset.packet;
@@ -636,27 +627,16 @@ impl Seek for OpusFile {
                     .set_pageno((self.packet_num / self.spec.frames_per_page()) as i64)
             }
             Offset::ByteOffset(offset) => {
-                self.pipeline.set_state(gst::State::Null).map_err(|e| {
-                    IoError::new(
-                        IoErrorKind::Other,
-                        format!("Failed to terminate underlying pipeline: {}", e),
-                    )
-                })?;
+                self.pipeline
+                    .set_state(gst::State::Null)
+                    .map_err(|e| custom_io_error(&"stop", &e))?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 self.pipeline =
                     Self::build_pipeline(self.source.to_string_lossy().as_ref(), self.spec.clone())
-                        .map_err(|e| {
-                            IoError::new(
-                                IoErrorKind::Other,
-                                format!("Failed to play underlying pipeline: {}", e),
-                            )
-                        })?;
-                self.pipeline.set_state(gst::State::Playing).map_err(|e| {
-                    IoError::new(
-                        IoErrorKind::Other,
-                        format!("Failed to play underlying pipeline: {}", e),
-                    )
-                })?;
+                        .map_err(|e| custom_io_error(&"rebuild", &e))?;
+                self.pipeline
+                    .set_state(gst::State::Playing)
+                    .map_err(|e| custom_io_error(&"play", &e))?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
                 let header_size = self.get_header_page_data().unwrap().len();
                 if offset > header_size as u64 {
@@ -672,6 +652,20 @@ impl Seek for OpusFile {
         self.wrote_page_body = 0;
         Ok(pos)
     }
+}
+
+fn custom_io_error(
+    operation: &dyn AsRef<str>,
+    underlying_error: &dyn std::fmt::Display,
+) -> std::io::Error {
+    IoError::new(
+        IoErrorKind::Other,
+        format!(
+            "Failed to {} underlying gstreamer pipeline: {}",
+            operation.as_ref(),
+            underlying_error,
+        ),
+    )
 }
 
 #[cfg(test)]

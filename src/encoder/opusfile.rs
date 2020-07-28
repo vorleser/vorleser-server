@@ -111,7 +111,7 @@ impl OpusSpec {
 /// OggFile transparently encodes different file types into opus-oggs.
 /// It needs to support both `Read` and `Seek` to enable access via RangeRequests
 pub struct OpusFile {
-    sources: Vec<PathBuf>,
+    sources: Vec<String>,
     spec: OpusSpec,
     pipeline: gst::Pipeline,
     byte_offset: usize,
@@ -126,10 +126,10 @@ pub struct OpusFile {
 }
 
 impl OpusFile {
-    pub fn create(sources: &[impl AsRef<Path>]) -> Result<Self, EncoderError> {
+    pub fn create(sources: &[impl AsRef<str>]) -> Result<Self, EncoderError> {
         let spec = OpusSpec::default();
-        let pipeline =
-            Self::build_pipeline(sources[0].as_ref().to_string_lossy().as_ref(), spec.clone())?;
+        let sources: Vec<String> = sources.iter().map(|e| e.as_ref().to_owned()).collect();
+        let pipeline = Self::build_pipeline(&sources, spec.clone())?;
         pipeline.set_state(gst::State::Playing)?;
         let (res, _, _) = pipeline.get_state(gst::CLOCK_TIME_NONE);
         res?;
@@ -137,7 +137,7 @@ impl OpusFile {
             .query_duration()
             .ok_or(EncoderError::InvalidMediaFile)?;
         let out = Self {
-            sources: sources.iter().map(|e| e.as_ref().to_owned()).collect(),
+            sources,
             spec,
             pipeline,
             byte_offset: 0,
@@ -303,24 +303,42 @@ impl OpusFile {
         Ok(None)
     }
 
-    fn build_pipeline(file_name: &str, spec: OpusSpec) -> Result<gst::Pipeline, EncoderError> {
+    fn build_pipeline(sources: &[String], spec: OpusSpec) -> Result<gst::Pipeline, EncoderError> {
         gst::init().unwrap();
         let spec_clone = spec.clone();
 
         let pipeline = gst::Pipeline::new(None);
-        let src = gst::ElementFactory::make("filesrc", None)
-            .map_err(|e| EncoderError::from(e).maybe_set_element("filesrc"))?;
+        let src_elements: Vec<gst::Element> = sources
+            .iter()
+            .map(|file_name| -> Result<gst::Element, EncoderError> {
+                let src = gst::ElementFactory::make("filesrc", None)
+                    .map_err(|e| EncoderError::from(e).maybe_set_element("filesrc"))?;
+                src.set_property_from_str("location", &file_name);
+                Ok(src)
+            })
+            .collect::<Result<Vec<gst::Element>, EncoderError>>()?;
         let decodebin = gst::ElementFactory::make("decodebin", None)
             .map_err(|e| EncoderError::from(e).maybe_set_element("decodebin"))?;
+
+        let concat = gst::ElementFactory::make("concat", None)
+            .map_err(|e| EncoderError::from(e).maybe_set_element("concat"))?;
 
         let caps = gst::Caps::builder("audio/x-raw")
             .field("rate", &spec.get_rate())
             .build();
-
+        let element_references: Vec<&gst::Element> = src_elements.iter().collect();
         pipeline
-            .add_many(&[&src, &decodebin])
+            .add_many(&element_references)
             .expect("Failed to add");
-        gst::Element::link_many(&[&src, &decodebin]).expect("Failed to link");
+        pipeline
+            .add_many(&[&concat, &decodebin])
+            .expect("Failed to add");
+
+        for src in element_references.iter() {
+            src.link(&concat);
+        }
+
+        gst::Element::link_many(&[&concat, &decodebin]).expect("Failed to link");
         let pipeline_weak = pipeline.downgrade();
 
         decodebin.connect_pad_added(move |_dbin, src_pad| {
@@ -398,7 +416,6 @@ impl OpusFile {
                 Ok(()) => (),
             }
         });
-        src.set_property_from_str("location", file_name);
         pipeline.set_state(gst::State::Ready)?;
         // pipeline.set_state(gst::State::Playing)?;
         Ok(pipeline)
@@ -631,11 +648,8 @@ impl Seek for OpusFile {
                     .set_state(gst::State::Null)
                     .map_err(|e| custom_io_error(&"stop", &e))?;
                 let (res, _, _) = self.pipeline.get_state(gst::CLOCK_TIME_NONE);
-                self.pipeline = Self::build_pipeline(
-                    self.sources[0].to_string_lossy().as_ref(),
-                    self.spec.clone(),
-                )
-                .map_err(|e| custom_io_error(&"rebuild", &e))?;
+                self.pipeline = Self::build_pipeline(&self.sources, self.spec.clone())
+                    .map_err(|e| custom_io_error(&"rebuild", &e))?;
                 self.pipeline
                     .set_state(gst::State::Playing)
                     .map_err(|e| custom_io_error(&"play", &e))?;
@@ -679,6 +693,75 @@ mod test {
 
     fn init() {
         let _ = env_logger::builder().is_test(true).try_init();
+    }
+
+    #[test]
+    fn simple_multifile() {
+        init();
+        let mut opus_file = OpusFile::create(&[
+            "test-data/sine_silence_1_1_30_volume.wav",
+            "test-data/sine_silence_1_1_30_volume.wav",
+        ])
+        .unwrap();
+        let sector_size = 150_000;
+        let mut data = Vec::with_capacity(sector_size);
+
+        for _ in 0..sector_size {
+            data.push(0);
+        }
+
+        let mut out = File::create("/tmp/multi.ogg").unwrap();
+
+        loop {
+            let read = read_loop(&mut opus_file, &mut data);
+            if read == 0 {
+                break;
+            }
+            out.write_all(&data[..read]).unwrap();
+        }
+    }
+
+    #[test]
+    fn seek_multifile() {
+        init();
+        let mut opus_file_read = OpusFile::create(&[
+            "test-data/sine_silence_1_1_30_volume.wav",
+            "test-data/sine_silence_1_1_30_volume.wav",
+        ])
+        .unwrap();
+        let sector_size = 150_000;
+        let mut data_read = Vec::with_capacity(sector_size);
+        let mut data_seek = Vec::with_capacity(sector_size);
+        assert_eq!(opus_file_read.duration, gst::ClockTime::from_seconds(60));
+
+        for _ in 0..sector_size {
+            data_read.push(0);
+            data_seek.push(0);
+        }
+
+        let mut i = 0;
+        loop {
+            let mut opus_file_seek = OpusFile::create(&[
+                "test-data/sine_silence_1_1_30_volume.wav",
+                "test-data/sine_silence_1_1_30_volume.wav",
+            ])
+            .unwrap();
+            opus_file_seek.seek(SeekFrom::Start((sector_size * i) as u64));
+
+            let read_read = read_loop(&mut opus_file_read, &mut data_read);
+            let read_seek = read_loop(&mut opus_file_seek, &mut data_seek);
+            assert_eq!(read_read, read_seek);
+            for (i, (r, s)) in data_read.iter().zip(data_seek.iter()).enumerate() {
+                if i > read_read {
+                    break;
+                }
+                assert_eq!(r, s);
+            }
+            if read_read == 0 {
+                break;
+            }
+            i += 1;
+        }
     }
 
     #[test]

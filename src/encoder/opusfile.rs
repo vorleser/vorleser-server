@@ -692,7 +692,10 @@ mod test {
     use std::io::{Read, Seek, SeekFrom, Write};
 
     fn init() {
-        let _ = env_logger::builder().is_test(true).try_init();
+        let out =
+            env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug"))
+                .is_test(true)
+                .try_init();
     }
 
     #[test]

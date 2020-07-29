@@ -108,6 +108,62 @@ impl OpusSpec {
     }
 }
 
+fn is_audio_pad(pad: &gst::Pad) -> bool {
+    pad.get_current_caps()
+        .and_then(|caps| {
+            caps.get_structure(0)
+                .map(|s| s.get_name().starts_with("audio/"))
+        })
+        .unwrap_or(false)
+}
+
+fn calculate_total_duration(files: &[String]) -> Result<gst::ClockTime, EncoderError> {
+    gst::init().unwrap();
+    let lengths = files
+        .iter()
+        .map(|s| get_duration(&s))
+        .collect::<Result<Vec<gst::ClockTime>, EncoderError>>();
+    Ok(lengths?
+        .iter()
+        .fold(gst::ClockTime::from_nseconds(0), |acc, item| acc + item))
+}
+
+fn get_duration(file_name: &str) -> Result<gst::ClockTime, EncoderError> {
+    let pipeline = gst::Pipeline::new(None);
+    let filesrc = gst::ElementFactory::make("filesrc", None)
+        .map_err(|e| EncoderError::from(e).maybe_set_element("filesrc"))?;
+    filesrc.set_property_from_str("location", &file_name);
+    let decodebin = gst::ElementFactory::make("decodebin", None)
+        .map_err(|e| EncoderError::from(e).maybe_set_element("decodebin"))?;
+    pipeline.add_many(&[&filesrc, &decodebin])?;
+    filesrc.link(&decodebin)?;
+    let pipeline_weak = pipeline.downgrade();
+
+    decodebin.connect_pad_added(move |_dbin, src_pad| {
+        println!("pad added");
+        let pipeline = pipeline_weak
+            .upgrade()
+            .expect("Unable to upgrade pipeline reference.");
+
+        if !is_audio_pad(src_pad) {
+            return;
+        }
+        let fakesink = gst::ElementFactory::make("fakesink", None).unwrap();
+        pipeline.add(&fakesink).unwrap();
+        let sink_pad = fakesink.get_static_pad("sink").unwrap();
+        src_pad.link(&sink_pad).unwrap();
+        println!("connected");
+    });
+
+    pipeline.set_state(gst::State::Paused)?;
+    let (res, _, _) = pipeline.get_state(gst::CLOCK_TIME_NONE);
+    res?;
+
+    pipeline
+        .query_duration()
+        .ok_or(EncoderError::InvalidMediaFile)
+}
+
 /// OggFile transparently encodes different file types into opus-oggs.
 /// It needs to support both `Read` and `Seek` to enable access via RangeRequests
 pub struct OpusFile {
@@ -133,9 +189,7 @@ impl OpusFile {
         pipeline.set_state(gst::State::Playing)?;
         let (res, _, _) = pipeline.get_state(gst::CLOCK_TIME_NONE);
         res?;
-        let duration: gst::ClockTime = pipeline
-            .query_duration()
-            .ok_or(EncoderError::InvalidMediaFile)?;
+        let duration: gst::ClockTime = calculate_total_duration(&sources)?;
         let out = Self {
             sources,
             spec,
@@ -270,11 +324,6 @@ impl OpusFile {
     fn get_next_page(&mut self) -> Result<Option<Page>, EncoderError> {
         let mut pkt = 0;
         while let Ok(sample) = self.get_sink()?.pull_sample() {
-            let eos = self
-                .get_sink()?
-                .get_property("eos")?
-                .get_some::<bool>()
-                .unwrap_or(false);
             let buf = sample.get_buffer().unwrap();
             let buf_map = buf.map_readable().unwrap();
             let mut packet = Packet::new(&buf_map);
@@ -688,6 +737,7 @@ fn custom_io_error(
 mod test {
     use super::OpusFile;
     use env_logger;
+    use gstreamer as gst;
     use std::fs::File;
     use std::io::{Read, Seek, SeekFrom, Write};
 
@@ -708,6 +758,7 @@ mod test {
         .unwrap();
         let sector_size = 150_000;
         let mut data = Vec::with_capacity(sector_size);
+        assert_eq!(opus_file.duration, gst::ClockTime::from_seconds(60));
 
         for _ in 0..sector_size {
             data.push(0);

@@ -13,6 +13,7 @@ use crate::encoder::EncoderError;
 
 static SINK_NAME: &'static str = "appsink-0";
 static ENCODER_NAME: &'static str = "opusenc";
+static CONCAT_NAME: &'static str = "concat-0";
 
 // At some point these should probably become runtime configurable
 static FRAME_SIZE: u32 = 20;
@@ -366,107 +367,108 @@ impl OpusFile {
                 Ok(src)
             })
             .collect::<Result<Vec<gst::Element>, EncoderError>>()?;
-        let decodebin = gst::ElementFactory::make("decodebin", None)
-            .map_err(|e| EncoderError::from(e).maybe_set_element("decodebin"))?;
+        let decodebins = (0..src_elements.len())
+            .map(|e| -> Result<gst::Element, EncoderError> {
+                gst::ElementFactory::make("decodebin", None)
+                    .map_err(|e| EncoderError::from(e).maybe_set_element("decodebin"))
+            })
+            .collect::<Result<Vec<gst::Element>, EncoderError>>()?;
 
-        let concat = gst::ElementFactory::make("concat", None)
+        let concat = gst::ElementFactory::make("concat", Some(CONCAT_NAME))
             .map_err(|e| EncoderError::from(e).maybe_set_element("concat"))?;
 
         let caps = gst::Caps::builder("audio/x-raw")
             .field("rate", &spec.get_rate())
             .build();
-        let element_references: Vec<&gst::Element> = src_elements.iter().collect();
-        pipeline
-            .add_many(&element_references)
-            .expect("Failed to add");
-        pipeline
-            .add_many(&[&concat, &decodebin])
-            .expect("Failed to add");
 
-        for src in element_references.iter() {
-            src.link(&concat);
-        }
+        for (src, decode) in src_elements.iter().zip(decodebins.iter()) {
+            pipeline.add(src);
+            pipeline.add(decode);
 
-        gst::Element::link_many(&[&concat, &decodebin]).expect("Failed to link");
-        let pipeline_weak = pipeline.downgrade();
+            let pipeline_weak = pipeline.downgrade();
+            decode.connect_pad_added(move |_dbin, src_pad| {
+                let result = (|| -> Result<(), EncoderError> {
+                    let pipeline = pipeline_weak
+                        .upgrade()
+                        .expect("Unable to upgrade pipeline reference.");
 
-        decodebin.connect_pad_added(move |_dbin, src_pad| {
-            let result = (|| -> Result<(), EncoderError> {
-                let pipeline = pipeline_weak
-                    .upgrade()
-                    .expect("Unable to upgrade pipeline reference.");
-
-                let is_audio = src_pad
-                    .get_current_caps()
-                    .and_then(|caps| {
-                        caps.get_structure(0)
-                            .map(|s| s.get_name().starts_with("audio/"))
-                    })
-                    .unwrap_or(false);
-                log::trace!(
-                    "Pad of type {} discovered.",
-                    if is_audio { "audio" } else { "non-audio" }
-                );
-                if is_audio {
-                    let audioconvert = gst::ElementFactory::make("audioconvert", None)
-                        .map_err(|e| EncoderError::from(e).maybe_set_element("audioconvert"))?;
-                    let audioresample = gst::ElementFactory::make("audioresample", None)
-                        .map_err(|e| EncoderError::from(e).maybe_set_element("audioresample"))?;
-                    let rate_filter = gst::ElementFactory::make("capsfilter", None)
-                        .map_err(|e| EncoderError::from(e).maybe_set_element("capsfilter"))?;
-                    let opusenc = gst::ElementFactory::make("opusenc", None)
-                        .map_err(|e| EncoderError::from(e).maybe_set_element("opusenc"))?;
-                    opusenc.set_property_from_str("name", ENCODER_NAME);
-                    opusenc.set_property("hard-resync", &true.to_value());
-                    opusenc.set_property("perfect-timestamp", &true.to_value());
-                    opusenc.set_property("bitrate", &spec.bitrate);
-                    let bandwidth = opusenc.get_property("bandwidth")?;
-                    let bandwidth_enum_value = glib::EnumValue::from_value(&bandwidth).unwrap();
-                    opusenc.set_property(
-                        "bandwidth",
-                        &bandwidth_enum_value
-                            .get_class()
-                            .to_value_by_nick(spec.bandwidth.get_nick())
-                            .unwrap(),
+                    let is_audio = is_audio_pad(src_pad);
+                    log::trace!(
+                        "Pad of type {} discovered.",
+                        if is_audio { "audio" } else { "non-audio" }
                     );
-                    let bandwidth = opusenc.get_property("bandwidth")?;
-                    let bandwidth_enum_value = glib::EnumValue::from_value(&bandwidth).unwrap();
-                    rate_filter.set_property("caps", &caps).unwrap();
-                    let sink = gst::ElementFactory::make("appsink", None)
-                        .map_err(|e| EncoderError::from(e).maybe_set_element("appsink"))?;
-                    sink.set_property_from_str("name", SINK_NAME);
-
-                    let app_sink = sink.dynamic_cast::<gst_app::AppSink>().unwrap();
-                    app_sink.set_property("sync", &false)?;
-                    // We need some max buffer count to ensure that not reading from the OpusFile
-                    // for a while doesn't fill up the system memory.
-                    app_sink.set_property("max-buffers", &(128 as u32))?;
-                    app_sink.set_wait_on_eos(true);
-                    let sink = app_sink.dynamic_cast::<gst::Element>().unwrap();
-
-                    let elements = &[&audioconvert, &audioresample, &rate_filter, &opusenc, &sink];
-                    pipeline.add_many(elements)?;
-                    gst::Element::link_many(elements)?;
-
-                    for e in elements {
-                        e.sync_state_with_parent()?;
+                    if !is_audio {
+                        return Ok(());
                     }
 
-                    let sink_pad = audioconvert.get_static_pad("sink").unwrap();
+                    let concat = pipeline.get_by_name(CONCAT_NAME).unwrap();
+                    let sink_pad = concat.get_request_pad("sink_%u").unwrap();
                     src_pad.link(&sink_pad)?;
+                    Ok(())
+                })();
+                match result {
+                    Err(e) => {
+                        log::error!("Failed to handle new pad {}", e);
+                        // TODO: store error in instance to ensure that read calls can return it
+                    }
+                    Ok(()) => (),
                 }
-                Ok(())
-            })();
-            match result {
-                Err(e) => {
-                    log::error!("Failed to handle new pad {}", e);
-                    // TODO: store error in instance to ensure that read calls can return it
-                }
-                Ok(()) => (),
-            }
-        });
+            });
+            src.link(decode);
+        }
+
+        let audioconvert = gst::ElementFactory::make("audioconvert", None)
+            .map_err(|e| EncoderError::from(e).maybe_set_element("audioconvert"))?;
+        let audioresample = gst::ElementFactory::make("audioresample", None)
+            .map_err(|e| EncoderError::from(e).maybe_set_element("audioresample"))?;
+        let rate_filter = gst::ElementFactory::make("capsfilter", None)
+            .map_err(|e| EncoderError::from(e).maybe_set_element("capsfilter"))?;
+        let opusenc = gst::ElementFactory::make("opusenc", None)
+            .map_err(|e| EncoderError::from(e).maybe_set_element("opusenc"))?;
+        opusenc.set_property_from_str("name", ENCODER_NAME);
+        opusenc.set_property("hard-resync", &true.to_value());
+        opusenc.set_property("perfect-timestamp", &true.to_value());
+        opusenc.set_property("bitrate", &spec.bitrate);
+        let bandwidth = opusenc.get_property("bandwidth")?;
+        let bandwidth_enum_value = glib::EnumValue::from_value(&bandwidth).unwrap();
+        opusenc.set_property(
+            "bandwidth",
+            &bandwidth_enum_value
+                .get_class()
+                .to_value_by_nick(spec.bandwidth.get_nick())
+                .unwrap(),
+        );
+        let bandwidth = opusenc.get_property("bandwidth")?;
+        let bandwidth_enum_value = glib::EnumValue::from_value(&bandwidth).unwrap();
+        rate_filter.set_property("caps", &caps).unwrap();
+        let sink = gst::ElementFactory::make("appsink", None)
+            .map_err(|e| EncoderError::from(e).maybe_set_element("appsink"))?;
+        sink.set_property_from_str("name", SINK_NAME);
+
+        let app_sink = sink.dynamic_cast::<gst_app::AppSink>().unwrap();
+        app_sink.set_property("sync", &false)?;
+        // We need some max buffer count to ensure that not reading from the OpusFile
+        // for a while doesn't fill up the system memory.
+        app_sink.set_property("max-buffers", &(128 as u32))?;
+        app_sink.set_wait_on_eos(true);
+        let sink = app_sink.dynamic_cast::<gst::Element>().unwrap();
+
+        let elements = &[
+            &concat,
+            &audioconvert,
+            &audioresample,
+            &rate_filter,
+            &opusenc,
+            &sink,
+        ];
+        pipeline.add_many(elements)?;
+        gst::Element::link_many(elements)?;
+
+        for e in elements {
+            e.sync_state_with_parent()?;
+        }
+
         pipeline.set_state(gst::State::Ready)?;
-        // pipeline.set_state(gst::State::Playing)?;
         Ok(pipeline)
     }
 

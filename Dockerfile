@@ -83,5 +83,7 @@ RUN printf '\n\
 
 EXPOSE 8000
 
+ENV RUST_BACKTRACE=1
+
 ENTRYPOINT ["vorleser-server", "-c", "/etc/vorleser.toml"]
 CMD ["serve"]

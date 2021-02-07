@@ -109,7 +109,7 @@ struct Codec {
 
 pub struct MediaFile {
     ctx: *mut AVFormatContext,
-    path: PathBuf,
+    pub path: PathBuf,
     averror: i32,
     av_packet: Option<AVPacket>,
 }

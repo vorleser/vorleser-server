@@ -144,7 +144,9 @@ impl Scanner {
         self.walk_books(scan_type, walker, last_scan, conn);
 
         let deleted = self.delete_not_in_fs(conn)?;
-        info!("Deleted {} audiobooks because their files are no longer present.", deleted);
+        if deleted > 0 {
+            info!("Deleted {} audiobooks because their files are no longer present.", deleted);
+        }
 
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(&self.library.id)))
             .set(&self.library)

@@ -119,13 +119,12 @@ pub fn merge_files(path: &dyn AsRef<Path>, in_files: &[MediaFile]) -> Result<New
         let stream = in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO)?;
         NewMediaFile::from_stream(path.as_ref(), stream)?
     };
-    info!("writing header");
+    debug!("writing header");
     out.write_header()?;
-    info!("wrote header");
 
     let mut previous_files_duration: i64 = 0;
     for f in in_files {
-        trace!("next file");
+        info!("processing file {:?}", f.path);
 
         let best = f.get_best_stream(AVMEDIA_TYPE_AUDIO)?;
 

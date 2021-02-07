@@ -1,3 +1,5 @@
+# syntax = docker/dockerfile:1.2
+
 # ------------------------------------
 # builder image, contains all dev-deps
 # ------------------------------------
@@ -40,13 +42,25 @@ WORKDIR /root/vorleser-server
 
 
 
-# ------------------------
-# actually build the thing
-# ------------------------
+# ------------------
+# build web frontend
+# ------------------
 
-FROM builder
+FROM codesimple/elm:0.18 as web
 
-RUN cargo build --release
+ADD vorleser-web /app
+RUN cd /app && make release
+
+
+
+# --------------
+# build vorleser
+# --------------
+
+FROM builder as vorleser
+
+COPY --from=web /app/elm.js vorleser-web/elm.js
+RUN --mount=type=cache,target=target cargo build --features webfrontend --release 
 
 
 
@@ -63,7 +77,7 @@ RUN apt-get update && \
         libssl1.1 && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=1 /root/vorleser-server/target/release/vorleser_server_bin /usr/bin/vorleser-server
+COPY --from=vorleser /root/vorleser-server/target/release/vorleser_server_bin /usr/bin/vorleser-server
 
 VOLUME /var/lib/vorleser
 

@@ -61,7 +61,7 @@ fn add_catchers(rocket_result: Result<Rocket>) -> Result<Rocket> {
 
 #[cfg(feature = "webfrontend")]
 pub fn factory(pool: super::db::Pool, config: config::Config) -> Result<Rocket> {
-    use ::static_files;
+    use crate::static_files;
     add_catchers(
         base_factory(pool, config).map(|r|
             r.mount("/", routes![

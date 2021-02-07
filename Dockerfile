@@ -60,7 +60,7 @@ RUN cd /app && make release
 FROM builder as vorleser
 
 COPY --from=web /app/elm.js vorleser-web/elm.js
-RUN --mount=type=cache,target=target cargo build --features webfrontend --release 
+RUN cargo build --features webfrontend --release
 
 
 

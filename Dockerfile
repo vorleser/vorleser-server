@@ -49,7 +49,9 @@ WORKDIR /root/vorleser-server
 FROM codesimple/elm:0.18 as web
 
 ADD vorleser-web /app
-RUN cd /app && make release
+RUN cd /app && \
+    sed -i -e 's/serverUrl: ""/serverUrl: window.location.href/' -e 's/hideUrlField: false/hideUrlField: true/' audio.js && \
+    make release
 
 
 

@@ -2,6 +2,7 @@ use crate::ffmpeg::*;
 use crate::ffmpeg::AVMediaType::AVMEDIA_TYPE_AUDIO;
 
 use std::ffi::{CString, CStr, OsStr};
+use std::fs;
 use std::mem;
 use std::ptr;
 use std::path::{Path, PathBuf};
@@ -10,6 +11,8 @@ use super::util::*;
 use crate::helpers::mllt;
 use crate::worker::error::*;
 use std::error::Error;
+
+use log::error as error_log;
 
 pub struct NewMediaFile {
     ctx: *mut AVFormatContext,
@@ -108,57 +111,72 @@ impl NewMediaFile {
 }
 
 pub fn merge_files(path: &dyn AsRef<Path>, in_files: &[MediaFile]) -> Result<NewMediaFile> {
-    // TODO: check in_files length
-    // TODO: check that formats are actually compatible
-    if in_files.is_empty() {
-        return Err(WorkerError::Other{
-            description: "No Mediafiles".to_owned()
-        }.into());
-    }
-    let mut out = {
-        let stream = in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO)?;
-        NewMediaFile::from_stream(path.as_ref(), stream)?
-    };
-    debug!("writing header");
-    out.write_header()?;
-
-    let mut previous_files_duration: i64 = 0;
-    for f in in_files {
-        info!("processing file {:?}", f.path);
-
-        let best = f.get_best_stream(AVMEDIA_TYPE_AUDIO)?;
-
-        let mut this_file_duration: i64 = 0;
-        trace!("previous_files_duration: {}", previous_files_duration);
-        loop {
-            match f.read_packet()? {
-                Some(mut pkt) => {
-                    if pkt.stream_index != best.index {
-                        continue;
-                    }
-                    // Todo: I am not sure if this is the proper way to do this
-                    // maybe we need to keep a running value instead of letting ffmpeg guess
-                    //println!("kek: pkt: {}, file: {} :kek", pkt.duration, this_file_duration);
-                    this_file_duration += pkt.duration;
-                    pkt.dts += previous_files_duration;
-                    pkt.pts += previous_files_duration;
-
-                    if pkt.pts < 0 || pkt.dts < 0 {
-                        println!("foo");
-                    }
-                    out.write_frame(&mut pkt)?;
-                    unsafe {
-                        av_free_packet(&mut pkt);
-                    }
-                    ()
-                },
-                None => break
-            }
+    let steps = || -> Result<NewMediaFile> {
+        // TODO: check in_files length
+        // TODO: check that formats are actually compatible
+        if in_files.is_empty() {
+            return Err(WorkerError::Other{
+                description: "No Mediafiles".to_owned()
+            }.into());
         }
-        previous_files_duration += this_file_duration;
+        let mut out = {
+            let stream = in_files.first().unwrap().get_best_stream(AVMEDIA_TYPE_AUDIO)?;
+            NewMediaFile::from_stream(path.as_ref(), stream)?
+        };
+        debug!("writing header");
+        out.write_header()?;
+
+        let mut previous_files_duration: i64 = 0;
+        for f in in_files {
+            info!("processing file {:?}", f.path);
+
+            let best = f.get_best_stream(AVMEDIA_TYPE_AUDIO)?;
+
+            let mut this_file_duration: i64 = 0;
+            trace!("previous_files_duration: {}", previous_files_duration);
+            loop {
+                match f.read_packet()? {
+                    Some(mut pkt) => {
+                        if pkt.stream_index != best.index {
+                            continue;
+                        }
+                        // Todo: I am not sure if this is the proper way to do this
+                        // maybe we need to keep a running value instead of letting ffmpeg guess
+                        //println!("kek: pkt: {}, file: {} :kek", pkt.duration, this_file_duration);
+                        this_file_duration += pkt.duration;
+                        pkt.dts += previous_files_duration;
+                        pkt.pts += previous_files_duration;
+
+                        if pkt.pts < 0 || pkt.dts < 0 {
+                            println!("foo");
+                        }
+                        out.write_frame(&mut pkt)?;
+                        unsafe {
+                            av_free_packet(&mut pkt);
+                        }
+                        ()
+                    },
+                    None => break
+                }
+            }
+            previous_files_duration += this_file_duration;
+        }
+
+        debug!("writing trailer");
+        out.write_trailer()?;
+
+        Ok(out)
+    };
+
+    match steps() {
+        Ok(out) => Ok(out),
+        Err(error) => {
+            let remove_result = fs::remove_file(path);
+            if let Err(remove_error) = remove_result {
+                error_log!("additional error while trying to remove unfinished muxed file at {}: {}", path.as_ref().display(), remove_error);
+            }
+
+            Err(error)
+        },
     }
-    debug!("writing trailer");
-    out.write_trailer()?;
-    Ok(out)
-    // Self::new()
 }

@@ -157,7 +157,7 @@ pub fn merge_files(path: &dyn AsRef<Path>, in_files: &[MediaFile]) -> Result<New
         }
         previous_files_duration += this_file_duration;
     }
-    info!("writing trailer");
+    debug!("writing trailer");
     out.write_trailer()?;
     Ok(out)
     // Self::new()

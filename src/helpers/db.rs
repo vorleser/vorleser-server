@@ -53,7 +53,7 @@ pub fn init_test_db_pool() -> Pool {
 
 /// Initializes a SQLite file, running the migrations and setting the journal mode.
 pub fn init_db(url: String) {
-    info!("Initializing database at {}", url);
+    debug!("Initializing database at {}", url);
     let pool = init_db_pool_with_count(url, 1);
     crate::embedded_migrations::run(&*pool.get().unwrap());
 }

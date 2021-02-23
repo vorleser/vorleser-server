@@ -198,7 +198,7 @@ fn load_config(matches: &ArgMatches) -> Config {
         error_log!("Error loading config: {}", e);
         panic!("Error loading config. Try using --config to supply a valid configuration file.\nYou can get a default config file with the sample-config subcommand.");
     } else {
-        println!("Succeeded loading config!")
+        debug!("Succeeded loading config!")
     }
     config_result.unwrap()
 }

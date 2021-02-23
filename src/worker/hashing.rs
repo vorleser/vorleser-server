@@ -38,7 +38,6 @@ pub fn checksum_dir(path: &dyn AsRef<Path>) -> Result<Vec<u8>> {
     let mut ctx = digest::Context::new(&digest::SHA256);
     // skip the root dir so it's name doesn't get hashed, only the contents
     for entry in walker.into_iter().skip(1) {
-        println!("entry {:?}", entry);
         if let Ok(e) = entry {
             let p = e.path();
             if e.file_type().is_file() {

@@ -143,11 +143,8 @@ impl Scanner {
 
         self.walk_books(scan_type, walker, last_scan, conn);
 
-        let deleted = self.delete_not_in_fs(conn)?;
-        if deleted > 0 {
-            info!("Deleted {} audiobooks because their files are no longer present.", deleted);
-        }
-
+        self.delete_not_in_fs(conn)?;
+        
         match diesel::update(libraries::dsl::libraries.filter(libraries::dsl::id.eq(&self.library.id)))
             .set(&self.library)
             .execute(conn) {
@@ -265,12 +262,16 @@ impl Scanner {
     }
 
     /// Delete all those books from the database that are not present in the file system.
-    fn delete_not_in_fs(&self, conn: &SqliteConnection) -> Result<usize> {
-        let mut deleted_count = 0;
+    fn delete_not_in_fs(&self, conn: &SqliteConnection) -> Result<()> {
+        debug!("looking for removed books");
+
         for book in Audiobook::belonging_to(&self.library).get_results::<Audiobook>(&*conn)? {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
-            info!("checking weather audiobook at {:?} still exists", path);
+
+            debug!("checking {:?}", path);
             if !path.exists() {
+                info!("book at {:?} seems to have gone away, deleting", path);
+
                 use crate::schema::audiobooks::dsl::*;
                 let del = diesel::update(
                         Audiobook::belonging_to(&self.library)
@@ -278,18 +279,15 @@ impl Scanner {
                     )
                     .set(deleted.eq(true))
                     .execute(&*conn)?;
-                println!("deleted: {}", del);
+                debug!("deleted: {}", del);
                 match del {
                     0 => warn!("Could not delete audiobook, is something wrong with the DB?"),
-                    1 => deleted_count += 1,
-                    x => {
-                        warn!("Deleted multiple audiobooks with same UUID, database integrity is compromised.");
-                        deleted_count += x;
-                    }
+                    1 => {},
+                    x => warn!("Deleted multiple audiobooks with same UUID, database integrity might be compromised."),
                 }
             }
         };
-        Ok(deleted_count)
+        Ok(())
     }
 
 

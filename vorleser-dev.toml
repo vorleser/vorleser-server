@@ -7,8 +7,7 @@ enabled = true
 interval = 600
 
 [logging]
-file = "lol.log"
-level = "info"
+level = "debug"
 
 [web]
 address = "localhost"

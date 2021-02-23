@@ -15,6 +15,8 @@ use mp3_metadata;
 enum MlltError {
     #[fail(display = "Could not calculate mp3 frame duration. Try checking the files with mp3val.")]
     IncalculableDuration,
+    #[fail(display = "Unexpected underflow while assembling MLLT table. Try checking the files with mp3val.")]
+    UnexpectedUnderflow,
 }
 
 trait U8VecExt {
@@ -57,7 +59,8 @@ macro_rules! dump{
 // millis
 const DESIRED_ACCURACY: u64 = 1000;
 
-fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
+// returns None when no seek table is needed (cbr file)
+fn build_mllt<P: AsRef<Path>>(file: P) -> Result<Option<Vec<u8>>, Error> {
     dump!(file.as_ref());
     let meta = mp3_metadata::read_from_file(&file)?;
 
@@ -69,7 +72,25 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
 
     dump!(meta.frames.len());
 
+    let mut first_frame_bitrate: Option<u16> = None;
+    let mut is_vbr: bool = false;
+
     for frame in &meta.frames {
+        // dont check for varying bitrate once we saw it once
+        if !is_vbr {
+            match first_frame_bitrate {
+                None => {
+                    first_frame_bitrate = Some(frame.bitrate);
+                },
+                Some(r) => {
+                    if r != frame.bitrate { 
+                        is_vbr = true; 
+                        dump!(size, frame);
+                    }
+                }
+            }
+        }
+
         num_frames += 1;
         duration += frame.duration.ok_or_else(
             || MlltError::IncalculableDuration
@@ -79,6 +100,11 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
         biggest_frame = max(biggest_frame, frame.size);
     }
     dump!(num_frames, duration, size, smallest_frame, biggest_frame);
+
+    // all frames had same bitrate => no seek table needed
+    if !is_vbr {
+        return Ok(None);
+    }
 
     let frame_millis = duration / num_frames as u32;
     let frames_per_ref = (DESIRED_ACCURACY / frame_millis.as_millis() as u64) as u16;
@@ -128,7 +154,11 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
         let chunk_duration = chunk.iter().map(|frame| frame.duration.unwrap()).sum::<Duration>();
         running_estimated_duration += Duration::from_millis(u64::from(millis_per_ref));
         running_duration += chunk_duration;
-        let millis_offset = (running_duration - running_estimated_duration).as_millis() as u64;
+        let millis_offset = running_duration
+            .checked_sub(running_estimated_duration)
+            .ok_or_else(|| MlltError::UnexpectedUnderflow)?
+            .as_millis() as u64;
+
         if millis_offset > 0 {
             running_estimated_duration += Duration::from_millis(millis_offset);
         }
@@ -145,7 +175,7 @@ fn build_mllt<P: AsRef<Path>>(file: P)-> Result<Vec<u8>, Error> {
 
     dump!(running_duration, running_estimated_duration, count);
 
-    Ok(res)
+    Ok(Some(res))
 }
 
 
@@ -156,12 +186,20 @@ pub fn mlltify<P: AsRef<Path>>(file: P) -> Result<(), Error> {
     if tag.get("MLLT").is_some() { return Ok(()); }
     dump!(tag);
 
-    let mut frame = Frame::with_content("MLLT", Content::Unknown(build_mllt(&file)?));
-    frame.set_tag_alter_preservation(false);
-    frame.set_file_alter_preservation(false);
-    tag.add_frame(frame);
+    let table = build_mllt(&file)?;
 
-    tag.write_to_path(&file, Version::Id3v23)?;
+    if let Some(t) = table {
+        let mut frame = Frame::with_content("MLLT", Content::Unknown(t));
+        frame.set_tag_alter_preservation(false);
+        frame.set_file_alter_preservation(false);
+        tag.add_frame(frame);
+
+        tag.write_to_path(&file, Version::Id3v23)?;
+
+        debug!("added mllt tag");
+    } else {
+        debug!("no mllt tag necessary");
+    }
 
     Ok(())
 }

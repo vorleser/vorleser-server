@@ -165,7 +165,12 @@ impl Scanner {
             let relative_path = entry.path().strip_prefix(&self.library.location).unwrap();
             if relative_path.components().count() == 0 { continue };
             if is_audiobook(relative_path, &self.regex) {
-                self.handle_book_at_path(conn, scan_type.clone(), path, relative_path, last_scan);
+                let r = self.handle_book_at_path(conn, scan_type.clone(), path, relative_path, last_scan);
+
+                match r {
+                    Ok(_) => {},
+                    Err(e) => error_log!("Error while processing {}: {}", path.display(), e),
+                }
 
                 // Since we are in an audiobook we don't continue searching deeper in the dir tree from here
                 if path.is_dir() {
@@ -187,15 +192,17 @@ impl Scanner {
                     .filter(location.eq(&relative_path.to_string_lossy()))
                     .first::<Audiobook>(conn).optional()?;
                 if should_scan(path, last_scan)? || preexisting_book.is_none() {
-                    self.process_audiobook(&path, conn);
+                    self.process_audiobook(&path, conn)?;
                 }
             },
-            Scan::Full => self.process_audiobook(&path, conn)
+            Scan::Full => self.process_audiobook(&path, conn)?
         }
+
         let mut book_result = Audiobook::belonging_to(&self.library)
             .filter(location.eq(&relative_path.to_string_lossy()))
             .get_result::<Audiobook>(&*conn);
         debug!("book: {:?}", book_result);
+
         // Ensure cached file exists here no need to check if its current, that is ensured
         // above
         if let Ok(mut book) = book_result {
@@ -216,17 +223,11 @@ impl Scanner {
         Ok(())
     }
 
-    fn process_audiobook(&self, path: &dyn AsRef<Path>, conn: &SqliteConnection) {
+    fn process_audiobook(&self, path: &dyn AsRef<Path>, conn: &SqliteConnection) -> Result<()> {
         if path.as_ref().is_dir() {
-            match self.create_multifile_audiobook(conn, path) {
-                Ok(_) => (),
-                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e)
-            };
+            self.create_multifile_audiobook(conn, path)
         } else {
-            match self.create_audiobook(conn, path) {
-                Ok(_) => (),
-                Err(e) => error_log!("Error for {}: {}", path.as_ref().display(), e)
-            };
+            self.create_audiobook(conn, path)
         }
     }
 

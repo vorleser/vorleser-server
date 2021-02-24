@@ -1,14 +1,25 @@
-on: push
-name: Test
+name: CI
+on: [push, pull_request]
+
 jobs:
-  build:
+  ci:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v1
-    # - name: docker://hatzel/vorleser-test
-    #   uses: docker://hatzel/vorleser-test
-    #   with:
-    #     entrypoint: sh
-    #     args: -c "ln -s /root/.rustup ~/.rustup && cargo test"
-    - run: docker build . --target builder --tag builder
-    - run: docker run --rm -e RUST_BACKTRACE=full builder cargo test
+      - uses: actions/checkout@v1
+      - run: docker build . --target builder --tag builder
+      - run: docker run --rm -e RUST_BACKTRACE=full builder cargo test
+
+  deploy:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          submodules: true
+      - uses: aevea/action-kaniko@v0.6.0
+        with:
+          image: vorleser/server
+          tag: latest
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}

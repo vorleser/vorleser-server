@@ -1,5 +1,3 @@
-# syntax = docker/dockerfile:1.2
-
 # ------------------------------------
 # builder image, contains all dev-deps
 # ------------------------------------
@@ -34,8 +32,6 @@ RUN apt-get update && \
 RUN curl https://sh.rustup.rs -sSf | sh -s -- --default-toolchain nightly-2019-09-06 -y
 ENV PATH=/root/.cargo/bin:$PATH
 
-# RUN RUSTFLAGS="--cfg procmacro2_semver_exempt" cargo install cargo-tarpaulin --version 0.7.0
-
 ADD . vorleser-server
 
 WORKDIR /root/vorleser-server
@@ -49,9 +45,7 @@ WORKDIR /root/vorleser-server
 FROM codesimple/elm:0.18 as web
 
 ADD vorleser-web /app
-RUN cd /app && \
-    sed -i -e 's/serverUrl: ""/serverUrl: window.location.href/' -e 's/hideUrlField: false/hideUrlField: true/' audio.js && \
-    make release
+RUN cd /app && make release
 
 
 
@@ -62,7 +56,9 @@ RUN cd /app && \
 FROM builder as vorleser
 
 COPY --from=web /app/elm.js vorleser-web/elm.js
-RUN cargo build --features webfrontend --release
+
+RUN sed -i -e 's/serverUrl: ""/serverUrl: window.location.href/' -e 's/hideUrlField: false/hideUrlField: true/' vorleser-web/audio.js && \
+    cargo build --features webfrontend --release
 
 
 
@@ -79,7 +75,7 @@ RUN apt-get update && \
         libssl1.1 && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=vorleser /root/vorleser-server/target/release/vorleser_server_bin /usr/bin/vorleser-server
+COPY --from=vorleser /root/vorleser-server/target/release/vorleser_server_bin /usr/local/bin/vorleser-server
 
 VOLUME /var/lib/vorleser
 

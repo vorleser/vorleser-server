@@ -270,8 +270,8 @@ impl Scanner {
             let path = Path::new(&self.library.location).join(Path::new(&book.location));
 
             debug!("checking {:?}", path);
-            if !path.exists() {
-                info!("book at {:?} seems to have gone away, deleting", path);
+            if !path.exists() && !book.deleted {
+                info!("The book at {:?} seems to have gone away, marking as deleted", path);
 
                 use crate::schema::audiobooks::dsl::*;
                 let del = diesel::update(
